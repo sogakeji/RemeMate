@@ -80,6 +80,43 @@ def set_rls_user():
 
 ---
 
+## 后台任务的 RLS 例外处理
+
+dispatch / podcast / bark 等后台任务需要**遍历所有用户**，与 RLS 的单用户隔离策略冲突。解决方案：
+
+**两套连接角色分工**：
+
+| 路径 | 连接角色 | 防御层 |
+|---|---|---|
+| HTTP 请求（用户操作） | 普通角色 + RLS | 第一层 + 第二层 + RLS 兜底 |
+| 后台批处理（dispatch） | `BYPASSRLS` 角色 | 仅第一层 + 第二层（显式 user_id 过滤） |
+
+后台任务使用 BYPASSRLS 角色时，Service 层显式 user_id 参数约束（第二层防御）是唯一兜底，必须严格执行。
+
+```python
+# dispatch 遍历模式：显式逐用户处理，绝不做跨用户批量查询
+for user in get_all_active_users():
+    process_bark_for_user(user_id=user.id)   # user_id 显式传入
+```
+
+---
+
+## RLS 连接复用安全要求
+
+`SET LOCAL app.current_user_id` 是事务级，COMMIT 后理论上失效。但 SQLAlchemy 连接池在跨请求复用连接时若时机不对，可能残留前一请求的 user_id 值，导致跨用户数据泄漏。
+
+**必须执行**：
+- 连接归还连接池前执行 `RESET app.current_user_id`
+- 集成测试必须覆盖"连续两个请求、不同用户"场景，验证第二个请求不读到第一个用户的数据
+
+```python
+@app.teardown_request
+def reset_rls_user(exc):
+    db.session.execute(text("RESET app.current_user_id"))
+```
+
+---
+
 ## 必写的安全集成测试
 
 每个涉及用户数据的 API endpoint 都要有跨用户访问测试：
