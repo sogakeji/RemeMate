@@ -2,6 +2,7 @@
 
 > 记录日期：2026-06-22
 > 状态：P1 基线，实现时按此划分
+> 注：Session Pad 为 P2 功能，本文档不包含 /sessions 路由和 Socket.IO 相关结构
 
 ---
 
@@ -11,13 +12,12 @@
 rememate/
 ├── app/
 │   ├── __init__.py              # create_app() 工厂函数，注册蓝图
-│   ├── extensions.py            # db, login_manager, socketio 等扩展实例
+│   ├── extensions.py            # db, login_manager, migrate 等扩展实例
 │   ├── models/
-│   │   ├── user.py              # User, UserSettings
+│   │   ├── user.py              # User, UserSettings, UserQuota
 │   │   ├── word.py              # WordList, Word, Definition, ReviewLog
-│   │   ├── output.py            # PracticeAttempt（原 output_entries）
+│   │   ├── output.py            # PracticeAttempt（造句记录）
 │   │   ├── intake.py            # IntakeSource, SourceSegment, WordCandidate
-│   │   ├── session_pad.py       # LanguagePartner, SessionRoom, SessionParticipant, SessionEntry
 │   │   ├── social.py            # SentenceUpvote
 │   │   └── conversation.py      # Conversation, Message
 │   │
@@ -33,11 +33,7 @@ rememate/
 │   │   │   └── routes.py        # /words /review /write
 │   │   ├── intake/
 │   │   │   ├── __init__.py
-│   │   │   └── routes.py        # /import /extract /quick-add /candidates
-│   │   ├── session_pad/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py        # /sessions /sessions/<id>
-│   │   │   └── socket_events.py # Socket.IO 事件处理
+│   │   │   └── routes.py        # /intake/import /extract /quick-add /candidates
 │   │   ├── square/
 │   │   │   ├── __init__.py
 │   │   │   └── routes.py        # /square /square/<id>/upvote
@@ -61,14 +57,12 @@ rememate/
 │   │   ├── main/
 │   │   ├── words/
 │   │   ├── intake/
-│   │   ├── session_pad/
 │   │   ├── square/
 │   │   └── tutor/
 │   │
 │   └── static/
 │       ├── css/
-│       └── js/
-│           └── socket_client.js  # 仅 session_pad 页面引入
+│       └── js/                  # P1 无 WebSocket，无 socket_client.js
 │
 ├── dispatch/
 │   ├── runner.py                # 遍历活跃用户，调度 bark + podcast
@@ -103,7 +97,6 @@ rememate/
 | `main` | `/` | 首页、stats、settings |
 | `words` | `/words` | 词库管理、SRS 复习、/write 造句 |
 | `intake` | `/intake` | 导入、/extract、/quick-add、候选审核 |
-| `session_pad` | `/sessions` | Session Pad 页面 + Socket.IO 事件 |
 | `square` | `/square` | 句子广场、点夯 |
 | `tutor` | `/tutor` | AI 助教对话 |
 
@@ -152,17 +145,6 @@ POST /intake/candidates/bulk-accept   批量接受（HTMX）
 POST /intake/<source_id>/commit       commit 已接受候选词 → words
 ```
 
-### session_pad
-```
-GET  /sessions                  我的会话列表 + 语言伙伴列表
-GET  /sessions/new              创建会话页
-POST /sessions                  创建会话，返回 room_token
-GET  /sessions/<room_token>     会话页（Socket.IO 页面）
-POST /sessions/<room_token>/end 结束会话，生成 intake_source，跳转 /extract
-GET  /sessions/<room_token>/review  会后只读回顾页
-GET  /partners/<partner_id>     语言伙伴档案页
-```
-
 ### square
 ```
 GET  /square                    句子广场首页
@@ -190,10 +172,7 @@ Blueprint routes 只做：取参数 → 调 service → 渲染模板 / 返回 HT
 **规则 2：services/ 不导入 Blueprint**
 services/ 与 HTTP 层解耦，不依赖 `request`、`session`、`g`。所有参数显式传入（见 data-isolation-security.md §第二层）。
 
-**规则 3：Socket.IO 事件只在 session_pad/socket_events.py**
-其他蓝图不引入 socketio。socket_events.py 只处理实时广播，持久化通过调用 services/ 完成。
-
-**规则 4：dispatch/ 与 app/ 共享 models，不共享 blueprints**
+**规则 3：dispatch/ 与 app/ 共享 models，不共享 blueprints**
 dispatch runner 直接 import models 和 services，不走 HTTP 路由。使用 BYPASSRLS 连接角色（见 data-isolation-security.md）。
 
 ---
@@ -209,7 +188,6 @@ def create_app(config=None):
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
-    socketio.init_app(app, async_mode="gevent")
 
     # RLS 钩子
     from app.services.rls import set_rls_user, reset_rls_user
@@ -221,12 +199,10 @@ def create_app(config=None):
     from app.blueprints.main import bp as main_bp
     from app.blueprints.words import bp as words_bp
     from app.blueprints.intake import bp as intake_bp
-    from app.blueprints.session_pad import bp as session_pad_bp
     from app.blueprints.square import bp as square_bp
     from app.blueprints.tutor import bp as tutor_bp
 
-    for bp in [auth_bp, main_bp, words_bp, intake_bp,
-               session_pad_bp, square_bp, tutor_bp]:
+    for bp in [auth_bp, main_bp, words_bp, intake_bp, square_bp, tutor_bp]:
         app.register_blueprint(bp)
 
     # CLI 命令
@@ -235,3 +211,16 @@ def create_app(config=None):
 
     return app
 ```
+
+---
+
+## P2 扩展预留（Session Pad）
+
+Session Pad 上线时需新增：
+- `app/models/session_pad.py` — LanguagePartner, SessionRoom, SessionParticipant, SessionEntry
+- `app/blueprints/session_pad/` — routes.py + socket_events.py
+- `app/templates/session_pad/`
+- `app/static/js/socket_client.js`
+- `extensions.py` 加入 socketio 实例
+- `create_app()` 加入 `socketio.init_app(app, async_mode="gevent")`
+- gunicorn 切换至 `-k gevent -w 2`（届时验证 monkey-patch 兼容性）
