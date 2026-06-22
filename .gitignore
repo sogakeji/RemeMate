@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+*.local
+SECRETS.local.md
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+migrations/versions/  # Alembic 自动生成，按需 gitignore
+
+# Flask / runtime
+instance/
+.flask_session/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Media / uploads
+uploads/
+podcast/
+tts_cache/
+backups/
