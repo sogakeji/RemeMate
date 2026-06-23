@@ -13,6 +13,8 @@ psycopg2-binary>=2.9,<3.0
 gunicorn>=22.0
 gevent>=24.2
 greenlet>=3.0
+# 让 psycopg2 在 gevent 下非阻塞（否则一次查询阻塞整个 worker 的 hub）
+psycogreen>=1.0
 
 # 配置 / 加密
 python-dotenv>=1.0

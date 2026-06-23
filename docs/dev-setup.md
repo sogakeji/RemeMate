@@ -75,9 +75,20 @@ PY
 ```bash
 sudo service postgresql start          # WSL 重启后需手动起（或配 systemd 自启）
 cd ~/rememate && . .venv/bin/activate
-# 阶段一脚手架就绪后：
-# flask db upgrade        # 跑迁移（用 MIGRATE_DATABASE_URL）
-# gunicorn -k gevent -w 2 -b 127.0.0.1:8891 wsgi:app
+# 迁移与启动：
+# flask db upgrade                       # env.py 用 MIGRATE_DATABASE_URL(owner)
+# gunicorn -c gunicorn.conf.py wsgi:app  # 含 psycogreen 补丁；勿加 --preload
+```
+
+## 测试库（独立于 dev，pytest 会清空它）
+
+```bash
+# 首次建测试库 + 迁移：
+sudo -u postgres psql -f scripts/dev/init-test-db.sql
+MIGRATE_DATABASE_URL=postgresql://rememate_owner:dev_owner_pw@127.0.0.1:5432/rememate_test \
+  flask db upgrade
+# 跑测试（conftest 强制连 rememate_test，缺 TEST_* 直接报错）：
+python -m pytest -q
 ```
 
 ## 仍缺 / 待补
@@ -85,4 +96,3 @@ cd ~/rememate && . .venv/bin/activate
 - `ffmpeg`：阶段九播客音频后处理可能需要，届时 `apt install ffmpeg`
 - `DEEPSEEK_API_KEY`：填进 `.env` 后 AI 功能才可用（阶段四起）
 - WSL 当前默认 root 用户；如需贴近生产可另建普通用户（非必须）
-- 代码骨架尚未创建：见 p1-build-plan.md 阶段一

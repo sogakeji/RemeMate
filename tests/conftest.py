@@ -14,8 +14,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-APP_URL = os.environ["DATABASE_URL"]
-BYPASS_URL = os.environ["DISPATCH_DATABASE_URL"]
+# 必须用独立测试库：conftest 会 DELETE 全表，绝不能指向 dev 的 DATABASE_URL。
+# 缺 TEST_* 直接报错，而不是回退到 dev 库把数据清空。
+try:
+    APP_URL = os.environ["TEST_DATABASE_URL"]
+    BYPASS_URL = os.environ["TEST_DISPATCH_DATABASE_URL"]
+except KeyError as e:
+    raise RuntimeError(
+        f"缺少环境变量 {e}. 测试必须连独立的 rememate_test 库，"
+        f"不能复用 dev 库。见 scripts/dev/init-test-db.sql 与 .env.example。"
+    ) from None
+
+if "rememate_test" not in APP_URL:
+    raise RuntimeError(
+        f"TEST_DATABASE_URL 必须指向 rememate_test 库，实际={APP_URL!r}，"
+        f"拒绝在非测试库上跑清库测试。"
+    )
 
 # FK 安全的删除顺序（子表在前，users 最后）。
 # 用 DELETE 而非 TRUNCATE：dispatch 角色有 DML 权限但无 TRUNCATE（非 owner）。

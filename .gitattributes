@@ -1,0 +1,11 @@
+# 强制 LF 行尾：仓库在 WSL，但可能被 Windows 工具编辑，锁死避免 CRLF 混入。
+* text=auto eol=lf
+
+# 二进制不转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mp3 binary
+*.pdf binary
