@@ -49,6 +49,7 @@ class UserQuota(db.Model):
     tokens_used_today  = db.Column(db.Integer, default=0, nullable=False)
     bonus_tokens_today = db.Column(db.Integer, default=0, nullable=False)
     corrections_today  = db.Column(db.Integer, default=0, nullable=False)  # 今日造句批改次数（按提交计）
+    imports_today      = db.Column(db.Integer, default=0, nullable=False)  # 今日导入候选词数（抽词/归一化时计）
     quota_reset_at     = db.Column(db.DateTime, nullable=True)  # create_user 时初始化，禁留 None
     updated_at         = db.Column(db.DateTime, default=datetime.utcnow)
 

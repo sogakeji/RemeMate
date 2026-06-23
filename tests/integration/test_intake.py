@@ -1,0 +1,142 @@
+"""输入管道：上限前置拦截 / 抽词 / 额度 / 审核 / 去重 / commit / 跨用户隔离。"""
+import io
+
+from sqlalchemy import text
+
+from tests.helpers import provision_user, login
+
+PW = "pw12345678"
+
+
+def _setup(app, client, bypass_engine, email="i@t.com"):
+    provision_user(app, email, PW)
+    login(client, email, PW)
+    client.post("/words", data={"name": "L", "language_code": "fr"})
+    with bypass_engine.connect() as c:
+        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
+        uid = c.execute(text("SELECT id FROM users WHERE email=:e"), {"e": email}).scalar()
+    return uid, lid
+
+
+def _count(bypass_engine, table, uid):
+    with bypass_engine.connect() as c:
+        return c.execute(text(f"SELECT count(*) FROM {table} WHERE user_id=:u"),
+                         {"u": uid}).scalar()
+
+
+# ---- 前置上限拦截（绝不烧 token）----
+
+def test_extract_too_long_blocked_no_source(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    client.post("/intake/extract",
+                data={"word_list_id": lid, "text": "x" * 9000})   # >8000
+    assert _count(bypass_engine, "intake_sources", uid) == 0       # 没建 source，没进 LLM
+
+
+def test_csv_bad_header_blocked(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    bad = io.BytesIO("foo,bar\na,b\n".encode("utf-8"))
+    client.post("/intake/import", content_type="multipart/form-data",
+                data={"word_list_id": lid, "file": (bad, "x.csv")})
+    assert _count(bypass_engine, "intake_sources", uid) == 0
+
+
+def test_csv_too_many_rows_blocked(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    rows = "word,meaning\n" + "".join(f"w{i},m{i}\n" for i in range(600))
+    big = io.BytesIO(rows.encode("utf-8"))
+    client.post("/intake/import", content_type="multipart/form-data",
+                data={"word_list_id": lid, "file": (big, "big.csv")})
+    assert _count(bypass_engine, "intake_sources", uid) == 0
+
+
+# ---- 抽词 + 审核 + commit ----
+
+def test_extract_flow_to_commit(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    # 提交抽词 → 建 source → 跳处理页
+    r = client.post("/intake/extract",
+                    data={"word_list_id": lid, "text": "Le décollage. Un essai."})
+    assert r.status_code == 302
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+    # 跑 SSE 处理流（消费整个流）
+    body = client.get(f"/intake/{sid}/process").get_data(as_text=True)
+    assert "done" in body
+    # 候选词已生成（fake 返回 2 个）
+    assert _count(bypass_engine, "word_candidates", uid) == 2
+    # 导入额度已计入
+    with bypass_engine.connect() as c:
+        used = c.execute(text("SELECT imports_today FROM user_quota WHERE user_id=:u"),
+                         {"u": uid}).scalar()
+    assert used == 2
+
+    # 审核页可见
+    page = client.get(f"/intake/{sid}/candidates").get_data(as_text=True)
+    assert "décollage" in page
+
+    # 全部接受 + 入库
+    client.post(f"/intake/{sid}/bulk-accept")
+    client.post(f"/intake/{sid}/commit")
+    with bypass_engine.connect() as c:
+        words = c.execute(text(
+            "SELECT count(*) FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u"), {"u": uid}).scalar()
+    assert words == 2
+
+
+def test_process_idempotent_on_reopen(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    client.post("/intake/extract", data={"word_list_id": lid, "text": "Un essai."})
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+    client.get(f"/intake/{sid}/process").get_data()   # 第一次（读完整流 → status=done）
+    client.get(f"/intake/{sid}/process").get_data()   # 重开不应重复抽词
+    assert _count(bypass_engine, "word_candidates", uid) == 2
+
+
+def test_commit_dedupes_existing_word(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    # 先手动加一个 décollage 到该词表
+    client.post(f"/words/{lid}", data={"word": "décollage", "meaning": "x"})
+    client.post("/intake/extract", data={"word_list_id": lid, "text": "Le décollage."})
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+    client.get(f"/intake/{sid}/process")
+    client.post(f"/intake/{sid}/bulk-accept")
+    client.post(f"/intake/{sid}/commit")
+    # décollage 已存在 → 跳过；只 essai 入库。总词数 = 1(手动) + 1(essai) = 2
+    with bypass_engine.connect() as c:
+        n_dec = c.execute(text(
+            "SELECT count(*) FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u AND w.word='décollage'"), {"u": uid}).scalar()
+    assert n_dec == 1                              # 没重复入库
+
+
+def test_quick_add_creates_candidate(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    r = client.post("/intake/quick-add",
+                    data={"word_list_id": lid, "word": "bonjour"})
+    assert r.status_code == 302
+    assert _count(bypass_engine, "word_candidates", uid) == 1
+
+
+# ---- 跨用户隔离 ----
+
+def test_cross_user_candidate_isolation(app, client, bypass_engine, fake_extract):
+    ub, lb = _setup(app, client, bypass_engine, email="b@t.com")
+    client.post("/intake/extract", data={"word_list_id": lb, "text": "Un essai."})
+    with bypass_engine.connect() as c:
+        sid_b = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                          {"u": ub}).scalar()
+    client.get(f"/intake/{sid_b}/process")
+
+    client.get("/logout")
+    provision_user(app, "a@t.com", PW)
+    login(client, "a@t.com", PW)
+    # A 访问 B 的来源/审核/commit 都应 404
+    assert client.get(f"/intake/{sid_b}/candidates").status_code == 404
+    assert client.post(f"/intake/{sid_b}/commit").status_code == 404

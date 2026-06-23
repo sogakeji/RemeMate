@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}候选词审核 · 记搭{% endblock %}
+{% block content %}
+<h1>候选词审核</h1>
+<p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+
+<form method="post" action="{{ url_for('intake.bulk_accept', source_id=source.id) }}"
+      style="display:inline">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit">全部接受</button>
+</form>
+<form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}"
+      style="display:inline">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit">提交入库（已接受的）</button>
+</form>
+
+<ul>
+  {% for c, is_dup in candidates %}
+  <li id="cand-{{ c.id }}">
+    {% if c.status != 'pending' %}
+      <span>{{ c.word }} — {{ '已接受' if c.status == 'accepted' else '已忽略' }}</span>
+    {% else %}
+      <form hx-post="{{ url_for('intake.accept', candidate_id=c.id) }}"
+            hx-target="#cand-{{ c.id }}" hx-swap="innerHTML" style="display:inline">
+        <input name="word" value="{{ c.word }}" size="14">
+        <input name="part_of_speech" value="{{ c.part_of_speech or '' }}" size="6" placeholder="词性">
+        <input name="meaning" value="{{ c.meaning or '' }}" size="20" placeholder="释义">
+        <input name="example" value="{{ c.example or '' }}" size="24" placeholder="例句">
+        {% if is_dup %}<span title="该词表已有此词">⚠重复</span>{% endif %}
+        <button type="submit">接受</button>
+      </form>
+      <button hx-post="{{ url_for('intake.ignore', candidate_id=c.id) }}"
+              hx-target="#cand-{{ c.id }}" hx-swap="innerHTML">忽略</button>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

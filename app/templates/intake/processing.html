@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}处理中 · 记搭{% endblock %}
+{% block content %}
+<h1>正在处理…</h1>
+<p id="status">连接中…</p>
+<progress id="bar" value="0" max="1" style="width:100%"></progress>
+
+<script>
+(function () {
+  var sourceId = {{ source_id }};
+  var es = new EventSource("{{ url_for('intake.process_stream', source_id=source_id) }}");
+  var statusEl = document.getElementById("status");
+  var bar = document.getElementById("bar");
+
+  es.addEventListener("progress", function (e) {
+    var d = JSON.parse(e.data);
+    bar.max = d.total || 1;
+    bar.value = d.done || 0;
+    statusEl.textContent = "已处理 " + (d.done || 0) + " / " + (d.total || 0);
+  });
+  es.addEventListener("done", function (e) {
+    var d = JSON.parse(e.data);
+    es.close();
+    window.location = "{{ url_for('intake.candidates', source_id=source_id) }}";
+  });
+  es.addEventListener("error", function (e) {
+    es.close();
+    if (e.data) { try { statusEl.textContent = JSON.parse(e.data).message; } catch (x) {} }
+    else { statusEl.textContent = "处理中断，请重试。"; }
+  });
+})();
+</script>
+{% endblock %}

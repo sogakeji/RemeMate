@@ -118,3 +118,27 @@ def fake_llm():
     yield holder
     llm.set_registry(None)
     llm.reset_breaker()
+
+
+@pytest.fixture
+def fake_extract():
+    """注入假 provider 给 extract 链，返回可控 {"items":[...]} JSON。"""
+    from app.services import llm
+
+    holder = {
+        "content": ('{"items":[{"word":"décollage","part_of_speech":"nm",'
+                    '"meaning":"起飞","example":"e"},'
+                    '{"word":"essai","meaning":"尝试"}]}'),
+    }
+
+    class FP:
+        name = "fake"
+
+        def call(self, messages, *, timeout, json_mode=False):
+            return llm.LLMResult(holder["content"], 10, 20, "fake", "fake-model")
+
+    llm.set_registry({"extract": [FP()], "correction": [FP()], "general": [FP()]})
+    llm.reset_breaker()
+    yield holder
+    llm.set_registry(None)
+    llm.reset_breaker()
