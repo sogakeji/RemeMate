@@ -1,0 +1,23 @@
+<div class="correction">
+  {% if degraded %}
+    <p>⚠ {{ r.feedback }}</p>
+  {% else %}
+    {% if not r.target_word_used %}<p>⚠ 这句似乎没用到目标词。</p>{% endif %}
+    {% if r.incomplete %}<p>⚠ 这句看起来不完整。</p>{% endif %}
+    <p><strong>修正：</strong>{{ r.corrected }}</p>
+    {% if r.translation %}<p><strong>翻译：</strong>{{ r.translation }}</p>{% endif %}
+    {% if r.feedback %}<p><strong>点评：</strong>{{ r.feedback }}</p>{% endif %}
+    {% if r.errors %}
+    <ul>
+      {% for e in r.errors %}<li>[{{ e.type }}] {{ e.detail }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  {% endif %}
+
+  <div class="actions">
+    <button hx-post="{{ url_for('write.save') }}" hx-target="#write-result"
+            hx-swap="innerHTML" hx-disabled-elt="this">保存</button>
+    <button hx-post="{{ url_for('write.discard') }}" hx-target="#write-result"
+            hx-swap="innerHTML">重写</button>
+  </div>
+</div>

@@ -100,6 +100,18 @@ def run_migrations_online():
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
 
+    # 手写管理的 DB 对象不让 autogenerate 碰（否则会误删，如 lower(email) 函数唯一索引、
+    # RLS 相关）。这些对象不在 model metadata 里，autogenerate 会判定为「多余」而 DROP。
+    _HAND_MANAGED_INDEXES = {"uq_users_email_lower"}
+
+    def include_object(obj, name, type_, reflected, compare_to):
+        if type_ == "index" and name in _HAND_MANAGED_INDEXES:
+            return False
+        return True
+
+    if conf_args.get("include_object") is None:
+        conf_args["include_object"] = include_object
+
     connectable = get_engine()
 
     with connectable.connect() as connection:

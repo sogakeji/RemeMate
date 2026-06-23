@@ -22,11 +22,11 @@ def create_app(config_name=None):
     # 导入全部 models，确保 metadata 完整（Flask-Migrate autogenerate 依赖）
     from app import models  # noqa: F401
 
-    # RLS 请求钩子（第三层防御的注入/清除）
-    from app.services.rls import set_rls_user, reset_rls_user
+    # RLS：before_request 把 uid 缓存进 g；after_begin 事件每个事务注入 GUC（多 commit 安全）。
+    # 见 app/services/rls.py。
+    from app.services.rls import set_request_rls_user
 
-    app.before_request(set_rls_user)
-    app.teardown_request(reset_rls_user)
+    app.before_request(set_request_rls_user)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -42,10 +42,12 @@ def create_app(config_name=None):
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.main import bp as main_bp
     from app.blueprints.words import bp as words_bp
+    from app.blueprints.write import bp as write_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(words_bp)
+    app.register_blueprint(write_bp)
 
     # CLI 命令
     from cli.commands import register_commands

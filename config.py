@@ -28,6 +28,8 @@ class BaseConfig:
     # LLM
     DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")        # GPT-4o-mini failover（可选）
+    OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
     WTF_CSRF_ENABLED = True
 

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}造句历史 · 记搭{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('write.compose') }}">← 造句</a></p>
+<h1>造句历史</h1>
+{% if entries %}
+<ul>
+  {% for e in entries %}
+  <li>
+    <p>{{ e.original }}</p>
+    {% if e.corrected and e.corrected != e.original %}
+      <p><strong>修正：</strong>{{ e.corrected }}</p>
+    {% endif %}
+    {% if e.feedback %}<p><small>{{ e.feedback }}</small></p>{% endif %}
+    <small>{{ e.created_at.strftime('%Y-%m-%d %H:%M') }}
+      {% if e.is_public %}· 已公开{% endif %}
+      {% if e.has_error %}· 有修正{% endif %}</small>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>还没有造句记录。</p>
+{% endif %}
+{% endblock %}

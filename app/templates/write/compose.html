@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}造句 · 记搭{% endblock %}
+{% block content %}
+<h1>造句练习</h1>
+<p><small>今日已用 {{ quota.used }}/{{ quota.limit }} 句{% if quota.own_key %}（自带 key）{% endif %}
+  · <a href="{{ url_for('write.history') }}">历史</a></small></p>
+
+{% if not words %}
+  <p>还没有词，先去<a href="{{ url_for('words.lists') }}">加词</a>。</p>
+{% elif quota.used >= quota.limit %}
+  <p>今日造句额度已用完（{{ quota.used }}/{{ quota.limit }}）。{% if not quota.own_key %}可在设置页配置自己的 key 解除限制。{% endif %}</p>
+{% else %}
+<form hx-post="{{ url_for('write.submit') }}" hx-target="#write-result"
+      hx-swap="innerHTML" hx-disabled-elt="find button">
+  <p>
+    <label>目标词
+      <select name="word_id" required>
+        {% for w in words %}<option value="{{ w.id }}">{{ w.word }}</option>{% endfor %}
+      </select>
+    </label>
+  </p>
+  <p>
+    <textarea name="sentence" rows="3" maxlength="{{ max_chars }}" required
+              oninput="document.getElementById('cc').textContent = this.value.length"
+              placeholder="用目标词造一个句子（≤ {{ max_chars }} 字符）"></textarea><br>
+    <small><span id="cc">0</span>/{{ max_chars }}</small>
+  </p>
+  <button type="submit">提交批改</button>
+  <span class="htmx-indicator">批改中…</span>
+</form>
+{% endif %}
+
+<div id="write-result"></div>
+{% endblock %}

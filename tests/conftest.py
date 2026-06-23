@@ -85,3 +85,36 @@ def client(app):
 @pytest.fixture
 def runner(app):
     return app.test_cli_runner()
+
+
+@pytest.fixture
+def fake_llm():
+    """注入假 provider 链，让 correction 返回可控 JSON，不触真实 API。
+
+    用法：mutate holder["content"] 改批改返回；holder["empty"]=True 模拟 AI 全挂。
+    """
+    from app.services import llm
+
+    holder = {
+        "content": ('{"corrected":"phrase corrigée","translation":"修正的句子",'
+                    '"target_word_used":true,"incomplete":false,"errors":[],'
+                    '"is_nsfw":false,"feedback":"很好"}'),
+        "empty": False,
+    }
+
+    class FP:
+        name = "fake"
+
+        def call(self, messages, *, timeout, json_mode=False):
+            return llm.LLMResult(holder["content"], 10, 20, "fake", "fake-model")
+
+    def install():
+        chain = [] if holder["empty"] else [FP()]
+        llm.set_registry({"correction": chain, "nsfw": chain, "general": chain})
+
+    install()
+    holder["reinstall"] = install
+    llm.reset_breaker()
+    yield holder
+    llm.set_registry(None)
+    llm.reset_breaker()

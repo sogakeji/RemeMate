@@ -1,0 +1,9 @@
+<div class="saved">
+  <p>✅ 已保存到造句历史。</p>
+  {% if not entry.is_nsfw %}
+    <button hx-post="{{ url_for('write.publish', entry_id=entry.id) }}"
+            hx-target="#write-result" hx-swap="innerHTML">公开到句子广场</button>
+  {% endif %}
+  <a href="{{ url_for('write.compose') }}">再写一句</a> ·
+  <a href="{{ url_for('write.history') }}">查看历史</a>
+</div>
