@@ -9,6 +9,33 @@
 
 ---
 
+## 修复状态（2026-06-23 回填）
+
+本评审全部 finding 已在 `5c3862b` 落地、`ba51e95` 补最后一处，逐条经验证核对。✅=已落地并验证。
+
+| Finding | 状态 | 落地位置 |
+|---|---|---|
+| A1 RLS 三层空转 | ✅ | data-isolation §RLS落地清单（5c3862b）+ output_entries 拆 policy（ba51e95）|
+| A2 webhook/bark SSRF | ✅ | dispatch §SSRF防护：is_safe_push_url，保存 + 发送双校验 |
+| A3 provisioning | ✅ | auth-flow create_user 三表一事务；quota _get_or_create + _maybe_reset 处理 None |
+| A4 摘要 timer | ✅ | dispatch：每 15 min + 本地 08:00 窗口，覆盖半小时偏移时区 |
+| A5 worker/熔断 | ✅ | v0.1：gevent -w 2 |
+| B1 广场 P1/P2 | ✅ | 定 P1（sentence-square 头部）|
+| B2 session-pad 编号 | ✅ | 编号约定说明 |
+| B3 Alembic vs RLS | ✅ | v0.1 §2.2：手写 migration 例外 |
+| C1 建词表入口 | ✅ | routes：POST /words |
+| C2 commit 加载 source | ✅ | first_or_404 + user_id scope |
+| C3 候选 context 字段 | ✅ | WordCandidate.context_start/end |
+| C4 CSV SSE | ✅ | /intake/<id>/process SSE + nginx proxy_buffering off |
+| C5 单请求上限 | ✅ | MAX_TOKENS_PER_REQUEST=20k |
+| C6 三按钮→SM-2 | ✅ | v0.1 §3.6：映射 2/3/5 + 单测要求 |
+| C7 点夯反刷 | ✅ | token-quota：三重反刷 |
+| E 命名/琐碎 | ✅ | output_entries↔OutputEntry、音频路径统一、复习幂等键改当天日期等 |
+
+> 验证残留（output_entries 写隔离）已由 `ba51e95` 闭环。前序 audit 见 [review-2026-06-22-architecture-audit.md](review-2026-06-22-architecture-audit.md)。
+
+---
+
 ## 0. 总体判断
 
 6-22 audit 把「用户多了会崩」的扩展性问题清干净了，但它聚焦规模/安全/一致性，**漏掉了一整类 day-1 就炸的正确性 bug**。最关键的发现：headline 的「三层防御」里第三层 RLS 按现在写法基本是空转的；新用户 provisioning 不完整，首次用 AI 直接崩；webhook 推送是 server-side SSRF，直通同机 Bitwarden。这三条会在前 10 个真实用户身上就暴露，而现有文档和测试完全没覆盖。

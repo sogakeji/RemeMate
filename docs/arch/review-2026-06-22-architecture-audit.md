@@ -7,6 +7,36 @@
 
 ---
 
+## 修复状态（2026-06-23 回填）
+
+下表为本 audit 各 finding 的闭环状态，逐条对照修复后的设计文档核验。✅=已落地　⏳=按计划延后　↘=规模上撤销/下调。
+
+| Finding | 状态 | 落地位置 |
+|---|---|---|
+| A1 章节号重复 | ✅ | v0.1 §2.5/§2.6 已分号 |
+| A2 Session Pad P1/P2 矛盾 | ✅ | 定 P2；session-pad 头部 + 编号约定；routes 已清 |
+| A3 点夯 作者/点击者 | ✅ | token-quota §点夯：点击者得 |
+| B1 RLS+dispatch 冲突 | ✅ | data-isolation §后台任务：BYPASSRLS 角色分工 |
+| B2 RLS 连接残留 | ✅ | data-isolation：teardown 清 GUC + 连续两请求测试 |
+| B3 NSFW fail-open | ✅ | llm-failover：fail-closed（is_nsfw=True）|
+| B4 HTMX CSRF | ✅ | v0.1 §2.4 |
+| B5 SECRET_KEY 一钥多用 | ✅ | 独立 DATA_ENCRYPTION_KEY（token-quota §加密）|
+| B6 时区语义 | ✅ | users.timezone + 本地午夜重置 |
+| B7 社交软删/级联 | ⏳ 待补 | 广场已进 P1，但作者删号/删句对「一起记」引用方的级联仍未设计，广场扩展前补 |
+| B8 活跃用户未定义 | ✅ | sentence-square:65 已定义；P1 硬编码门槛=1，聚合 job 延后 |
+| B9 流式中途失败 | ✅ | llm-failover §流式 failover 限制 |
+| B10 总超时 | ✅ | llm-failover：25s deadline |
+| B11 任务路由盲点 | ✅ | llm-failover：各 task 链显式，NSFW 仅 DeepSeek |
+| C1 worker class | ✅ | 定 gevent -w 2（v0.1 §2.2/§6）|
+| C2 dispatch TTS 拆分 | ✅ | 独立 timer + flock + 幂等键 |
+| C3 本地磁盘音频 / podcast token | ⏳ 上线后 | 音频迁对象存储延后；token 轮换接口已留（dispatch:313）|
+| C4 备份异机 | ⏳ 上线后 | rsync 异机延后 |
+| D 规模驱动各项 | ↘ 撤销/下调 | 5000 上限下不做（选 gevent 后无需 Redis 等）|
+
+> 详细修复内容见 commit `5c3862b`（RLS 写策略残留补于 `ba51e95`）。后继评审见 [review-2026-06-23-pre-implementation-eng-review.md](review-2026-06-23-pre-implementation-eng-review.md)。
+
+---
+
 ## 0. 总体判断
 
 文档决策链清晰、技术选型有 MemoBuddy 验证背书，作为 solo 项目质量高于平均。
