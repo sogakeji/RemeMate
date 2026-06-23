@@ -1,0 +1,26 @@
+# Web 框架
+Flask>=3.0,<4.0
+Flask-SQLAlchemy>=3.1,<4.0
+Flask-Login>=0.6,<0.7
+Flask-Migrate>=4.0,<5.0
+Flask-WTF>=1.2,<2.0
+SQLAlchemy>=2.0,<3.0
+
+# 数据库驱动（dev 用 binary；生产用源码 psycopg2 + libpq-dev）
+psycopg2-binary>=2.9,<3.0
+
+# 部署 / 并发
+gunicorn>=22.0
+gevent>=24.2
+greenlet>=3.0
+
+# 配置 / 加密
+python-dotenv>=1.0
+cryptography>=42.0
+
+# LLM（DeepSeek 走 OpenAI 兼容接口）/ HTTP
+openai>=1.30
+requests>=2.31
+
+# 测试
+pytest>=8.0
