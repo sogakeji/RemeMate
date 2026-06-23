@@ -17,9 +17,34 @@ Bark 推送支持多种通知类型，每种类型用户可独立开关（见下
 
 ---
 
+## 推送通道
+
+支持两条独立通道，用户可同时配置（都填了就两边都推）：
+
+| 字段 | 通道 | 适用场景 |
+|---|---|---|
+| `bark_url` | Bark（APNs）| iOS，需自建或使用官方 Bark 服务端 |
+| `webhook_url` | 通用 Webhook | Android（通知滤盒 / Tasker）或任意 HTTP 接收端 |
+
+Webhook 格式（POST JSON）：
+```json
+{"title": "记搭 · 今日概览", "body": "昨日导入 5 词 · 今日到期 12 词"}
+```
+
+dispatch 发送逻辑：
+```python
+def send_notification(settings, title: str, body: str):
+    if settings.bark_url:
+        bark.push(url=settings.bark_url, title=title, body=body)
+    if settings.webhook_url:
+        requests.post(settings.webhook_url, json={"title": title, "body": body}, timeout=5)
+```
+
+---
+
 ## 通知类型与开关
 
-Bark 推送分四种独立类型，`user_settings` 各有一个布尔开关：
+推送内容分四种独立类型，`user_settings` 各有一个布尔开关：
 
 | 字段 | 通知类型 | 默认 | 触发时机 |
 |---|---|---|---|
@@ -28,7 +53,7 @@ Bark 推送分四种独立类型，`user_settings` 各有一个布尔开关：
 | `notify_intake_done` | 导入完成通知 | `true` | `/intake/<source_id>/commit` 成功后即时推 |
 | `notify_partner_activity` | 搭子动态（P2） | `false` | Session Pad P2 上线后启用，P1 字段预留但不触发 |
 
-- `bark_url` 为空时，所有通知类型均静默，不报错
+- 两条通道（bark_url / webhook_url）均为空时，所有通知静默，不报错
 - 各开关默认值在 `flask create-user` 建账号时写入 `user_settings`
 
 ---
