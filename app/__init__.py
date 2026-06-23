@@ -32,7 +32,11 @@ def create_app(config_name=None):
     def load_user(user_id):
         from app.models.user import User
 
-        return db.session.get(User, int(user_id))
+        try:
+            uid = int(user_id)
+        except (TypeError, ValueError):
+            return None                 # 脏/篡改的 cookie → 视为未登录，不 500（M3）
+        return db.session.get(User, uid)
 
     # 蓝图
     from app.blueprints.auth import bp as auth_bp

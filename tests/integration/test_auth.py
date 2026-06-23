@@ -71,3 +71,40 @@ def test_safe_next_honored(app, client):
                        data={"email": "sn@t.com", "password": PW})
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/stats")
+
+
+def test_backslash_open_redirect_blocked(app, client):
+    """M4：/\\evil.com 这类反斜杠绕过被拦，回落首页。"""
+    provision_user(app, "bs@t.com", PW)
+    resp = client.post("/login?next=/\\evil.com",
+                       data={"email": "bs@t.com", "password": PW})
+    assert resp.status_code == 302
+    loc = resp.headers["Location"]
+    assert "evil.com" not in loc
+    assert loc.endswith("/")
+
+
+def test_garbage_session_user_id_no_500(client):
+    """M3：被篡改/脏的 user_id 不致每请求 500，按匿名处理。"""
+    with client.session_transaction() as sess:
+        sess["_user_id"] = "not-an-int"
+    resp = client.get("/")
+    assert resp.status_code == 302          # 重定向到登录，而非 500
+    assert "/login" in resp.headers["Location"]
+
+
+def test_email_case_insensitive_login(app, client):
+    """M5：大写邮箱注册，小写也能登录。"""
+    provision_user(app, "Mixed@T.Com", PW)
+    resp = client.post("/login", data={"email": "mixed@t.com", "password": PW})
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+
+
+def test_email_case_insensitive_no_dup(app):
+    """M5：大小写不同的同一邮箱不能建两个账号。"""
+    from app.services import provisioning
+    with app.app_context():
+        provisioning.create_user_with_defaults("Dup@T.com", "A")
+        with __import__("pytest").raises(provisioning.UserExistsError):
+            provisioning.create_user_with_defaults("dup@t.com", "B")

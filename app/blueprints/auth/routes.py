@@ -7,7 +7,7 @@
 - CSRF 由 Flask-WTF 的 FlaskForm 自动校验。
 """
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
@@ -27,10 +27,16 @@ _DUMMY_HASH = generate_password_hash("rememate-timing-dummy")
 
 
 def _is_safe_next(target: str) -> bool:
+    # 只放行同域相对路径（M4）。Werkzeug 3 已移除 url_has_allowed_host_and_scheme，
+    # 这里手写：先把反斜杠归一为斜杠（部分浏览器会这么规范化），再拒绝 // 和任何
+    # scheme/netloc，挡掉 /\evil.com、//evil.com、http://evil 这类开放重定向绕过。
     if not target:
         return False
-    u = urlparse(target)
-    return not u.scheme and not u.netloc and target.startswith("/")
+    normalized = target.replace("\\", "/")
+    if not normalized.startswith("/") or normalized.startswith("//"):
+        return False
+    parts = urlsplit(normalized)
+    return not parts.scheme and not parts.netloc
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -40,7 +46,8 @@ def login():
 
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data, is_active=True).first()
+        email = (form.email.data or "").strip().lower()      # 大小写无关（M5）
+        user = User.query.filter_by(email=email, is_active=True).first()
 
         locked = bool(user and user.locked_until
                       and user.locked_until > datetime.utcnow())

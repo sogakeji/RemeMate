@@ -64,6 +64,22 @@ def test_review_grade_updates_sm2(app, client, bypass_engine):
     assert due > datetime.utcnow()      # 不再到期
 
 
+def test_grade_invalid_button_400(app, client, bypass_engine):
+    """M1：缺失/非法 button 返回 400 而非 500。"""
+    provision_user(app, "g@t.com", PW)
+    login(client, "g@t.com", PW)
+    client.post("/words", data={"name": "L", "language_code": "fr"})
+    with bypass_engine.connect() as c:
+        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
+    client.post(f"/words/{lid}", data={"word": "w1", "meaning": "m"})
+    with bypass_engine.connect() as c:
+        wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
+
+    assert client.post(f"/review/{wid}/grade", data={}).status_code == 400
+    assert client.post(f"/review/{wid}/grade",
+                       data={"button": "bogus"}).status_code == 400
+
+
 def test_review_grade_other_users_word_404(app, client, bypass_engine):
     b = make_user(bypass_engine, "b@t.com")
     _, b_word = make_word(bypass_engine, b)
@@ -109,7 +125,7 @@ def test_delete_list_after_review_cascades(app, client, bypass_engine):
     client.post(f"/review/{wid}/grade", data={"button": "easy"})   # 产生 review_logs
 
     resp = client.post(f"/words/{lid}/delete")
-    assert resp.status_code in (302, 200)
+    assert resp.status_code == 302                  # 删除成功应重定向（L5）
     with bypass_engine.connect() as c:
         assert c.execute(text("SELECT count(*) FROM word_lists WHERE id=:i"),
                          {"i": lid}).scalar() == 0

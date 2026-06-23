@@ -10,9 +10,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+INSECURE_SECRET_DEFAULT = "dev-insecure-change-me"
+
 
 class BaseConfig:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
+    SECRET_KEY = os.environ.get("SECRET_KEY", INSECURE_SECRET_DEFAULT)
     DATA_ENCRYPTION_KEY = os.environ.get("DATA_ENCRYPTION_KEY")
 
     # 运行时用 app 角色连接
@@ -47,6 +49,17 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     DEBUG = False
 
+    def __init__(self):
+        # 启动期断言：生产绝不允许用不安全默认密钥或空密钥（H1）
+        secret = os.environ.get("SECRET_KEY")
+        if not secret or secret == INSECURE_SECRET_DEFAULT:
+            raise RuntimeError(
+                "生产环境必须设置强随机 SECRET_KEY（不能为空或用 dev 默认值）。"
+                "生成：python -c \"import secrets;print(secrets.token_hex(32))\""
+            )
+        if not os.environ.get("DATABASE_URL"):
+            raise RuntimeError("生产环境必须设置 DATABASE_URL。")
+
 
 _CONFIGS = {
     "development": DevelopmentConfig,
@@ -56,5 +69,8 @@ _CONFIGS = {
 
 
 def get_config(name=None):
-    name = name or os.environ.get("FLASK_ENV", "development")
-    return _CONFIGS.get(name, DevelopmentConfig)
+    # 默认回落到 production（fail-safe）：漏配 FLASK_ENV 时不静默跑 DEBUG（H2）。
+    # 返回实例而非类，确保 ProductionConfig.__init__ 的启动期断言会执行（H1）。
+    name = name or os.environ.get("FLASK_ENV", "production")
+    cls = _CONFIGS.get(name, ProductionConfig)
+    return cls()

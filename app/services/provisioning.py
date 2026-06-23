@@ -35,9 +35,14 @@ class UserNotFoundError(Exception):
     pass
 
 
+def normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
 def create_user_with_defaults(email, display_name, *, admin=False,
                               timezone="Asia/Shanghai", password=None):
     """一事务建 User + UserSettings + UserQuota，返回 (user_id, 明文初始密码)。"""
+    email = normalize_email(email)        # 邮箱大小写无关（M5）
     password = password or secrets.token_urlsafe(12)
     session = _bypass_session()
     engine = session.bind
@@ -84,7 +89,7 @@ def create_user_with_defaults(email, display_name, *, admin=False,
 
 
 def _get_user_or_raise(session, email) -> User:
-    user = session.query(User).filter_by(email=email).first()
+    user = session.query(User).filter_by(email=normalize_email(email)).first()
     if user is None:
         raise UserNotFoundError(email)
     return user

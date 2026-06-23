@@ -66,7 +66,10 @@ def review():
 @login_required
 def grade(word_id):
     button = request.form.get("button", "")
-    result = words_svc.review_word(_uid(), word_id, button)
+    try:
+        result = words_svc.review_word(_uid(), word_id, button)
+    except ValueError:
+        abort(400)                      # 非法/缺失 button（M1）
     if result is None:
         abort(404)
     nxt = words_svc.get_due_words(_uid(), limit=1)
