@@ -75,11 +75,3 @@
 - **gunicorn timeout 与 SSE**（review 2026-06-23 L11）
   `timeout=60`；长流式端点（造句批改改流式 / 输入管道）慢网络可能被 arbiter 杀 worker。
   SSE 端点单独放宽或加心跳。
-
----
-
-## 文档同步
-
-- **data-isolation-security.md 的 GUC 章节**
-  阶段四把 GUC 注入从 before_request-only 改为 `before_request 设当前事务 + after_begin 事件
-  覆盖后续事务`（修多 commit 丢 GUC）。文档仍写旧机制，待同步。

@@ -126,35 +126,55 @@ CREATE POLICY oe_del ON output_entries FOR DELETE
 - **不开 RLS**（最简）：点夯表无敏感数据，按公开表处理，应用层用 `UNIQUE(entry_id, user_id)` 防重复。
 - 若要审计「谁夯了谁」隐私，再开 RLS。P1 选不开 RLS。
 
-#### GUC 注入：set_config 而非 SET
+#### GUC 注入：set_config 而非 SET，且每个事务都要注入（after_begin 事件）
+
+`set_config(..., is_local=true)` 是事务级，**COMMIT 后即失效**。service 层普遍会在请求内
+多次 commit（造句保存、评分提交、intake 分批…），只在 `before_request` 设一次 GUC 是不够的：
+第一次 COMMIT 后 GUC 清空，后续查询/渲染（含 ORM expire-on-commit 触发的 refresh）在无
+user_id 状态下跑 → RLS fail-closed，**连用户自己刚写的行都看不到**（实测表现为保存后
+`ObjectDeletedError`、评分后「下一张牌」静默为空）。
+
+**正解：监听 SQLAlchemy `after_begin` 事件，每个事务一开始就注入 GUC**。配合 before_request
+覆盖「加载用户时已开启、但当时 g 还没值」的那个首事务：
 
 ```python
 # services/rls.py
-from sqlalchemy import text
+from sqlalchemy import event, text
+from sqlalchemy.orm import Session
+from flask import g, has_request_context
 from flask_login import current_user
+from app.extensions import db
 
-def set_rls_user():
-    """before_request 钩子：注入当前用户 ID 到事务级 GUC"""
-    if current_user.is_authenticated:
-        # set_config 第三参 is_local=true → 等价 SET LOCAL，事务级；可参数化
+def set_request_rls_user():
+    """before_request：缓存 uid 到 g，并把 GUC 设到「当前已开事务」上。
+    访问 current_user 会触发用户加载从而开启一个事务——它的 after_begin 在 g.rls_uid
+    尚未赋值时已跑过（拿到 None）。故这里算出 uid 后必须再对当前 session 设一次 GUC。"""
+    uid = current_user.id if current_user.is_authenticated else None
+    g.rls_uid = uid
+    if uid is not None:
         db.session.execute(
-            text("SELECT set_config('app.current_user_id', :uid, true)"),
-            {"uid": str(current_user.id)},   # set_config 第二参必须是 text
-        )
-    # 未登录请求不设 GUC → current_setting 返回 NULL → 所有 RLS policy fail-closed
+            text("SELECT set_config('app.current_user_id', :u, true)"), {"u": str(uid)})
 
-def reset_rls_user(exc=None):
-    """teardown_request 钩子：连接归还池前清除 GUC，防跨请求残留"""
-    db.session.execute(text("SELECT set_config('app.current_user_id', '', true)"))
+@event.listens_for(Session, "after_begin")
+def _set_rls_on_begin(session, transaction, connection):
+    """每个事务开始即注入 GUC（多 commit 安全）。
+    ★ 只读 g，绝不访问 current_user / db.session：在 after_begin 里加载用户会让 session
+       在「正在 provisioning 连接」时被重入 → InvalidRequestError。"""
+    if not has_request_context():
+        return
+    uid = g.get("rls_uid")
+    if uid is not None:
+        # uid 来自 current_user.id，必为整数；int() 强校验后内联，无注入面
+        connection.exec_driver_sql(
+            f"SELECT set_config('app.current_user_id', '{int(uid)}', true)")
 ```
 
-#### 一请求一事务（避免多 commit 丢 GUC）
-
-`set_config(..., is_local=true)` 是事务级，**COMMIT 后即失效**。一个请求里若多次 commit（如 intake commit、grade 提交都 commit），第一次 COMMIT 后 GUC 清空，后续查询在「无 user_id」状态下跑 → fail-closed 读空或写入异常。
-
-**硬规则**：
-- 一个 HTTP 请求对应一个事务，请求结束统一 commit（Flask-SQLAlchemy 默认行为，不要在 service 层手动 commit）
-- 确需多段 commit 的流程（如 intake 分批），每次 commit 后在同请求内**重新 `set_config`**，或显式开新事务并重设 GUC
+**关键约束（踩过的坑）**：
+- after_begin 内**只读 `g`**，不碰 `current_user` / `db.session`，否则重入报错。
+- after_begin 内用 `connection.exec_driver_sql`（直达 DBAPI），不要 `connection.execute(text())`。
+- 未登录 / 无请求上下文 → 不设 GUC → `current_setting` 返回 NULL → 所有 policy fail-closed。
+- CLI / 后台任务无请求上下文 → 不设 GUC，但它们走 BYPASSRLS 角色，GUC 本就无关。
+- 不再需要 teardown 清 GUC：`is_local=true` 随事务结束自动回收；连接归还池时无残留。
 
 #### 角色分离（FORCE 生效的前提）
 
@@ -193,13 +213,15 @@ for user in get_all_active_users():
 
 ## RLS 连接复用安全要求
 
-`set_config(..., is_local=true)` 是事务级，COMMIT 后失效。但 SQLAlchemy 连接池跨请求复用连接时若时机不对，可能残留前一请求的 user_id 值，导致跨用户数据泄漏。
+`set_config(..., is_local=true)` 是事务级，**事务结束（COMMIT/ROLLBACK）即自动回收**，连接归还
+池时不带残留 GUC。配合 after_begin 在每个新事务重新注入，跨请求复用连接也不会串用户。
 
 **必须执行**：
-- `teardown_request` 把 GUC 清空（见上文 `reset_rls_user`，置空字符串 → `current_setting` 两参返回 NULL → fail-closed）
-- 集成测试必须覆盖"连续两个请求、不同用户"场景，验证第二个请求不读到第一个用户的数据（见下 `test_consecutive_requests_different_users`）
+- GUC 注入用 after_begin 事件 + before_request 设首事务（见上文§GUC 注入），不要只设一次。
+- 集成测试必须覆盖"连续两个请求、不同用户"场景，验证第二个请求不读到第一个用户的数据（见下 `test_consecutive_requests_different_users`）。
 
-> 注：钩子注册见 `routes-and-modules.md` 的 `create_app()`（`before_request(set_rls_user)` / `teardown_request(reset_rls_user)`）。`set_rls_user` / `reset_rls_user` 的实现见上文§GUC 注入。
+> 注：钩子注册见 `app/__init__.py` 的 `create_app()`（`before_request(set_request_rls_user)`；
+> after_begin 事件在 `app/services/rls.py` 导入时自动注册）。实现见上文§GUC 注入。
 
 ---
 
