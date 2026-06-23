@@ -5,6 +5,8 @@
 """
 from datetime import datetime, timedelta
 
+from sqlalchemy import func
+
 from app.extensions import db
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.services import srs
@@ -19,9 +21,12 @@ def create_word_list(user_id: int, name: str, language_code: str) -> WordList:
     return wl
 
 
-def get_word_lists(user_id: int) -> list[WordList]:
-    return (WordList.query
-            .filter_by(user_id=user_id)
+def get_word_lists(user_id: int) -> list[tuple[WordList, int]]:
+    """返回 [(word_list, word_count), ...]，一次聚合查出词数，避免模板 N+1。"""
+    return (db.session.query(WordList, func.count(Word.id))
+            .outerjoin(Word, Word.list_id == WordList.id)
+            .filter(WordList.user_id == user_id)
+            .group_by(WordList.id)
             .order_by(WordList.created_at.desc())
             .all())
 

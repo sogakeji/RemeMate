@@ -12,10 +12,10 @@
 
 {% if lists %}
 <ul>
-  {% for wl in lists %}
+  {% for wl, count in lists %}
   <li>
     <a href="{{ url_for('words.detail', list_id=wl.id) }}">{{ wl.name }}</a>
-    <small>[{{ wl.language_code }}] {{ wl.words|length }} 词</small>
+    <small>[{{ wl.language_code }}] {{ count }} 词</small>
     <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
           style="display:inline" onsubmit="return confirm('确认删除该词表？')">
       {{ form.csrf_token }}

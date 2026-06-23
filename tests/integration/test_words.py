@@ -94,3 +94,27 @@ def test_delete_list(app, client, bypass_engine):
         list_id = c.execute(text("SELECT id FROM word_lists WHERE name='ToDelete'")).scalar()
     client.post(f"/words/{list_id}/delete")
     assert "ToDelete" not in client.get("/words").get_data(as_text=True)
+
+
+def test_delete_list_after_review_cascades(app, client, bypass_engine):
+    """回归 review 2026-06-23：复习过的词表也能删（review_logs ON DELETE CASCADE）。"""
+    provision_user(app, "dr@t.com", PW)
+    login(client, "dr@t.com", PW)
+    client.post("/words", data={"name": "Reviewed", "language_code": "fr"})
+    with bypass_engine.connect() as c:
+        lid = c.execute(text("SELECT id FROM word_lists WHERE name='Reviewed'")).scalar()
+    client.post(f"/words/{lid}", data={"word": "w1", "meaning": "m"})
+    with bypass_engine.connect() as c:
+        wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
+    client.post(f"/review/{wid}/grade", data={"button": "easy"})   # 产生 review_logs
+
+    resp = client.post(f"/words/{lid}/delete")
+    assert resp.status_code in (302, 200)
+    with bypass_engine.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM word_lists WHERE id=:i"),
+                         {"i": lid}).scalar() == 0
+        # 子表也清干净
+        assert c.execute(text("SELECT count(*) FROM review_logs WHERE word_id=:i"),
+                         {"i": wid}).scalar() == 0
+        assert c.execute(text("SELECT count(*) FROM words WHERE id=:i"),
+                         {"i": wid}).scalar() == 0
