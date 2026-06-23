@@ -105,13 +105,20 @@ CREATE POLICY iso ON messages USING (
     conv_id IN (SELECT id FROM conversations
                 WHERE user_id = current_setting('app.current_user_id', true)::int));
 
--- output_entries：既存私人草稿又存广场公开句 → 本人可读 OR 已公开可读
-CREATE POLICY iso ON output_entries USING (
-    user_id = current_setting('app.current_user_id', true)::int
-    OR is_public = true);
+-- output_entries：读=本人 OR 已公开；写=仅本人。必须按命令拆 policy，
+-- 不能用单条 FOR ALL（USING 缺省即充当 WITH CHECK → 任何人可改/删公开句，见下警告）
+CREATE POLICY oe_sel ON output_entries FOR SELECT
+    USING (user_id = current_setting('app.current_user_id', true)::int OR is_public = true);
+CREATE POLICY oe_ins ON output_entries FOR INSERT
+    WITH CHECK (user_id = current_setting('app.current_user_id', true)::int);
+CREATE POLICY oe_upd ON output_entries FOR UPDATE
+    USING (user_id = current_setting('app.current_user_id', true)::int)
+    WITH CHECK (user_id = current_setting('app.current_user_id', true)::int);
+CREATE POLICY oe_del ON output_entries FOR DELETE
+    USING (user_id = current_setting('app.current_user_id', true)::int);
 ```
 
-> **output_entries 的公开例外**：造句表同时承载私人草稿和句子广场公开句。policy 必须带 `OR is_public = true`，否则广场读不到别人公开的句子。**写入**仍受限本人——RLS 默认 USING 同时作用于读写；如需允许任何人对公开句点夯/举报，点夯写在独立 `sentence_upvotes` 表（见下）。
+> **output_entries 的公开例外（必须按命令拆 policy）**：造句表同时承载私人草稿和句子广场公开句。SELECT policy 带 `OR is_public = true`，否则广场读不到别人公开的句子。但 INSERT/UPDATE/DELETE 必须**仅限本人**——若图省事用单条 `FOR ALL ... USING(user_id=me OR is_public)`，Postgres 在缺省 WITH CHECK 时把 USING 当 WITH CHECK，于是任何用户都能命中并**改写/删除别人的公开句**（广场内容完整性失守，review 2026-06-23 验证残留项）。所以读写分开建 policy（见上 `oe_sel`/`oe_ins`/`oe_upd`/`oe_del`）。对公开句的点夯/举报写在独立 `sentence_upvotes` 表（见下 Step 3），不经 output_entries 的写路径。
 
 **Step 3 — 句子广场公开聚合表的处理**
 
@@ -281,6 +288,20 @@ def test_output_entries_public_visible_across_users():
                      {"uid": str(user_b.id)})
         rows = conn.execute(text("SELECT * FROM output_entries WHERE is_public")).fetchall()
         assert len(rows) == 1   # user_b 能读到 user_a 的公开句
+
+def test_output_entries_public_not_writable_across_users():
+    """回归 2026-06-23 残留项：公开句只能读、不能被他人改/删（oe_upd/oe_del 仅本人）"""
+    user_a = create_user("a@test.com")
+    user_b = create_user("b@test.com")
+    eid = add_output_entry(user_a, is_public=True)
+    with app_role_connection() as conn:
+        conn.execute(text("SELECT set_config('app.current_user_id', :uid, true)"),
+                     {"uid": str(user_b.id)})
+        # user_b 改/删 user_a 的公开句：RLS 选不中行 → 0 行受影响（而非改写成功）
+        upd = conn.execute(text("UPDATE output_entries SET corrected='x' WHERE id=:id"), {"id": eid})
+        assert upd.rowcount == 0
+        dele = conn.execute(text("DELETE FROM output_entries WHERE id=:id"), {"id": eid})
+        assert dele.rowcount == 0
 
 def test_multi_commit_keeps_rls_user():
     """回归 A1e：一请求内多次 commit 后 GUC 仍在"""
