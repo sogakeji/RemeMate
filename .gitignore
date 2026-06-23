@@ -21,7 +21,7 @@ SECRETS.local.md
 *.db
 *.sqlite
 *.sqlite3
-migrations/versions/  # Alembic 自动生成，按需 gitignore
+# 注意：migrations/versions/ 必须入库（含手写 RLS/角色迁移，B3 决策），不要 gitignore
 
 # Flask / runtime
 instance/
