@@ -72,6 +72,17 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
         )
 
     data = _parse(res.content)
+    if data is None:
+        # 完全解析不出 JSON：当作降级（不是"真批改"），fail-closed，给用户清晰提示，
+        # 而不是伪装成"没用到目标词"误导（review 阶段四 LOW）。
+        return CorrectionResult(
+            corrected=sentence, translation="", target_word_used=False,
+            incomplete=False, errors=[], is_nsfw=True,
+            feedback="批改结果解析异常，已保存原句，可稍后重试批改。",
+            degraded=True,
+            provider=res.provider, model=res.model,
+            prompt_tokens=res.prompt_tokens, completion_tokens=res.completion_tokens,
+        )
     return CorrectionResult(
         corrected=data.get("corrected") or sentence,
         translation=data.get("translation") or "",
@@ -85,8 +96,8 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
     )
 
 
-def _parse(content: str) -> dict:
-    """容错解析 JSON：直接解析失败时尝试截取首个 {...}。失败则 fail-closed 空结果。"""
+def _parse(content: str):
+    """容错解析 JSON：直接失败则尝试截取首个 {...}。完全解析不出返回 None。"""
     try:
         return json.loads(content)
     except (json.JSONDecodeError, TypeError):
@@ -96,4 +107,4 @@ def _parse(content: str) -> dict:
         end = content.rindex("}") + 1
         return json.loads(content[start:end])
     except (ValueError, json.JSONDecodeError):
-        return {"is_nsfw": True}    # 解析不出 → 保守
+        return None    # 解析不出 → 调用方按降级 fail-closed 处理

@@ -66,8 +66,7 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
     word = get_word(user_id, word_id)
     if word is None:
         return None
-    has_error = bool(pending.get("errors")) or not pending.get("target_word_used") \
-        or pending.get("incomplete")
+    has_error = bool(pending.get("has_error"))   # 提交时已算好（见 write 路由）
     entry = OutputEntry(
         word_id=word_id, user_id=user_id,
         original=pending.get("original", ""),

@@ -7,12 +7,17 @@
 
 ## 上线前必做（开放注册 / 部署前）
 
-- **按 token 计的额度硬约束**
-  来源：用户决策 2026-06-23（阶段四）。当前 /write 门禁按「句数」计（系统 3 / 自带 20），
-  按提交次数。问题：单句 140 字符 + 批改多轮，token 理论上仍可能被放大；自带 key（20 句、
-  长度不限）或将来开放注册时尤甚。**邀请制下不会失控**，但开放注册前必须补一层按 token 的
-  硬上限（`UserQuota.tokens_used_today` 已有，接 `daily_base_limit` 做拦截）+ 单请求 token 上限
-  （`MAX_TOKENS_PER_REQUEST`，token-quota.md 已设计但 /write 未接）。
+- **按 token 计的额度硬约束 + 额度并发 TOCTOU**
+  来源：用户决策 2026-06-23 + review 阶段四 M（MEDIUM）。当前 /write 门禁按「句数」计
+  （系统 3 / 自带 20，按提交）。两个相关问题一起处理：
+  1. 单句 140 字符 + 批改多轮，token 理论上可放大；自带 key 或开放注册时尤甚。需补按 token
+     的硬上限（`UserQuota.tokens_used_today` + `daily_base_limit` 拦截）+ 单请求 token 上限
+     `MAX_TOKENS_PER_REQUEST`（token-quota.md 已设计，/write 未接）。
+  2. `writing.submit_correction` 是 check-then-record：`check_write_quota`（只读）→ 批改（~3s）
+     → `record_correction`（才 +1）。并发提交可都过预检后各自 +1，**突破每日上限**（review C5
+     的「check 不预占」同病）。改原子自增：
+     `UPDATE user_quota SET corrections_today=corrections_today+1 WHERE corrections_today<:limit RETURNING`，
+     按返回行数判放行。邀请制下影响有限，开放注册前必修。
 
 - **htmx 本地化**（review 2026-06-23 L7）
   base.html 从 unpkg CDN 加载 htmx；CDN 宕/被墙时核心复习/造句交互全废。改为本地静态资源。
@@ -23,6 +28,18 @@
 
 - **Bitwarden 迁机评估**（v0.1 §2.3）
   开放注册前评估把同机 Bitwarden 迁到独立机器（RemeMate 漏洞勿波及密码库）。
+
+---
+
+## 句子广场上线前（phase 7）必做
+
+- **NSFW 判定不能搭批改的 failover 链**（review 阶段四 M，MEDIUM）
+  `is_nsfw` 是批改 JSON 的字段，走 `task="correction"` 链（DeepSeek→GPT）。DeepSeek 挂时
+  GPT 同时做批改和 NSFW 判定，违反 llm-failover.md「NSFW 仅 DeepSeek、fail-closed」。全挂时
+  已 fail-closed（degraded→is_nsfw=True），缺口在「DeepSeek 挂、GPT 在」半挂态：GPT 可能漏判
+  NSFW→用户能公开 NSFW 到广场。P1 广场未上线影响小。phase 7 前修：批改 provider≠deepseek 时
+  publish 用的 is_nsfw 强制 True（保守），或公开前单独跑一次仅 DeepSeek 的 nsfw 链
+  （llm.py 已留 `"nsfw"` 链，当前未被调用）。
 
 ---
 

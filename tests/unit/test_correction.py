@@ -46,10 +46,12 @@ def test_malformed_json_recovered_or_failclosed():
     assert r.corrected == "Y"                # 截取首个 {...} 成功
 
 
-def test_unparseable_failclosed():
+def test_unparseable_failclosed_and_degraded():
     _set("完全不是 JSON")
     r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
     assert r.is_nsfw is True                 # 解析不出 → 保守
+    assert r.degraded is True                # 标记降级，不伪装成"真批改"
+    assert "解析异常" in r.feedback
 
 
 def test_all_providers_down_degraded():

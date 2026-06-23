@@ -47,15 +47,17 @@ def submit():
         abort(404)
 
     # 暂存待保存内容到签名 session（含可信 is_nsfw），不入库
+    # 只存 save 需要的字段，避免把 LLM 返回的 errors[] 整列塞进签名 cookie（4KB 限）。
+    # has_error 在此一次性算好（errors[] 仅用于它），不进 session。
+    has_error = (bool(result.errors) or not result.target_word_used
+                 or result.incomplete)
     session["pending"] = {
         "word_id": word_id,
         "original": sentence.strip(),
         "corrected": result.corrected,
         "translation": result.translation,
         "feedback": result.feedback,
-        "errors": result.errors,
-        "target_word_used": result.target_word_used,
-        "incomplete": result.incomplete,
+        "has_error": has_error,
         "is_nsfw": result.is_nsfw,
     }
     return render_template("write/_result.html", r=result, degraded=result.degraded)
