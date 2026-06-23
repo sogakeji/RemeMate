@@ -16,7 +16,7 @@ rememate/
 │   ├── models/
 │   │   ├── user.py              # User, UserSettings, UserQuota
 │   │   ├── word.py              # WordList, Word, Definition, ReviewLog
-│   │   ├── output.py            # PracticeAttempt（造句记录）
+│   │   ├── output.py            # OutputEntry（造句记录，表名 output_entries）
 │   │   ├── intake.py            # IntakeSource, SourceSegment, WordCandidate
 │   │   ├── social.py            # SentenceUpvote
 │   │   └── conversation.py      # Conversation, Message
@@ -122,20 +122,25 @@ POST /settings                  保存设置
 ### words
 ```
 GET  /words                     词库列表
+POST /words                     新建词表（name + language_code）← 新用户首个入口
 GET  /words/<list_id>           词表详情
+POST /words/<list_id>/delete    删除词表（HTMX，二次确认）
 GET  /review                    SRS 复习页（三按钮）
-POST /review/<word_id>/grade    提交复习评分（HTMX）
+POST /review/<word_id>/grade    提交复习评分（HTMX，三按钮→SM-2 质量分见 v0.1 §SRS 三按钮映射）
 GET  /write                     造句日记页
 POST /write/<word_id>/submit    提交造句，触发 AI 批改（SSE 流式）
 POST /write/<entry_id>/publish  公开到句子广场（HTMX）
 ```
 
+> **建表入口是 day-1 阻塞点（review C1）**：`IntakeSource.word_list_id` 非空，CSV/extract/quick-add 都要求先有词表。新用户零词表 → 必须先能 `POST /words` 建表，否则整条入库链卡死。建议入库页在用户无词表时内联引导建表，或注册时默认建一个「我的词库」。
+
 ### intake
 ```
 GET  /intake/import             CSV 上传页
-POST /intake/import             上传并创建 intake_source
+POST /intake/import             解析 CSV、建 intake_source，返回 source_id（不调 AI，秒回）
+GET  /intake/<source_id>/process  SSE：分批调 DeepSeek 归一化，推进度（避免 nginx 超时）
 GET  /intake/extract            文本抽词页
-POST /intake/extract            提交文本，创建 intake_source + 后台处理
+POST /intake/extract            提交文本，创建 intake_source + SSE 流式抽词
 GET  /intake/quick-add          快速加词页
 POST /intake/quick-add          提交词条，AI 补全后入候选或直接入库
 GET  /intake/<source_id>/candidates   候选词审核页

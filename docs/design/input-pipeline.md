@@ -31,7 +31,7 @@ POST /intake/<source_id>/commit
 words + definitions（正式入库，触发 SRS 初始化）
 ```
 
-所有步骤在同一请求链内同步完成（CSV 和快速加词），或通过 HTMX SSE 流式显示进度（文本抽词）。P1 无异步队列。
+P1 无异步队列（不上 Celery/RQ），但**只有 quick-add 是单请求同步完成**；CSV 和 /extract 都走 SSE 流式，边处理边吐进度。原因：CSV 500 词 ≈ 25 批 ×（2–10s）会让单个 HTTP 请求卡几分钟，nginx `proxy_read_timeout`（默认 60s）会直接掐断。gevent 解决了 worker 占用，但解决不了 nginx 超时——必须用 SSE 把响应持续写出，保持连接活跃。
 
 ---
 
@@ -53,12 +53,14 @@ décollage,nm,起飞,Le décollage m'a coupé le souffle.,可选备注
 - 编码：UTF-8（上传页面提示并提供模板下载）
 - 格式不符 → 返回错误 + 下载模板链接，不尝试猜测列映射
 
-**处理逻辑**：
+**处理逻辑（SSE 流式，避免 nginx 超时）**：
 
-1. 解析 CSV，逐行写入 `source_segments`（每行一条 segment）
-2. 按批次（每批 20 条）调 DeepSeek 归一化：补全缺失字段、修正词形、标准化 part_of_speech
-3. 归一化结果写入 `word_candidates`，`status='pending'`
-4. 跳转至 `/intake/<source_id>/candidates` 审核页
+1. POST 上传 → 同步解析 CSV、逐行写入 `source_segments`、创建 `intake_source`（status=`processing`），立即返回 source_id（快，不调 AI）
+2. 前端用 SSE 连 `GET /intake/<source_id>/process`：后端按批次（每批 20 条）调 DeepSeek 归一化，**每批完成 push 一个进度事件**（`event: progress, data: {done: 40, total: 500}`），保持连接活跃
+3. 每批结果即时写入 `word_candidates`，`status='pending'`
+4. 全部完成 push `event: done` → 前端跳转 `/intake/<source_id>/candidates` 审核页
+
+> nginx 侧需对 `/intake/*/process`、`/intake/extract`、`/write/*/submit`、`/tutor/*/message` 等 SSE 端点关闭缓冲：`proxy_buffering off;` + 加长 `proxy_read_timeout`。
 
 CSV 文件本身不持久化存储，仅在请求生命周期内处理。
 
@@ -136,6 +138,8 @@ class WordCandidate(db.Model):
     meaning         = db.Column(db.Text)
     example         = db.Column(db.Text)
     note            = db.Column(db.Text)
+    context_start   = db.Column(db.Integer, nullable=True)  # /extract 原文字符偏移，用于高亮（CSV/quick-add 为 NULL）
+    context_end     = db.Column(db.Integer, nullable=True)
     status          = db.Column(db.String(20), default="pending")  # pending / accepted / ignored
     word_id         = db.Column(db.Integer, db.ForeignKey("words.id"))  # commit 后填入
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
@@ -168,6 +172,7 @@ RLS 约束：所有表均有 `user_id` FK，Postgres RLS policy 同其他表（�
 
 ```python
 def commit_intake_source(source_id: int, user_id: int):
+    source = IntakeSource.query.filter_by(id=source_id, user_id=user_id).first_or_404()
     candidates = WordCandidate.query.filter_by(
         source_id=source_id,
         user_id=user_id,
@@ -218,9 +223,11 @@ def commit_intake_source(source_id: int, user_id: int):
 
 | 入口 | 调用时机 | 批次大小 | token 计入 |
 |---|---|---|---|
-| CSV | 上传后同步 | 每批 20 条 | 是 |
+| CSV | 解析后 SSE 流式分批（`/intake/<id>/process`）| 每批 20 条 | 是 |
 | /extract | 用户提交后 SSE 流式 | 整段 | 是 |
-| /quick-add | 用户提交后同步 | 单词 | 是 |
+| /quick-add | 用户提交后同步（单词，秒回）| 单词 | 是 |
+
+> 注：`/extract` 和 CSV 的单次抽词/归一化批量较大，受 token-quota.md 的 `MAX_TOKENS_PER_REQUEST` 单请求上限约束；超大文本应在前端或解析阶段分块，单批不超过该上限。
 
 失败处理：
 - DeepSeek 单批失败 → 该批候选词 `status='error'`，标注"AI 处理失败，请手动填写"，不阻断整体流程

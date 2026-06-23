@@ -86,28 +86,61 @@ flask create-user --email user@example.com --name "Alice" [--admin]
 
 执行后：
 1. 生成随机初始密码并打印到终端（一次性，不存储明文）
-2. 写入 `users` 表，`is_active=True`
+2. **同一事务**写入 `users` + `user_settings` + `user_quota` 三张表（缺任一张，用户首次用 AI 必崩，见下警告）
 3. 用户首次登录后可在 /settings 修改密码
+
+> **★ 关键：provisioning 必须一次建全（回归 review A3）**
+> 只插 `User` 一行的话：
+> - `UserQuota.query.get(user_id)` 返回 `None` → quota.py 下一行 `AttributeError` → **任何新用户第一次点 AI = 500**。
+> - `UserSettings` 缺失 → dispatch 的四个 notify 开关读不到，settings 页报错。
+> - `quota_reset_at` 不初始化（`None`）→ `_maybe_reset` 永远跳过重置 → 当天烧满额度后**永久锁死 AI**。
+> 所以 create_user 必须在同一事务建全三张表，且 `quota_reset_at` 初始化为下一个本地午夜。
 
 ```python
 @app.cli.command("create-user")
 @click.option("--email", required=True)
 @click.option("--name", required=True)
 @click.option("--admin", is_flag=True, default=False)
-def create_user(email, name, admin):
+@click.option("--tz", default="Asia/Shanghai")
+def create_user(email, name, admin, tz):
     import secrets
+    from app.services.quota import _next_midnight_utc
     password = secrets.token_urlsafe(12)
+
     user = User(
         email=email,
         display_name=name,
         password_hash=generate_password_hash(password),
         role="admin" if admin else "user",
         is_active=True,
+        timezone=tz,
     )
     db.session.add(user)
+    db.session.flush()   # 拿到 user.id，三张表同事务
+
+    settings = UserSettings(
+        user_id=user.id,
+        # 四个通知开关默认值（与 dispatch-multiuser.md 对齐）
+        notify_review_reminder=True,
+        notify_daily_summary=True,
+        notify_intake_done=True,
+        notify_partner_activity=False,
+    )
+    quota = UserQuota(
+        user_id=user.id,
+        daily_base_limit=50_000,
+        tokens_used_today=0,
+        bonus_tokens_today=0,
+        quota_reset_at=_next_midnight_utc(tz),   # ★ 必须初始化，否则永不重置
+    )
+    db.session.add_all([settings, quota])
     db.session.commit()
     click.echo(f"用户已创建：{email}  初始密码：{password}")
 ```
+
+> 同样地，未来开放注册（P2）的注册路由也必须复用这套「三表一事务」provisioning，建议抽成 `services/provisioning.py:create_user_with_defaults()` 供 CLI 和注册路由共用。
+
+> **★ CLI 必须走 BYPASSRLS 连接**：FORCE RLS 后，CLI 没有请求上下文、GUC 未设，对 `user_settings`/`user_quota` 的 INSERT 会被 RLS 的 WITH CHECK 拒绝。`create-user` 等 CLI 命令统一用 `rememate_dispatch`（BYPASSRLS）engine，不走 app 的 `db.session`。详见 [data-isolation-security.md](../design/data-isolation-security.md) §CLI 必须绕过 RLS。上面的 `db.session` 仅示意三表一事务的写入顺序，实际连接用 BYPASSRLS engine。
 
 其他 CLI 命令：
 ```bash

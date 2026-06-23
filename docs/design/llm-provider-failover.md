@@ -49,7 +49,7 @@ def chat(messages, stream=False, task='general') -> str | Generator:
 - 单 provider 连续失败 N 次（建议 N=3）→ 标记为 DOWN，跳过 T 分钟（建议 T=5）
 - T 分钟后自动进入 HALF-OPEN，试探一次
 - 成功 → 恢复 CLOSED；失败 → 重新 OPEN T 分钟
-- 状态存内存（单进程）或 Redis（多 worker）
+- **状态存内存即可**：P1 部署为 `gunicorn -k gevent -w 2`（见 v0.1 §2.2/§6）。gevent 单进程内协程共享内存，熔断状态一致；`-w 2` 下是 2 个独立熔断器，差异可接受（最坏一个 worker 多试探一次）。不引入 Redis。P2 若升多进程/多节点再上 Redis 共享状态
 
 ---
 
@@ -109,5 +109,5 @@ NSFW 检测只挂 DeepSeek，无备用 provider。DeepSeek DOWN 时直接走 fai
 ## 实现优先级
 
 - **P1 必须有**：Provider 抽象层 + 至少一个备用 provider 配置（即使不启用，接口要在）；25s 总超时；NSFW fail-closed
-- **P1 建议有**：简单熔断器（内存版，gevent 单进程下状态一致，不需要 Redis）
+- **P1 建议有**：简单熔断器（内存版；`-w 2` 下每 worker 各一份，单 worker 内 gevent 协程共享状态一致，跨 2 worker 的微小差异可接受，不需要 Redis）
 - **P2**：Redis 熔断状态（若将来升多进程）、provider 成本监控面板
