@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}登录 · 记搭{% endblock %}
+{% block content %}
+<h1>登录</h1>
+<form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+  {{ form.csrf_token }}
+  <p>
+    {{ form.email.label }}<br>
+    {{ form.email(autofocus=true, autocomplete="username") }}
+  </p>
+  <p>
+    {{ form.password.label }}<br>
+    {{ form.password(autocomplete="current-password") }}
+  </p>
+  <button type="submit">登录</button>
+</form>
+{% endblock %}

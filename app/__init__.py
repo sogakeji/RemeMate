@@ -6,7 +6,7 @@
 from flask import Flask
 
 from config import get_config
-from app.extensions import db, login_manager, migrate
+from app.extensions import db, login_manager, migrate, csrf
 
 
 def create_app(config_name=None):
@@ -17,6 +17,7 @@ def create_app(config_name=None):
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    csrf.init_app(app)
 
     # 导入全部 models，确保 metadata 完整（Flask-Migrate autogenerate 依赖）
     from app import models  # noqa: F401
@@ -32,6 +33,18 @@ def create_app(config_name=None):
         from app.models.user import User
 
         return db.session.get(User, int(user_id))
+
+    # 蓝图
+    from app.blueprints.auth import bp as auth_bp
+    from app.blueprints.main import bp as main_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
+
+    # CLI 命令
+    from cli.commands import register_commands
+
+    register_commands(app)
 
     @app.get("/healthz")
     def healthz():

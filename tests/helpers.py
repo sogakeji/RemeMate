@@ -45,3 +45,15 @@ def set_uid(conn, uid):
     """在 app 连接上设置 RLS GUC（session 级，持续到连接关闭）。uid=None → 置空字符串。"""
     conn.execute(text("SELECT set_config('app.current_user_id', :u, false)"),
                  {"u": "" if uid is None else str(uid)})
+
+
+def provision_user(app, email="u@t.com", password="pw12345678",
+                   name="Tester", admin=False, tz="Asia/Shanghai"):
+    """在 app 上下文里走 provisioning（BYPASSRLS）建账号，返回 user_id。"""
+    from app.services.provisioning import create_user_with_defaults
+
+    with app.app_context():
+        uid, _ = create_user_with_defaults(
+            email, name, admin=admin, timezone=tz, password=password
+        )
+    return uid

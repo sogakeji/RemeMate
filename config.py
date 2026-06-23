@@ -37,10 +37,11 @@ class DevelopmentConfig(BaseConfig):
 class TestingConfig(BaseConfig):
     TESTING = True
     WTF_CSRF_ENABLED = False
-    # 测试库默认复用同一 dev 库；conftest 负责建表与清理
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "TEST_DATABASE_URL", os.environ.get("DATABASE_URL")
-    )
+    # 测试一律连独立 rememate_test 库，app 与 dispatch(provisioning) 都指向它，
+    # 绝不在测试中误写 dev 库。
+    SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL")
+    DISPATCH_DATABASE_URL = os.environ.get("TEST_DISPATCH_DATABASE_URL")
+    MIGRATE_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 
 
 class ProductionConfig(BaseConfig):

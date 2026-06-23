@@ -68,3 +68,20 @@ def clean_db(bypass_engine):
     _wipe(bypass_engine)
     yield
     _wipe(bypass_engine)
+
+
+@pytest.fixture
+def app():
+    from app import create_app
+
+    return create_app("testing")
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
+def runner(app):
+    return app.test_cli_runner()
