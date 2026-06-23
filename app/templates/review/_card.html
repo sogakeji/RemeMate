@@ -1,0 +1,24 @@
+<div id="review-card">
+{% if word %}
+  <div class="card">
+    <h2>{{ word.word }}</h2>
+    {% for d in word.definitions %}
+      <details><summary>显示释义</summary>
+        <p>{{ d.meaning }}{% if d.example %}<br><em>{{ d.example }}</em>{% endif %}</p>
+      </details>
+    {% endfor %}
+  </div>
+  <div class="buttons">
+    {% set grade_url = url_for('words.grade', word_id=word.id) %}
+    <button hx-post="{{ grade_url }}" hx-vals='{"button":"forgot"}'
+            hx-target="#review-card" hx-swap="outerHTML">没记住</button>
+    <button hx-post="{{ grade_url }}" hx-vals='{"button":"fuzzy"}'
+            hx-target="#review-card" hx-swap="outerHTML">有点模糊</button>
+    <button hx-post="{{ grade_url }}" hx-vals='{"button":"easy"}'
+            hx-target="#review-card" hx-swap="outerHTML">秒记起</button>
+  </div>
+{% else %}
+  <p>🎉 今日复习完成，没有到期的词了。</p>
+  <p><a href="{{ url_for('words.lists') }}">回到词库</a></p>
+{% endif %}
+</div>

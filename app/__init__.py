@@ -37,9 +37,11 @@ def create_app(config_name=None):
     # 蓝图
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.main import bp as main_bp
+    from app.blueprints.words import bp as words_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(words_bp)
 
     # CLI 命令
     from cli.commands import register_commands

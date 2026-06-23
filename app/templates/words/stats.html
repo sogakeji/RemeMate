@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}统计 · 记搭{% endblock %}
+{% block content %}
+<h1>学习统计</h1>
+<ul>
+  <li>词表数：{{ stats.list_count }}</li>
+  <li>总词数：{{ stats.total_words }}</li>
+  <li>今日到期：{{ stats.due_count }}</li>
+  <li>今日已复习：{{ stats.reviewed_today }}</li>
+</ul>
+<p><a href="{{ url_for('words.review') }}">开始复习</a></p>
+{% endblock %}

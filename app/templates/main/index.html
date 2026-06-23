@@ -2,6 +2,11 @@
 {% block title %}首页 · 记搭{% endblock %}
 {% block content %}
 <h1>欢迎，{{ user.display_name }}</h1>
-<p>这是首页占位，阶段三接入 SRS 复习看板。</p>
-<p><a href="{{ url_for('auth.logout') }}">登出</a></p>
+{% if stats.due_count > 0 %}
+  <p>今日有 <strong>{{ stats.due_count }}</strong> 个词到期。
+     <a href="{{ url_for('words.review') }}">开始复习 →</a></p>
+{% else %}
+  <p>今日没有到期的词。<a href="{{ url_for('words.lists') }}">去加词</a></p>
+{% endif %}
+<p><small>总词数 {{ stats.total_words }} · 今日已复习 {{ stats.reviewed_today }}</small></p>
 {% endblock %}

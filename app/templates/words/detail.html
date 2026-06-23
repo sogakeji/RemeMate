@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ wl.name }} · 记搭{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('words.lists') }}">← 词库</a></p>
+<h1>{{ wl.name }} <small>[{{ wl.language_code }}]</small></h1>
+
+<h2>加词</h2>
+<form method="post" action="{{ url_for('words.detail', list_id=wl.id) }}">
+  {{ form.csrf_token }}
+  <p>{{ form.word.label }} {{ form.word() }}</p>
+  <p>{{ form.part_of_speech.label }} {{ form.part_of_speech() }}</p>
+  <p>{{ form.meaning.label }}<br>{{ form.meaning(rows=2) }}</p>
+  <p>{{ form.example.label }}<br>{{ form.example(rows=2) }}</p>
+  <button type="submit">加入</button>
+</form>
+
+<h2>词（{{ wl.words|length }}）</h2>
+{% if wl.words %}
+<ul>
+  {% for w in wl.words %}
+  <li>
+    <strong>{{ w.word }}</strong>
+    {% for d in w.definitions %}— {{ d.meaning }}{% endfor %}
+    <small>due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}</small>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>这个词表还没有词。</p>
+{% endif %}
+{% endblock %}

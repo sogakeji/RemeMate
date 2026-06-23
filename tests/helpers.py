@@ -57,3 +57,7 @@ def provision_user(app, email="u@t.com", password="pw12345678",
             email, name, admin=admin, timezone=tz, password=password
         )
     return uid
+
+
+def login(client, email="u@t.com", password="pw12345678"):
+    return client.post("/login", data={"email": email, "password": password})

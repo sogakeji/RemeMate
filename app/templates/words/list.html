@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}词库 · 记搭{% endblock %}
+{% block content %}
+<h1>我的词库</h1>
+
+<form method="post" action="{{ url_for('words.lists') }}">
+  {{ form.csrf_token }}
+  {{ form.name(placeholder="词表名") }}
+  {{ form.language_code() }}
+  <button type="submit">新建词表</button>
+</form>
+
+{% if lists %}
+<ul>
+  {% for wl in lists %}
+  <li>
+    <a href="{{ url_for('words.detail', list_id=wl.id) }}">{{ wl.name }}</a>
+    <small>[{{ wl.language_code }}] {{ wl.words|length }} 词</small>
+    <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
+          style="display:inline" onsubmit="return confirm('确认删除该词表？')">
+      {{ form.csrf_token }}
+      <button type="submit">删除</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>还没有词表，先新建一个。</p>
+{% endif %}
+{% endblock %}
