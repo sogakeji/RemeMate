@@ -25,10 +25,11 @@ def test_lockout_after_five_failures(app, client):
     provision_user(app, "lock@t.com", PW)
     for _ in range(5):
         client.post("/login", data={"email": "lock@t.com", "password": "bad"})
-    # 第 6 次即便密码正确也被锁定
+    # 第 6 次即便密码正确也被拒（锁定中），且回通用消息（不泄露锁定状态）
     resp = client.post("/login", data={"email": "lock@t.com", "password": PW})
-    assert resp.status_code == 200
-    assert "账号已锁定" in resp.get_data(as_text=True)
+    assert resp.status_code == 200                       # 未登录成功（非 302）
+    assert "邮箱或密码错误" in resp.get_data(as_text=True)
+    assert "账号已锁定" not in resp.get_data(as_text=True)
 
 
 def test_inactive_user_cannot_login(app, client):

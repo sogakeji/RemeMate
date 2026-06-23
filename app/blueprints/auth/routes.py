@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 from app.models.user import User
@@ -22,6 +22,8 @@ bp = Blueprint("auth", __name__)
 MAX_ATTEMPTS = 5
 LOCK_MINUTES = 15
 _GENERIC_ERROR = "邮箱或密码错误"
+# 固定 dummy hash：user 不存在时也跑一次哈希校验，抹平计时侧信道（防枚举）。
+_DUMMY_HASH = generate_password_hash("rememate-timing-dummy")
 
 
 def _is_safe_next(target: str) -> bool:
@@ -40,12 +42,16 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data, is_active=True).first()
 
-        # 锁定中：统一提示，不泄露账号是否存在
-        if user and user.locked_until and user.locked_until > datetime.utcnow():
-            flash("账号已锁定，请稍后再试")
-            return render_template("auth/login.html", form=form)
+        locked = bool(user and user.locked_until
+                      and user.locked_until > datetime.utcnow())
 
-        if user and check_password_hash(user.password_hash, form.password.data):
+        # 始终跑一次哈希校验（user 为 None 时校验 dummy），消除「存在与否」的计时差。
+        pw_ok = check_password_hash(
+            user.password_hash if user else _DUMMY_HASH,
+            form.password.data,
+        )
+
+        if user and pw_ok and not locked:
             user.login_attempts = 0
             user.locked_until = None
             db.session.commit()
@@ -53,8 +59,9 @@ def login():
             nxt = request.args.get("next")
             return redirect(nxt if _is_safe_next(nxt) else url_for("main.index"))
 
-        # 失败：存在的账号累计失败数；不存在的不泄露
-        if user:
+        # 所有失败（不存在 / 密码错 / 锁定中）一律通用消息，不泄露账号状态。
+        # 仅对「存在且未锁」的账号累计失败数并触发锁定。
+        if user and not locked:
             user.login_attempts = (user.login_attempts or 0) + 1
             if user.login_attempts >= MAX_ATTEMPTS:
                 user.locked_until = datetime.utcnow() + timedelta(minutes=LOCK_MINUTES)

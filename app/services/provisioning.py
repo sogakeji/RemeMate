@@ -10,7 +10,8 @@ CLI 与未来的注册路由都复用本模块（auth-flow.md 的「三表一事
 import secrets
 
 from flask import current_app
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
 
@@ -70,7 +71,12 @@ def create_user_with_defaults(email, display_name, *, admin=False,
             bonus_tokens_today=0,
             quota_reset_at=next_midnight_utc(timezone),  # 必须初始化，禁留 None
         ))
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # 并发下两个请求都过了上面的预检，唯一约束在此兜底（以 DB 为准）
+            session.rollback()
+            raise UserExistsError(email) from None
         return user.id, password
     finally:
         session.close()
