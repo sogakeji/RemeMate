@@ -20,11 +20,12 @@ def upgrade():
     # 只加 corrections_today。
     # ⚠ 移除了 autogenerate 误生成的 drop_index('uq_users_email_lower')：那是 M5 手写的
     # 函数唯一索引（lower(email)），autogenerate 不认识手写对象会误删（同 B3 决策的陷阱）。
-    op.add_column(
-        "user_quota",
-        sa.Column("corrections_today", sa.Integer(), nullable=False, server_default="0"),
+    # IF NOT EXISTS 保证可重入（review 2026-06-23 M7）。
+    op.execute(
+        "ALTER TABLE user_quota "
+        "ADD COLUMN IF NOT EXISTS corrections_today integer NOT NULL DEFAULT 0;"
     )
 
 
 def downgrade():
-    op.drop_column("user_quota", "corrections_today")
+    op.execute("ALTER TABLE user_quota DROP COLUMN IF EXISTS corrections_today;")

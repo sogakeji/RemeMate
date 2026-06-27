@@ -99,7 +99,7 @@ def test_stats_counts(app, client, bypass_engine):
 
     page = client.get("/stats").get_data(as_text=True)
     assert "总词数：2" in page
-    assert "今日到期：2" in page
+    assert "待复习：2" in page
 
 
 def test_delete_list(app, client, bypass_engine):

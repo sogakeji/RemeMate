@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}记搭 RemeMate{% endblock %}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
   <script>
     // 给所有 HTMX 请求带上 CSRF 头（Flask-WTF 接受 X-CSRFToken）
     document.addEventListener('htmx:configRequest', function (e) {

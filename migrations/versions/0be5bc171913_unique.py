@@ -19,7 +19,8 @@ depends_on = None
 def upgrade():
     # 邮箱大小写无关唯一（M5）。写入侧已 normalize_email() 小写化，这里加函数索引
     # 兜底任何漏归一化的写路径。原 users_email_key 保留无害。
-    op.execute("CREATE UNIQUE INDEX uq_users_email_lower ON users (lower(email));")
+    # IF NOT EXISTS 保证可重入（review 2026-06-23 M7）。
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower ON users (lower(email));")
 
 
 def downgrade():

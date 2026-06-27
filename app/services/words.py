@@ -6,10 +6,13 @@
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
+from app.models.user import User
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.services import srs
+from app.services.timeutil import today_local_start_utc
 
 
 # ---- 词表 ----
@@ -31,8 +34,13 @@ def get_word_lists(user_id: int) -> list[tuple[WordList, int]]:
             .all())
 
 
-def get_word_list(user_id: int, list_id: int) -> WordList | None:
-    return WordList.query.filter_by(id=list_id, user_id=user_id).first()
+def get_word_list(user_id: int, list_id: int, *, eager: bool = False) -> WordList | None:
+    """取词表。eager=True 时预加载 words 及其 definitions，消除详情页逐词懒加载的 N+1
+    （review 2026-06-23 M6）。默认不预加载，供 delete/add_word 等仅需存在性校验的场景。"""
+    q = WordList.query.filter_by(id=list_id, user_id=user_id)
+    if eager:
+        q = q.options(selectinload(WordList.words).selectinload(Word.definitions))
+    return q.first()
 
 
 def delete_word_list(user_id: int, list_id: int) -> bool:
@@ -99,8 +107,12 @@ def get_due_words(user_id: int, limit: int | None = None) -> list[Word]:
 # ---- 统计 ----
 
 def get_stats(user_id: int) -> dict:
+    # 「今日已复习」按用户本地午夜切（review 2026-06-23 M2）。
+    # 注意 `due_count` 是「所有到期（due_date <= now）」语义，含逾期未做的词；
+    # 模板文案以「待复习」表达，不要称作「今日到期」（review 2026-06-23 L1）。
+    tz = (db.session.get(User, user_id) or User()).timezone or "Asia/Shanghai"
     now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = today_local_start_utc(tz)
     total = (Word.query.join(WordList)
              .filter(WordList.user_id == user_id).count())
     due = (Word.query.join(WordList)

@@ -12,6 +12,11 @@ from datetime import datetime, timedelta
 EASE_FLOOR = 1.3
 BUTTON_TO_QUALITY = {"forgot": 2, "fuzzy": 3, "easy": 5}
 
+# lapse 后不复位到 now（否则 `due_date=now` + /review limit=1 会让同一张牌立刻再现，
+# 形成「死循环感」——review 2026-06-23 M8）。给一个最小区间把它从「即时到期」
+# 队列队首移开，让本轮先转去复习其他到期词，稍后再回到这张 lapse 牌。
+LAPSE_MIN_DELAY = timedelta(minutes=10)
+
 
 def quality_from_button(button: str) -> int:
     try:
@@ -32,11 +37,11 @@ def grade(word, quality: int, now: datetime | None = None):
     word.ease = _next_ease(word.ease, quality)  # ease 每次都更新（含 lapse）
 
     if quality < 3:
-        # lapse：重置，今天重排（同 session 再现）
+        # lapse：重置，给最小区间推迟（见 LAPSE_MIN_DELAY），避免立即再现死循环。
         word.reps = 0
         word.interval = 1
         word.lapses = (word.lapses or 0) + 1
-        word.due_date = now
+        word.due_date = now + LAPSE_MIN_DELAY
     else:
         if word.reps == 0:
             word.interval = 1

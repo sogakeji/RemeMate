@@ -31,7 +31,7 @@ def lists():
 @bp.route("/words/<int:list_id>", methods=["GET", "POST"])
 @login_required
 def detail(list_id):
-    wl = words_svc.get_word_list(_uid(), list_id)
+    wl = words_svc.get_word_list(_uid(), list_id, eager=True)
     if wl is None:
         abort(404)
     form = AddWordForm()
