@@ -1,9 +1,11 @@
-<div class="saved">
-  <p>✅ 已保存到造句历史。</p>
-  {% if not entry.is_nsfw %}
-    <button hx-post="{{ url_for('write.publish', entry_id=entry.id) }}"
-            hx-target="#write-result" hx-swap="innerHTML">公开到句子广场</button>
-  {% endif %}
-  <a href="{{ url_for('write.compose') }}">再写一句</a> ·
-  <a href="{{ url_for('write.history') }}">查看历史</a>
+<div class="word-card" style="margin-top:15px;">
+  <p style="color:var(--success-color);">✅ 已保存到造句历史。</p>
+  <div class="button-group" style="margin-top:14px;">
+    {% if not entry.is_nsfw %}
+      <button class="btn primary" hx-post="{{ url_for('write.publish', entry_id=entry.id) }}"
+              hx-target="#write-result" hx-swap="innerHTML">公开到句子广场</button>
+    {% endif %}
+    <a class="btn success" href="{{ url_for('write.compose') }}">再写一句</a>
+    <a class="btn default" href="{{ url_for('write.history') }}">查看历史</a>
+  </div>
 </div>

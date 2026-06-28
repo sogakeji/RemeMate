@@ -1,26 +1,39 @@
 {% extends "base.html" %}
 {% block title %}快速加词 · 记搭{% endblock %}
 {% block content %}
-<h1>快速加词</h1>
-<p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词 ·
-  <a href="{{ url_for('intake.import_page') }}">CSV 导入</a> ·
-  <a href="{{ url_for('intake.extract_page') }}">文本抽词</a></small></p>
+<div class="container">
+  <div class="header-section">
+    <h1>快速加词</h1>
+    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词
+      · <a class="nav-link" href="{{ url_for('intake.import_page') }}" style="display:inline;padding:2px 6px;">CSV 导入</a>
+      · <a class="nav-link" href="{{ url_for('intake.extract_page') }}" style="display:inline;padding:2px 6px;">文本抽词</a></small></p>
+  </div>
 
-{% if not lists %}
-  <p>先去<a href="{{ url_for('words.lists') }}">建词表</a>。</p>
-{% else %}
-<form method="post" action="{{ url_for('intake.quick_add') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <p>
-    <label>词表
-      <select name="word_list_id" required>
-        {% for wl in lists %}<option value="{{ wl.id }}">{{ wl.name }}（{{ wl.language_code }}）</option>{% endfor %}
-      </select>
-    </label>
-  </p>
-  <p><input name="word" maxlength="140" required placeholder="词"></p>
-  <p><input name="meaning" placeholder="释义（可选，留空让 AI 补全）"></p>
-  <button type="submit">加词</button>
-</form>
-{% endif %}
+  {% if not lists %}
+  <div class="word-card" style="text-align:center;">
+    <p style="margin-bottom:16px;color:var(--text-secondary);">先去建词表。</p>
+    <a class="btn success" href="{{ url_for('words.lists') }}">建词表</a>
+  </div>
+  {% else %}
+  <div class="form-card">
+    <form method="post" action="{{ url_for('intake.quick_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">词表
+          <select name="word_list_id" class="form-control" required>
+            {% for wl in lists %}<option value="{{ wl.id }}">{{ wl.name }}（{{ wl.language_code }}）</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form-group">
+        <input name="word" maxlength="140" required class="form-control" placeholder="词">
+      </div>
+      <div class="form-group">
+        <input name="meaning" class="form-control" placeholder="释义（可选，留空让 AI 补全）">
+      </div>
+      <button type="submit" class="btn primary">加词</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

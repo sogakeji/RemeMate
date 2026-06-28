@@ -1,23 +1,23 @@
-<div class="correction">
+<div class="word-card" style="margin-top:15px;">
   {% if degraded %}
-    <p>⚠ {{ r.feedback }}</p>
+    <p style="color:var(--warning-color);">⚠ {{ r.feedback }}</p>
   {% else %}
-    {% if not r.target_word_used %}<p>⚠ 这句似乎没用到目标词。</p>{% endif %}
-    {% if r.incomplete %}<p>⚠ 这句看起来不完整。</p>{% endif %}
+    {% if not r.target_word_used %}<p style="color:var(--warning-color);">⚠ 这句似乎没用到目标词。</p>{% endif %}
+    {% if r.incomplete %}<p style="color:var(--warning-color);">⚠ 这句看起来不完整。</p>{% endif %}
     <p><strong>修正：</strong>{{ r.corrected }}</p>
     {% if r.translation %}<p><strong>翻译：</strong>{{ r.translation }}</p>{% endif %}
     {% if r.feedback %}<p><strong>点评：</strong>{{ r.feedback }}</p>{% endif %}
     {% if r.errors %}
-    <ul>
+    <ul style="margin-top:8px;padding-left:20px;">
       {% for e in r.errors %}<li>[{{ e.type }}] {{ e.detail }}</li>{% endfor %}
     </ul>
     {% endif %}
   {% endif %}
 
-  <div class="actions">
-    <button hx-post="{{ url_for('write.save') }}" hx-target="#write-result"
+  <div class="button-group" style="margin-top:18px;">
+    <button class="btn success" hx-post="{{ url_for('write.save') }}" hx-target="#write-result"
             hx-swap="innerHTML" hx-disabled-elt="this">保存</button>
-    <button hx-post="{{ url_for('write.discard') }}" hx-target="#write-result"
+    <button class="btn default" hx-post="{{ url_for('write.discard') }}" hx-target="#write-result"
             hx-swap="innerHTML">重写</button>
   </div>
 </div>

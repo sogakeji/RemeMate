@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 {% block title %}登录 · 记搭{% endblock %}
 {% block content %}
-<h1>登录</h1>
-<form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
-  {{ form.csrf_token }}
-  <p>
-    {{ form.email.label }}<br>
-    {{ form.email(autofocus=true, autocomplete="username") }}
-  </p>
-  <p>
-    {{ form.password.label }}<br>
-    {{ form.password(autocomplete="current-password") }}
-  </p>
-  <button type="submit">登录</button>
-</form>
+<div class="container" style="max-width:420px;">
+  <h1>登录</h1>
+  <div class="form-card">
+    <form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+      {{ form.csrf_token }}
+      <div class="form-group">
+        {{ form.email.label(class="form-label") }}<br>
+        {{ form.email(autofocus=true, autocomplete="username", class="form-control") }}
+      </div>
+      <div class="form-group">
+        {{ form.password.label(class="form-label") }}<br>
+        {{ form.password(autocomplete="current-password", class="form-control") }}
+      </div>
+      <button type="submit" class="btn primary" style="width:100%;">登录</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

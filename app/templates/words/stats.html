@@ -1,12 +1,40 @@
 {% extends "base.html" %}
 {% block title %}统计 · 记搭{% endblock %}
 {% block content %}
-<h1>学习统计</h1>
-<ul>
-  <li>词表数：{{ stats.list_count }}</li>
-  <li>总词数：{{ stats.total_words }}</li>
-  <li>待复习：{{ stats.due_count }}</li>
-  <li>今日已复习：{{ stats.reviewed_today }}</li>
-</ul>
-<p><a href="{{ url_for('words.review') }}">开始复习</a></p>
+<div class="container">
+  <h1>学习统计</h1>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:15px;margin-bottom:25px;">
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;">{{ stats.list_count }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">词表数</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;">{{ stats.total_words }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">总词数</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;border-left:4px solid var(--danger-color);">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;color:var(--danger-color);">{{ stats.due_count }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">待复习</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;border-left:4px solid var(--success-color);">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;color:var(--success-color);">{{ stats.reviewed_today }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">今日已复习</div>
+    </div>
+  </div>
+
+  <div class="word-card" style="text-align:center;">
+    {% if stats.due_count > 0 %}
+      <p style="margin-bottom:16px;color:var(--text-secondary);">有 <strong style="color:var(--danger-color);">{{ stats.due_count }}</strong> 个词待复习</p>
+      <a class="btn primary" href="{{ url_for('words.review') }}">开始复习 →</a>
+    {% else %}
+      <p style="margin-bottom:16px;color:var(--text-secondary);">今日复习完成 🎉</p>
+      <a class="btn success" href="{{ url_for('intake.quick_add_page') }}">去加词</a>
+    {% endif %}
+  </div>
+
+  <p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:20px;">
+    学习热力图待阶段补（需按复习日志聚合）
+  </p>
+</div>
 {% endblock %}

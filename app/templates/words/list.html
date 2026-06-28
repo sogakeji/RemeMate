@@ -1,30 +1,46 @@
 {% extends "base.html" %}
 {% block title %}词库 · 记搭{% endblock %}
 {% block content %}
-<h1>我的词库</h1>
+<div class="container">
+  <div class="header-section">
+    <h1>我的词库</h1>
+  </div>
 
-<form method="post" action="{{ url_for('words.lists') }}">
-  {{ form.csrf_token }}
-  {{ form.name(placeholder="词表名") }}
-  {{ form.language_code() }}
-  <button type="submit">新建词表</button>
-</form>
-
-{% if lists %}
-<ul>
-  {% for wl, count in lists %}
-  <li>
-    <a href="{{ url_for('words.detail', list_id=wl.id) }}">{{ wl.name }}</a>
-    <small>[{{ wl.language_code }}] {{ count }} 词</small>
-    <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
-          style="display:inline" onsubmit="return confirm('确认删除该词表？')">
+  <div class="form-card">
+    <form method="post" action="{{ url_for('words.lists') }}">
       {{ form.csrf_token }}
-      <button type="submit">删除</button>
+      <div class="form-group" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        {{ form.name(placeholder="词表名", class="form-control") }}
+        {{ form.language_code(class="form-control") }}
+        <button type="submit" class="btn success">新建词表</button>
+      </div>
     </form>
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>还没有词表，先新建一个。</p>
-{% endif %}
+  </div>
+
+  {% if lists %}
+  <div class="table-container">
+    <table class="word-table">
+      <thead><tr><th>词表</th><th>语言</th><th>词数</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for wl, count in lists %}
+        <tr class="word-row">
+          <td class="word-cell"><a href="{{ url_for('words.detail', list_id=wl.id) }}" style="color:inherit;text-decoration:none;">{{ wl.name }}</a></td>
+          <td>{{ wl.language_code }}</td>
+          <td>{{ count }}</td>
+          <td>
+            <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
+                  style="display:inline" onsubmit="return confirm('确认删除该词表？')">
+              {{ form.csrf_token }}
+              <button type="submit" class="btn danger" style="padding:6px 12px;font-size:13px;">删除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="text-align:center;color:var(--text-secondary);">还没有词表，先新建一个。</p>
+  {% endif %}
+</div>
 {% endblock %}

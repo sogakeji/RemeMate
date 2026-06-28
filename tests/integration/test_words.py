@@ -98,8 +98,12 @@ def test_stats_counts(app, client, bypass_engine):
     client.post(f"/words/{list_id}", data={"word": "w2", "meaning": "m"})
 
     page = client.get("/stats").get_data(as_text=True)
-    assert "总词数：2" in page
-    assert "待复习：2" in page
+    # UI 套了卡片网格：数字与「总词数 / 待复习」标签分体；守语义即可。
+    # 卡片里数字裸在 >N< 中，且本页 list_count=1 total=2 due=2 reviewed=0，
+    # 出现两次「>2<」对应总词数与待复习两张卡的数字段。
+    assert "总词数" in page
+    assert "待复习" in page
+    assert page.count(">2<") >= 2
 
 
 def test_delete_list(app, client, bypass_engine):
