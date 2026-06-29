@@ -2,12 +2,15 @@
 
 路由只取参数、调 service、渲染；业务逻辑在 services/words.py（见模块边界规则）。
 """
+import json
+
 from flask import (Blueprint, render_template, redirect, url_for, request,
-                   flash, abort)
+                   flash, abort, jsonify)
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
-from app.blueprints.words.forms import NewListForm, AddWordForm
+from app.services import llm as llm_svc
+from app.blueprints.words.forms import NewListForm, AddWordForm, LanguageChoiceForm
 
 bp = Blueprint("words", __name__)
 
@@ -15,6 +18,121 @@ bp = Blueprint("words", __name__)
 def _uid():
     return current_user.id
 
+
+# ---- 加词中心（单一入口：手工多词义 + AI 三端点；导入/抽词并入此页入口） ----
+
+_POS_CHOICES = ["", "n.", "v.", "adj.", "adv.", "prep.", "conj.",
+                "pron.", "interj.", "num.", "art.", "phr."]
+
+
+@bp.get("/words/add")
+@login_required
+def add_center():
+    form = LanguageChoiceForm()
+    return render_template("words/add.html", form=form, pos_choices=_POS_CHOICES,
+                           lang_map=words_svc._LANGUAGE_NAMES,
+                           ai_enabled=bool(llm_svc.get_chain("general")))
+
+
+@bp.post("/words/add")
+@login_required
+def add_submit():
+    """JSON 多词义提交：{language_code, word, definitions:[{part_of_speech,meaning,example,note}, ...]}.
+
+    绑定该语言的隐式词表（不存在则建），word 挂多条 Definition。CSRF 走 HTMX
+    全局 X-CSRFToken 头（fetch 同理带）。
+    """
+    data = request.get_json(silent=True) or {}
+    lang = data.get("language_code", "").strip()
+    word = (data.get("word") or "").strip()
+    defs = data.get("definitions") or []
+    if lang not in words_svc._LANGUAGE_NAMES:
+        return jsonify({"error": "请选择语言"}), 400
+    if not word or len(word) > 200:
+        return jsonify({"error": "请输入词（≤200 字）"}), 400
+    if not defs or not isinstance(defs, list):
+        return jsonify({"error": "至少填一条释义"}), 400
+    # 清洗：允许空字段，但要求每条至少有词性或释义
+    cleaned = []
+    for d in defs:
+        if not isinstance(d, dict):
+            continue
+        pos = (d.get("part_of_speech") or "").strip()
+        meaning = (d.get("meaning") or "").strip()
+        example = (d.get("example") or "").strip()
+        note = (d.get("note") or "").strip()
+        if not pos and not meaning:
+            continue
+        cleaned.append({"part_of_speech": pos or None, "meaning": meaning or None,
+                         "example": example or None, "note": note or None})
+    if not cleaned:
+        return jsonify({"error": "至少填一条带词性或释义的项"}), 400
+
+    wl = words_svc.get_or_create_language_list(_uid(), lang)
+    w = words_svc.add_word(_uid(), wl.id, word, definitions=cleaned)
+    if w is None:
+        return jsonify({"error": "加词失败"}), 500
+    return jsonify({"ok": True, "word_id": w.id, "word": word,
+                    "list_id": wl.id})
+
+
+@bp.post("/words/ai-fill")
+@login_required
+def ai_fill():
+    """AI 一键填充：{word, language_code} → {definitions:[...]} 或 {error}。"""
+    data = request.get_json(silent=True) or {}
+    word = (data.get("word") or "").strip()
+    lang = data.get("language_code", "").strip()
+    if not word:
+        return jsonify({"error": "请输入词"}), 400
+    if lang not in words_svc._LANGUAGE_NAMES:
+        return jsonify({"error": "请选择语言"}), 400
+    info = llm_svc.generate_full_word_info(
+        word, language=words_svc._language_name(lang))
+    return jsonify(info)        # 成功带 definitions；失败带 error
+
+
+@bp.post("/words/generate-example")
+@login_required
+def generate_example():
+    """生成例句：{word, part_of_speech, meaning, language_code} → {example} 或 {error}。"""
+    data = request.get_json(silent=True) or {}
+    word = (data.get("word") or "").strip()
+    pos = (data.get("part_of_speech") or "").strip()
+    meaning = (data.get("meaning") or "").strip()
+    lang = data.get("language_code", "").strip()
+    if not word or not meaning:
+        return jsonify({"error": "词与释义都要填"}), 400
+    if lang not in words_svc._LANGUAGE_NAMES:
+        return jsonify({"error": "请选择语言"}), 400
+    out = llm_svc.generate_example(word, pos, meaning,
+                                   language=words_svc._language_name(lang))
+    if out is None:
+        return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
+    return jsonify({"example": out})
+
+
+@bp.post("/words/generate-note")
+@login_required
+def generate_note():
+    """生成笔记：{word, part_of_speech, meaning, language_code} → {note} 或 {error}。"""
+    data = request.get_json(silent=True) or {}
+    word = (data.get("word") or "").strip()
+    pos = (data.get("part_of_speech") or "").strip()
+    meaning = (data.get("meaning") or "").strip()
+    lang = data.get("language_code", "").strip()
+    if not word or not meaning:
+        return jsonify({"error": "词与释义都要填"}), 400
+    if lang not in words_svc._LANGUAGE_NAMES:
+        return jsonify({"error": "请选择语言"}), 400
+    out = llm_svc.generate_note(word, pos, meaning,
+                                language=words_svc._language_name(lang))
+    if out is None:
+        return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
+    return jsonify({"note": out})
+
+
+# ---- 词库 / 词表 / 复习 / 统计（既有） ----
 
 @bp.route("/words", methods=["GET", "POST"])
 @login_required
