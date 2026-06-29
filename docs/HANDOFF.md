@@ -168,4 +168,40 @@ WordNest 即 docs 里反复提到的 MemoBuddy 实体（v0.1 §「与 MemoBuddy 
 - 阶段六（AI助教）开工时抄 WordNest `cleaning.py`/`extract.py`。
 - BACKLOG 剩余项（上线前必做的 token 硬约束+TOCTOU、Bitwarden 迁机评估，广场前 NSFW 半挂态，等）按对应阶段拾。
 - B2 加 CI 时处理踩坑 #2 的 `TEST_MIGRATE_DATABASE_URL`。
-- 整个项目的 naive `datetime.utcnow()` → aware UTC 迁移（技术债，踩坑 #4）。
+- 整个项目的 naive `datetime.utcnow()` → aware UTC 迁移（技术债，踩坑 #4）。---
+
+## 2026-06-29 UI 职责纠偏立项（ui-rescope）
+
+### 触发
+用户真机看 UI 后指出**四件事**：①首页应=当天主词卡而非仪表盘；②加词散三处、还缺 demo 的 AI 一键填充/生成例句；③点词表进的是加词表单不是词列表；④统计页不该有「去加词」CTA。
+重新对照 demo + v0.1 文档 + 真实代码后**确认根因**：之前 `ui-port` 分支只套 CSS 类名（视觉层），**没碰页面职责错位**。RemeMate 现状偏离了 demo 的职责边界——加词散在 nav(指错到 intake quick-add) / detail 页(内嵌) / stats CTA(顺手塞) 三处；首页仪表盘 + 独立 `/review` 闪卡两套复习入口并存；stats 闯进加词导流。
+
+### 战略（用户定调，原话）
+「用新的地基承接 demo 做不到的功能，丰富 demo 的功能，而不是丢弃 demo 的边界。」
+= demo 各页职责边界照搬；RemeMate 独有的多用户 RLS / 多语言 / token 额度 / 隐式词表落到 demo 边界适用的页里做实，**充实边界不替换边界**。
+
+### 已拍板的三个决策
+1. **首页 = 当天主词卡**（第一眼暴露词，第一性原理=来背词）。砍 `/review` 作日常入口，`/` 即复习页；仪表盘大字价值并入 stats。Bark 回流 `/review/<token>` 阶段九再说。
+2. **单一加词中心**：手工全字段(JSON 多词义 + AI 一键填充/生成例句/生成笔记，对齐 demo `/ai_fill_word` `/generate_example` `/generate_note`) + CSV 导入 + 文本抽词合并于此；删掉所有零散文加词点。
+3. **隐式词表**： diagnosed 后重新认识——词表对用户是不可见的内部派生层，"我在学法语"=那张 fr word_list。首页语言切换器、设置页选语言、导入按 `language_code` 自动分流自动建表。**口径=只改 UX/路由/服务，不动 `word_lists` schema**；不变量"每用户每语言零或一张"由 service `get_or_create_language_list` upsert 保证，不靠 schema 唯一索引。RLS policy 已是 `user_id = UID`，隐式继承不用改。
+
+stats 回纯看板（删 CTA，补 demo 的易忘词 Top 表 + 学习热力图，热力图按 ReviewLog.ts 聚合本轮就补）；造句以后再整；AI 助教延后；设置/编辑词/加释义向 demo 对齐（设置本轮只做语言选择最小版闭环，编辑词+加释义先补骨架）。
+
+### 产物
+- 方案文档：`docs/arch/ui-rescope-plan.md`（载体：各页职责重定表、路由删除/新增清单、触点文件列表、执行顺序、验证）。
+- 分支：待开 `ui-rescope`（从 master 切，独立于 `backlog-cleanup` / `ui-port`）。
+- **本节只立项 + 写方案，尚未动代码。**
+
+### 踩坑追加（避免下次重复）
+
+**#9 — UI 改造的层次：视觉换皮 ≠ 职责纠偏**
+- **症状**：`ui-port` 分支把 WordNest CSS 令牌+组件类名套到 RemeMate 模板，真机看"好看但分工乱"——加词散三处、首页/复习两套复习、stats 闯导流。用户判定"不符合在 demo 基础做多用户多语言的预想"。
+- **根因**：UI 改造有两层——**视觉层**（CSS 类名/令牌/暗色/响应式）和**职责层**（每页干什么、不干什么）。`ui-port` 只做了视觉层，没碰职责层，而 RemeMate 的职责分工**本来就偏离了 demo 边界**（demo 页分工清晰：首页主词卡/单一加词页/词列表纯列表/stats 纯看板）。套好看的皮盖在乱分工上 = 皮绣花在错布上。
+- **解法**：先做 `docs/arch/ui-rescope-plan.md` 的职责层（删散布加词点、首页合并复习、stats 去 CTA、隐式词表、加词中心聚拢），职责对了再套视觉。**顺序不可反**——先视觉后职责 = 返工。
+- **How to apply**：下次 UI 工作先问"这页职责对不对"，再问"样式美不美"。demo 是单用户私站但有成熟的职责边界可抄，抄边界比抄皮重要。
+
+**#10 — 隐式词表：用户层从未"看到"词表**
+- **症状**：初版把"词表"当 demo 没有但 RemeMate 必须自补的显式管理对象（`words/list.html` 有建表表单+命名+删表按钮），结果用户被要求命名、手动建/删一个本不该操心的中间概念。
+- **根因**：错认了词表的定位。demo 单语言只有一张平面词表、用户从不接触"词表"概念是因为它**隐式**—— Mondays学法语=系统自动建那张 fr 表。RemeMate 多语言只是把"隐式按语言派生"从单语言扩到多语言，**不是把隐式变成显式**。
+- **解法**：词表退回隐式——UX/路由/服务层让用户只见"语言"，不建/命名/删词表；`word_lists` schema 不动，`name` 存内部语言名。设语言/切语言/导入自动建-切-分流。
+- **How to apply**：review C1 把"建表当 day-1 阻塞点"那条设计**作废**——隐式化后阻塞自动消失（首次设语言/导入时自动建表）。别再让用户在 UI 上手动建表。
