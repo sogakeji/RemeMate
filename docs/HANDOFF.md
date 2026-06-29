@@ -205,3 +205,16 @@ stats 回纯看板（删 CTA，补 demo 的易忘词 Top 表 + 学习热力图�
 - **根因**：错认了词表的定位。demo 单语言只有一张平面词表、用户从不接触"词表"概念是因为它**隐式**—— Mondays学法语=系统自动建那张 fr 表。RemeMate 多语言只是把"隐式按语言派生"从单语言扩到多语言，**不是把隐式变成显式**。
 - **解法**：词表退回隐式——UX/路由/服务层让用户只见"语言"，不建/命名/删词表；`word_lists` schema 不动，`name` 存内部语言名。设语言/切语言/导入自动建-切-分流。
 - **How to apply**：review C1 把"建表当 day-1 阻塞点"那条设计**作废**——隐式化后阻塞自动消失（首次设语言/导入时自动建表）。别再让用户在 UI 上手动建表。
+## 2026-06-30 ui-rescope 实测踩到的两个坑
+
+**#11 — Python datetime.utcnow() 与 DB now() 时钟不一致 → 重置到期词后首页仍显示「无到期词」**
+- **症状**：用 BYPASSRLS 把测试账号 8 个词 due_date 重置为 DB now()-1min（DB 表盘 06-30 07:06），真机首页仍显示「没有到期词·今日复习完成」。直接查 DB：due<=now() 全成立；RLS 视角 uid=34 也能看到 8 个。唯独 get_due_words 经 service 比较时判空。
+- **根因**：words.due_date 是无时区 timestamp 列，存 DB server 本地表盘值。service get_due_words 用 `Word.due_date <= datetime.utcnow()` 比较——后者是 Python 进程 UTC 表盘。本机 WSL 里 Python utcnow() 与 DB server 时钟差了整整 8 小时（Py=06-29 23:11，DB now wall=06-30 07:11+08）。用 DB now() 写 due_date 落 06-30 07:06，对 Python utcnow() 是未来时刻 → 全判未到期 → 首页空。
+- **解法**：重置/造测试到期词时，due_date 必须用 **Python datetime.utcnow()** 表盘值（service 比较端用的就是它），不要用 DB now()。即传 Python utcnow-1min 给列。生产不影响（生产写 due_date 也走 Python utcnow()，自洽）。本质：naive datetime 跨 Python/DB 时钟对比，两端时钟须一致；不一致时写入端和比较端必须同一时钟。
+- **How to apply**：下次 安置/造到期词测试，先确认 dev WSL 的 Python utcnow() 与 DB server 时钟同步；不同步就统一用 Python 表盘写。
+
+**#12 — lapse「全标忘记会瞬时清空队列」语义不明示（pending，不改算法）**
+- **症状**：用户连续刷「忘记」，8 个到期词全 lapse 后首页显示「没有到期词」，产生「算法丢了词」错觉。
+- **根因**：srs.py LAPSE_MIN_DELAY 硬编码 10 分钟冷却（防 M8 死循环感），lapse 词 due_date=now+10min。本轮其他到期词刷完后 lapse 词还在冷却 → 队列瞬时清空。算法本身符合 v0.1 §3.6「今天重排」+冷却意图，但 UI 空态没告诉用户「N 个词在冷却、N 分钟后回来」，只冷冰冰显示「无到期词」。
+- **决定**（用户拍）：**保持 10 分钟算法不变，UI 明示**。空态文案补「刚复习过的词 N 分钟后回来」，避免错觉。**属 UI 文案，srs 不改。**
+- **How to apply**：做词列表页/stats/首页空态时，补冷却提示；backlog 留作「明示 lapse 冷却」项。算法不动。
