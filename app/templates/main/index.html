@@ -1,27 +1,8 @@
 {% extends "base.html" %}
-{% block title %}首页 · 记搭{% endblock %}
+{% block title %}记搭 · 每个词都记得{% endblock %}
 {% block content %}
 <div class="container">
-  <h1>欢迎回来，{{ user.display_name }}</h1>
-
-  <div class="word-card">
-    {% if stats.due_count > 0 %}
-      <p class="card-word">{{ stats.due_count }}</p>
-      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">个词待复习</p>
-      <div class="button-group">
-        <a class="btn primary" href="{{ url_for('words.review') }}">开始复习 →</a>
-      </div>
-    {% else %}
-      <p class="card-word">✓</p>
-      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">没有待复习的词</p>
-      <div class="button-group">
-        <a class="btn success" href="{{ url_for('intake.quick_add_page') }}">去加词</a>
-      </div>
-    {% endif %}
-  </div>
-
-  <p style="text-align:center;color:var(--text-secondary);font-size:14px;">
-    总词数 {{ stats.total_words }} · 今日已复习 {{ stats.reviewed_today }}
-  </p>
+  {# 主词卡：直接复用复习片段（含 hx 三按钮打 words.grade，端点完全不动）。 #}
+  {% include "review/_card.html" %}
 </div>
 {% endblock %}
