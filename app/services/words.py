@@ -2,6 +2,11 @@
 
 所有函数显式接收 user_id（第二层防御）；RLS 是数据库兜底（第三层）。
 词、释义无 user_id 列，必须 JOIN word_lists 过滤 user_id。
+
+「词表」对用户是隐式派生层：用户只接触「语言」，系统按 (user_id, language_code)
+唯一派生词表（不存在则建）。底表 word_lists schema 不变，不变量靠本模块
+get_or_create_language_list 的 upsert 保证，不靠 schema 唯一索引。
+见 docs/arch/ui-rescope-plan.md §1.3 + HANDOFF 踩坑 #10。
 """
 from datetime import datetime, timedelta
 
@@ -15,12 +20,40 @@ from app.services import srs
 from app.services.timeutil import today_local_start_utc
 
 
-# ---- 词表 ----
+# language_code → 隐式词表的内部 name（用户不可见；不展示、不让改名）。
+_LANGUAGE_NAMES = {
+    "fr": "法语", "en": "英语", "ja": "日语",
+    "de": "德语", "es": "西语", "ru": "俄语",
+}
+
+
+def _language_name(language_code: str) -> str:
+    return _LANGUAGE_NAMES.get(language_code, language_code)
+
+
+# ---- 词表（隐式：按语言派生） ----
 
 def create_word_list(user_id: int, name: str, language_code: str) -> WordList:
     wl = WordList(user_id=user_id, name=name, language_code=language_code)
     db.session.add(wl)
     db.session.commit()
+    return wl
+
+
+def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
+    """隐式词表入口：返回该用户该语言唯一的词表，不存在则建。
+
+    不变量：每 (user_id, language_code) 零或一张词表。复用现有那张不另建，
+    避免导入/设语言反复建表。name 存内部语言名（如「法语」），用户不可见。
+    """
+    wl = (WordList.query
+          .filter_by(user_id=user_id, language_code=language_code)
+          .first())
+    if wl is None:
+        wl = WordList(user_id=user_id, name=_language_name(language_code),
+                      language_code=language_code)
+        db.session.add(wl)
+        db.session.commit()
     return wl
 
 
@@ -54,8 +87,16 @@ def delete_word_list(user_id: int, list_id: int) -> bool:
 
 # ---- 词 ----
 
-def add_word(user_id: int, list_id: int, word: str, *, meaning=None,
-             part_of_speech=None, example=None, note=None) -> Word | None:
+def add_word(user_id, list_id, word, *, meaning=None,
+             part_of_speech=None, example=None, note=None,
+             definitions=None) -> Word | None:
+    """加词。两种释义方式：
+
+    - 单释义（旧调用）：传 meaning/part_of_speech/example/note，建一条 Definition。
+    - 多释义（加词中心 JSON）：传 ``definitions``，元素形如
+      {"part_of_speech","meaning","example","note"}，按序建多条 Definition。
+      多释义时忽略单释义参数。空释义（全 None）不建 Definition。
+    """
     wl = get_word_list(user_id, list_id)
     if wl is None:
         return None
@@ -63,7 +104,16 @@ def add_word(user_id: int, list_id: int, word: str, *, meaning=None,
              interval=1, ease=2.5, reps=0, lapses=0)
     db.session.add(w)
     db.session.flush()
-    if any([meaning, part_of_speech, example, note]):
+    if definitions:
+        for d in definitions:
+            db.session.add(Definition(
+                word_id=w.id,
+                meaning=(d or {}).get("meaning") or None,
+                part_of_speech=(d or {}).get("part_of_speech") or None,
+                example=(d or {}).get("example") or None,
+                note=(d or {}).get("note") or None,
+            ))
+    elif any([meaning, part_of_speech, example, note]):
         db.session.add(Definition(word_id=w.id, meaning=meaning,
                                   part_of_speech=part_of_speech,
                                   example=example, note=note))
@@ -126,4 +176,62 @@ def get_stats(user_id: int) -> dict:
         "due_count": due,
         "reviewed_today": reviewed_today,
         "list_count": lists,
+        "top_lapses": _top_lapses(user_id),
+        "heatmap": _heatmap(user_id, tz, weeks=12),
     }
+
+
+def _top_lapses(user_id: int, limit: int = 20) -> list[Word]:
+    """易忘词 Top：按忘记次数（lapses）降序的词（属该用户）。写句日记/广场强相关。"""
+    return (Word.query.join(WordList)
+            .filter(WordList.user_id == user_id, Word.lapses > 0)
+            .order_by(Word.lapses.desc())
+            .limit(limit).all())
+
+
+def _heatmap(user_id: int, tz_name: str, *, weeks: int = 12) -> dict:
+    """学习热力图：近 weeks 周每天复习次数（按 ReviewLog.ts，用户本地日聚合）。
+
+    返回 {"weeks": [[count,...], ...], "total": N}。
+    weeks 列：列 0 = 最早那周，每列 7 天（周日起，对齐 demo）。
+    未来日期格用 None（末列尾部留空），不计入 total。
+    用文本 SQL 走 `AT TIME ZONE` 把 ts 映射到用户本地日，避免 ORM 拼时区表达式。
+    """
+    from zoneinfo import ZoneInfo
+    tz = tz_name or "Asia/Shanghai"
+    since = datetime.utcnow() - timedelta(weeks=weeks)
+    from sqlalchemy import text as _text
+    rows = db.session.execute(_text(
+        "SELECT to_char((ts AT TIME ZONE 'UTC') AT TIME ZONE :tz, 'YYYY-MM-DD') d,"
+        " count(*) c FROM review_logs"
+        " WHERE user_id=:u AND ts>=:since GROUP BY d"),
+        {"tz": tz, "u": user_id, "since": since},
+    ).all()
+    counts = {d: int(c) for (d, c) in rows}
+
+    # 网格对齐 demo：周日为列首。今日所属周的周日为最右列起点。
+    # today_local 也从 DB now() 取，与上面按 ts 聚合用的同一时钟，
+    # 避免「DB 把今天的复习分到明天的格子、Python 判今天为未来格」的不一致（时钟/调用间隔）。
+    tzinfo = ZoneInfo(tz)
+    today_local_str = db.session.execute(_text(
+        "SELECT to_char((now() AT TIME ZONE 'UTC') AT TIME ZONE :tz, 'YYYY-MM-DD')"
+    ), {"tz": tz}).scalar()
+    from datetime import date as _date
+    today_local = _date.fromisoformat(today_local_str)
+    # weekday(): 周一=0..周日=6；本周末日 = today - ((weekday()+1)%7) 天
+    end_sunday = today_local - timedelta(days=(today_local.weekday() + 1) % 7)
+    start = end_sunday - timedelta(days=(weeks - 1) * 7)
+    grid = []
+    total = 0
+    for w in range(weeks):
+        col = []
+        for d in range(7):
+            day = start + timedelta(days=w * 7 + d)
+            if day > today_local:
+                col.append(None)
+            else:
+                n = counts.get(day.isoformat(), 0)
+                col.append(n)
+                total += n
+        grid.append(col)
+    return {"weeks": grid, "total": total}
