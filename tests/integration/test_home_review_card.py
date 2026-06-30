@@ -84,6 +84,23 @@ def test_home_grade_button_hits_words_grade(app, client, bypass_engine):
     assert reps == 1                            # 评分生效
 
 
+def test_home_grade_next_card_stays_current_language(app, client, bypass_engine):
+    """评分后下一张仍按当前语言取，不跳到其它语言的到期词。"""
+    provision_user(app, "h3b@t.com", PW)
+    login(client, "h3b@t.com", PW)
+    _add_word(client, "fr", "frword", "m")
+    _add_word(client, "en", "enword", "m")
+    _switch_lang(client, "fr")
+    with bypass_engine.connect() as c:
+        wid = c.execute(text("SELECT id FROM words WHERE word='frword'")).scalar()
+
+    resp = client.post(f"/review/{wid}/grade", data={"button": "easy"})
+    page = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "enword" not in page
+    assert "没有到期的词" in page
+
+
 def test_nav_has_no_review_entry(app, client, bypass_engine):
     """nav 砍掉「复习」入口（首页即复习）。"""
     provision_user(app, "h4@t.com", PW)

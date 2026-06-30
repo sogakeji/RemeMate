@@ -45,6 +45,7 @@ def test_words_page_lists_current_language_words(app, client, bypass_engine):
     client.post("/words/add", json={"language_code": "en", "word": "apple",
                                     "definitions": [{"meaning": "苹果"}]},
                headers={"X-CSRFToken": _csrf_add(client)})
+    _switch(client, "fr")
     page = client.get("/words").get_data(as_text=True)
     assert "soleil" in page
     assert "apple" not in page                      # 切的是 fr，en 词不显示

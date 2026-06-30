@@ -6,6 +6,9 @@ from app.extensions import db
 
 class WordList(db.Model):
     __tablename__ = "word_lists"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "language_code", name="uq_word_lists_user_language"),
+    )
 
     id            = db.Column(db.Integer, primary_key=True)
     user_id       = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)

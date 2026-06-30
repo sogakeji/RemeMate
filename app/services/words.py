@@ -4,13 +4,14 @@
 词、释义无 user_id 列，必须 JOIN word_lists 过滤 user_id。
 
 「词表」对用户是隐式派生层：用户只接触「语言」，系统按 (user_id, language_code)
-唯一派生词表（不存在则建）。底表 word_lists schema 不变，不变量靠本模块
-get_or_create_language_list 的 upsert 保证，不靠 schema 唯一索引。
+唯一派生词表（不存在则建）。底表以唯一约束兜底，本模块用
+get_or_create_language_list 集中创建，避免多入口分叉。
 见 docs/arch/ui-rescope-plan.md §1.3 + HANDOFF 踩坑 #10。
 """
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
@@ -46,6 +47,8 @@ def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
     不变量：每 (user_id, language_code) 零或一张词表。复用现有那张不另建，
     避免导入/设语言反复建表。name 存内部语言名（如「法语」），用户不可见。
     """
+    if language_code not in _LANGUAGE_NAMES:
+        raise ValueError(f"未知语言 code：{language_code!r}")
     wl = (WordList.query
           .filter_by(user_id=user_id, language_code=language_code)
           .first())
@@ -53,7 +56,15 @@ def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
         wl = WordList(user_id=user_id, name=_language_name(language_code),
                       language_code=language_code)
         db.session.add(wl)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            wl = (WordList.query
+                  .filter_by(user_id=user_id, language_code=language_code)
+                  .first())
+            if wl is None:
+                raise
     return wl
 
 

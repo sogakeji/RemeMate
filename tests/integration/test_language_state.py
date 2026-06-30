@@ -40,6 +40,17 @@ def test_set_current_language_persists_and_creates_list(app, bypass_engine):
     assert cur == "fr"
 
 
+def test_word_lists_user_language_unique_constraint(app, bypass_engine):
+    """DB 兜底每用户每语言一张隐式词表，避免并发 first-create 打穿不变量。"""
+    with bypass_engine.connect() as c:
+        exists = c.execute(text(
+            "SELECT 1 FROM pg_constraint "
+            "WHERE conname='uq_word_lists_user_language' "
+            "AND conrelid='word_lists'::regclass"
+        )).scalar()
+    assert exists == 1
+
+
 def test_set_current_language_rejects_unknown(app, bypass_engine):
     from app.services import words
     import pytest

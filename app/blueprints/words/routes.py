@@ -71,6 +71,8 @@ def add_submit():
     if not cleaned:
         return jsonify({"error": "至少填一条带词性或释义的项"}), 400
 
+    # 加词到某语言也代表用户正在学该语言，和首页切语言保持同一收敛口径。
+    words_svc.set_current_language(_uid(), lang)
     wl = words_svc.get_or_create_language_list(_uid(), lang)
     w = words_svc.add_word(_uid(), wl.id, word, definitions=cleaned)
     if w is None:
@@ -158,7 +160,8 @@ def detail(list_id):
 @bp.route("/review")
 @login_required
 def review():
-    due = words_svc.get_due_words(_uid(), limit=1)
+    lang = words_svc.get_current_language(_uid())
+    due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
     return render_template("review/review.html", word=due[0] if due else None)
 
 
@@ -172,7 +175,8 @@ def grade(word_id):
         abort(400)                      # 非法/缺失 button（M1）
     if result is None:
         abort(404)
-    nxt = words_svc.get_due_words(_uid(), limit=1)
+    lang = words_svc.get_current_language(_uid()) or result.word_list.language_code
+    nxt = words_svc.get_due_words(_uid(), limit=1, language_code=lang)
     # HTMX：返回下一张卡片片段（无则完成提示）
     return render_template("review/_card.html", word=nxt[0] if nxt else None)
 

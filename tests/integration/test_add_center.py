@@ -119,7 +119,7 @@ def test_add_center_ai_fail_closed(app, client, bypass_engine):
 
 
 def test_add_center_implicit_list_reuses_existing(app, client, bypass_engine):
-    """同语言加两个词复用同一隐式词表（不变量守住）。"""
+    """同语言加两个词复用同一隐式词表，并把该语言收敛进在学集合。"""
     uid = _auth(client, app)
     for w in ["w1", "w2"]:
         client.post("/words/add", json={"language_code": "en", "word": w,
@@ -129,8 +129,13 @@ def test_add_center_implicit_list_reuses_existing(app, client, bypass_engine):
     with bypass_engine.connect() as c:
         n_list = c.execute(text("SELECT count(*) FROM word_lists WHERE user_id=:u AND language_code='en'"), {"u": uid}).scalar()
         n_word = c.execute(text("SELECT count(*) FROM words w JOIN word_lists wl ON w.list_id=wl.id WHERE wl.user_id=:u AND wl.language_code='en'"), {"u": uid}).scalar()
+        ll, cur = c.execute(text(
+            "SELECT learning_languages, current_language FROM users WHERE id=:u"),
+            {"u": uid}).one()
     assert n_list == 1
     assert n_word == 2
+    assert "en" in (ll or "")
+    assert cur == "en"
 
 
 def test_nav_points_to_add_center(app, client, bypass_engine):
