@@ -18,6 +18,8 @@ class User(db.Model, UserMixin):
     locked_until   = db.Column(db.DateTime, nullable=True)
     login_attempts = db.Column(db.Integer, default=0, nullable=False)
     timezone       = db.Column(db.String(50), default="Asia/Shanghai", nullable=False)
+    # 当前正在学的语言（ui-rescope：首页切换器/设置页/词列表页共用，隐式词表闭环）
+    current_language = db.Column(db.String(10), nullable=True)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     settings = db.relationship("UserSettings", backref="user", uselist=False)
