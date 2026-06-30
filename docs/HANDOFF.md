@@ -217,4 +217,127 @@ stats 回纯看板（删 CTA，补 demo 的易忘词 Top 表 + 学习热力图�
 - **症状**：用户连续刷「忘记」，8 个到期词全 lapse 后首页显示「没有到期词」，产生「算法丢了词」错觉。
 - **根因**：srs.py LAPSE_MIN_DELAY 硬编码 10 分钟冷却（防 M8 死循环感），lapse 词 due_date=now+10min。本轮其他到期词刷完后 lapse 词还在冷却 → 队列瞬时清空。算法本身符合 v0.1 §3.6「今天重排」+冷却意图，但 UI 空态没告诉用户「N 个词在冷却、N 分钟后回来」，只冷冰冰显示「无到期词」。
 - **决定**（用户拍）：**保持 10 分钟算法不变，UI 明示**。空态文案补「刚复习过的词 N 分钟后回来」，避免错觉。**属 UI 文案，srs 不改。**
-- **How to apply**：做词列表页/stats/首页空态时，补冷却提示；backlog 留作「明示 lapse 冷却」项。算法不动。
+- **How to apply**：做词列表页/stats/首页空态时，补冷却提示；backlog 留作「明示 lapse 冷却」项。算法不动。---
+
+## 2026-06-30 ui-rescope 分支交接（建给下一个 agent 接手）
+
+> 本节由本轮主 agent 写，目的是让**换人**时下一个 agent 能快速接手 ui-rescope 分支。读这一节就够开工，不必逐 commit 回放。
+
+### 0. 一句话状态
+
+`ui-rescope` 分支（从 master 切）的 **step1~step4d-切片A + 语言闭环补全 + 修2 + 修1 已全部落地**，测试 **119 passed**。**修1 的工作区改动尚未 commit**（见「待提交」）。ui-rescope 的收尾只剩 **切片B**（删 router 兼容层 + 重评依赖测试 + intake 绑定）+ 几个 pending 文案项。
+
+### 1. 本分支在做什么（战略口径，必读）
+
+用户原话定调：**「用新的地基承接 demo 做不到的功能，丰富 demo 的功能，而不是丢弃 demo 的边界。」**
+
+- demo（`D:\home\MemChunking\WordNest`，即 MemoBuddy）的**各页职责边界照搬**；RemeMate 独有的多用户 RLS / 多语言 / token 额度 / **隐式词表**落到 demo 边界适用的页里做实，**充实边界不替换边界**。
+- **隐式词表口径（核心，踩坑 #10）**：词表对用户是**不可见的内部派生层**——用户只见「语言」，系统按 `(user_id, language_code)` 唯一派生一张 word_list，不存在则建。**只改 UX/路由/service，不动 `word_lists` schema**；不变量「每用户每语言零或一张」由 `words.get_or_create_language_list` 的 upsert 保证，**不靠 schema 唯一索引**。RLS policy 已是 `user_id = UID`，隐式继承不用改。**严禁再在 UI 上让用户建/命名/删词表**。
+- UI 改造分两层（踩坑 #9）：**职责层先于视觉层**。`ui-port` 旧分支只套了 CSS 皮、没碰职责，被否。ui-rescope 先纠职责，视觉（搬 WordNest 设计系统到 `app/static/style.css` + `base.html`）同步进行。
+
+### 2. 已完成并已提交的步骤（git log 可查）
+
+```
+804512e ui-rescope 修2: 首页语言切换器改 demo 下拉菜单形式，移到主题钮边
+1f02d80 ui-rescope step4d 语言闭环补全（加词中心默认/stats/造句跟当前语言）
+31fbcf8 ui-rescope step4d-切片A: 词列表页隐式化（UI 不暴露建表/删表/加词表单）
+41d6866 ui-rescope step4c: 设置页语言选择 + 首页语言切换器 + 未设语言空态
+3950f99 ui-rescope step4b: 当前语言状态 service + 按语言过滤
+98ff5fb ui-rescope step4a: users.current_language 列 + 迁移
+1113e24 ui-rescope step3: 加词中心（手工多词义 + AI 三端点 + 隐式建表闭环）
+(state1/step2/step1 在更早 commit)
+```
+
+- **step1**：service 地基（隐式词表 + 多词义 + LLM 三封装）
+- **step2**：首页主词卡 + grade 迁移（`/` 即复习页，砍 `/review` 作日常入口）
+- **step3**：单一加词中心 `/words/add`（手工 JSON 多词义 + AI 一键填充/生成例句/生成笔记，对齐 demo；删零散文加词点）
+- **step4a**：`users.current_language` 列 + 迁移 `a1b2c3d4e5f6`
+- **step4b**：service 语言状态 + 按当前语言过滤（`get_current_language`/`get_current_language_list`/`get_words_for_current_language`；`get_stats`/`get_due_words`/`get_practice_words` 加 `language_code` 过滤）
+- **step4c**：设置页语言选择 + 首页语言切换器 + 未设语言空态引导
+- **step4d-切片A**：词列表页隐式化（UI 不暴露建表/删表/加词表单；详情页删内嵌表单改「加词→」导流；未设语言三态引导）。**router 兼容层保留**（POST `/words` 建表、POST `/words/<id>` 加词、POST `/words/<id>/delete` 删表仍能跑），目的是让依赖这些路由的旧测试本轮不挂——**切片B 再删**。
+- **step4d 语言闭环补全**：加词中心语言下拉默认当前语言、stats/造句按当前语言过滤、stats CTA 指首页 `/`
+- **修2**：首页语言切换器改 demo 下拉菜单形式（`.lang-switcher` 组件），位置移到主题钮边（右上 `.theme-slot`）
+
+### 3. 本轮刚做完、待提交（修1 — 8 改 + 1 新迁移，工作区未暂存）
+
+**修1 = 在学语言集合多选 + current_language 收敛**（用户原话场景闭合）：
+
+> 用户原话：「在设置中我多选几种语言，比如英语 法语和日语。有一天我想只学一种语言了，我去设置中改为英语。那么应该看到修改按钮，允许我把多选改为单选英语然后保存。此时首页就是英语，没有其他语言。」
+
+拆成两个概念：
+- **设置页** = 「在学哪几种语言」**集合多选**（偏好清单），存 `users.learning_languages`（VARCHAR 逗号拼接，如 `"fr,en,ja"`，nullable 兼容老用户）。
+- **首页切换器** = 「当前主攻」**单选**，存 `users.current_language`，**必须 ∈ 集合**（不变量由 service 收敛）。
+
+落地文件（**未 commit**）：
+- `migrations/versions/b2c3d4e5f6a7_add_learning_languages_to_users.py`（新）：`ALTER TABLE users ADD COLUMN IF NOT EXISTS learning_languages VARCHAR(200)`，`down_revision='a1b2c3d4e5f6'`。**已 apply 到 dev + test 两库**，两库 alembic head 都升到 `b2c3d4e5f6a7`（dev 库已确认）。
+- `app/models/user.py`：加 `learning_languages = db.Column(db.String(200), nullable=True)`
+- `app/services/words.py`：加 `_parse_learning`/`_serialize_learning`/`get_learning_languages`/`set_learning_languages`（收敛不变量：过滤非法 code + 去重保序 + 每个新进集合语言建隐式词表 + 集合变空→current 清空 / current 不在集合→收成集合首个）；重写 `set_current_language`（切语言即默认「在学」加进集合，保证首切不卡）
+- `app/blueprints/main/routes.py`：`/settings` GET 传 `learning=get_learning_languages(uid)`；POST 用 `request.form.getlist("languages")` → `set_learning_languages`。**删了 `LanguageChoiceForm` import**（设置页不再用 WTForms 单选 form）
+- `app/templates/main/settings.html`：改成多选 checkbox 表单（6 语言，集合内 checked），一个「保存」按钮
+- `app/templates/base.html`：lang-menu **只渲染 `learning_languages` 集合内的语言**（不在集合的不出现）；集合空时显示「先在设置里选语言」
+- `app/__init__.py`：新增 `inject_learning` context_processor 注入 `learning_languages`
+- `app/static/style.css`：去重了三份重复的 lang-switcher CSS 块（之前编辑残留，长大三倍）→ 合一份 + 加 `.lang-empty`、`.lang-check`（设置页多选卡片）+ 暗色
+- `tests/integration/test_settings_language.py`：改写为多选（`test_settings_save_sets_learning_languages`：保存 fr+en→集合 `"fr,en"` + 2 词表 + current=fr；`test_settings_narrow_to_single_retracts_current`：多选 fr/en/ja→改单选 en→集合剩 en、current 自动从 fr 收成 en）
+
+**验证**：`pytest -q` → **119 passed**（修1 前 117，+2 新多选用例，旧单选用例改写）。gunicorn HUP 已重载，真机可验。
+
+### 4. 下一个 agent 接手清单（按顺序）
+
+**第 0 步：环境对齐**
+```bash
+cd /root/rememate
+git checkout ui-rescope         # 确认在 ui-rescope 分支
+git status -s                    # 应看到 §3 列的 8 改 + 1 新迁移未提交
+.venv/bin/python -m pytest -q   # 应 119 passed，绿了再动手
+# 确认 dev 库迁移 head（应 = b2c3d4e5f6a7）：
+.venv/bin/python -c "from sqlalchemy import create_engine,text; import os; from dotenv import load_dotenv; load_dotenv(); print(create_engine(os.environ['MIGRATE_DATABASE_URL']).connect().execute(text('SELECT version_num FROM alembic_version')).scalar())"
+```
+
+**第 1 步（建议先做）：把修1 commit 掉**
+工作区那 9 个文件就是修1，已验证 119 passed。建议：
+```bash
+git add -A && git commit -m "ui-rescope 修1: 在学语言集合多选 + current_language 收敛不变量"
+```
+（用户要求换人前先记 handoff，没明说是否提交；commit 与否问用户，但**别丢这批改动**——test 库迁移已 apply 到 b2c3d4e5f6a7，工作区和库是配套的。）
+
+**第 2 步：推切片B（ui-rescope 收尾，主剩余工作）**
+- **删 router 兼容层**：`app/blueprints/words/routes.py` 里的 POST `/words` 建表、POST `/words/<id>` 加词、POST `/words/<id>/delete` 删表，切片A 保留是为旧测试不挂，切片B 删。
+- **重评依赖测试**：删路由后，依赖 POST `/words` 建表/加词的测试改走加词中心 JSON（`POST /words/add` with `{"language_code","word","definitions":[...]}`，见 `test_language_closure.py::test_stats_filtered_by_current_language` 已是这个写法可参考）。
+- **intake 绑定**：intake service 里 `prepare_csv`/`prepare_extract`/`quick_add`/`_check_word_list` 及三模板（import/extract/quick_add）的下拉，从 `word_list_id` 改绑 `language_code`（走 `get_or_create_language_list` 自动建表）。
+
+**第 3 步：pending 文案项（踩坑 #12）**
+做词列表页 / stats / 首页空态时，补「刚复习过的词 N 分钟后回来」明示 lapse 10 分钟冷却，消除「全标忘记→队列瞬时清空=丢了词」错觉。**算法 srs.py 不改，只改文案。**
+
+**第 4 步：真机回归 + 合 master**
+ui-rescope 全部收尾后，真机走一遍六页（首页/词库/加词/造句/统计/设置 + login），确认语言闭环、隐式词表、暗色、响应式都正常，再合 master。
+
+### 5. 本轮新踩的坑（除已在 #11/#12 外，本节无新增）
+
+修1 实现过程干净，没有新的大型踩坑。复述两条已记入的、与本轮强相关的坑，接手必读：
+
+- **#11 时钟坑**：dev WSL 的 Python `datetime.utcnow()` 与 DB server 时钟差 8 小时（已知漂移）。造/重置到期词测试时，due_date 必须用 **Python utcnow()** 表盘写，**不要用 DB now()**——否则 service 用 Python utcnow() 比较，due_date 落 DB 表盘未来时刻 → 首页判空。生产不受影响（生产写也走 Python utcnow()，自洽）。
+- **#12 lapse 冷却明示**：`srs.py LAPSE_MIN_DELAY=10min` 硬编码，全标忘记后队列瞬时清空是算法正确行为，UI 要明示「N 分钟后回来」。**算法不改。**
+- **迁移在 test 库怎么跑**（踩坑 #2 沿用）：test 库 `rememate_test` 的 `rememate` 角色无 ALTER 权限，跑迁移要用 `MIGRATE_DATABASE_URL`（`rememate_owner` 角色）URL 改指 `rememate_test` 跑 `flask db upgrade` 或手工 `ALTER + UPDATE alembic_version`。conftest 暂不自动跑迁移（B2 pending）。
+
+### 6. 关键文件速查
+
+| 关注点 | 文件 |
+|---|---|
+| 隐式词表 + 语言状态 service | `app/services/words.py`（`get_or_create_language_list`/`get_learning_languages`/`set_learning_languages`/`set_current_language`/`get_current_language`/`get_stats` 按 lang 过滤） |
+| User model | `app/models/user.py`（`current_language`/`learning_languages` 两列） |
+| 迁移链 | head = `b2c3d4e5f6a7`，`down_revision` 链：…→ `a1b2c3d4e5f6`（current_language）→ `b2c3d4e5f6a7`（learning_languages） |
+| 首页 + 设置 + 语言切换路由 | `app/blueprints/main/routes.py`（`index`/`switch_language`/`settings`/`save_settings`） |
+| 全局模板注入 | `app/__init__.py` 的 `inject_lang`（current_language+lang_choices）+ `inject_learning`（learning_languages） |
+| 加词中心 | `app/blueprints/words/routes.py` 的 `add_center` + `app/templates/words/add.html` |
+| 设计系统 | `app/static/style.css`（搬自 WordNest，lang-switcher + lang-check 块在本文件末尾）+ `app/templates/base.html` |
+| 闭合测试参考 | `tests/integration/test_language_closure.py`（4 例：加词默认当前语言/stats 按语言/造句按语言/stats CTA 指首页）、`test_settings_language.py`（多选 + 收敛） |
+| 方案文档 | `docs/arch/ui-rescope-plan.md`（职责重定表/路由清单/触点/执行顺序） |
+
+### 7. 保留分支（别误删）
+
+- `master`（阶段五，695cc11）
+- `backlog-cleanup`（七项 backlog，09eff51，**未合 master**）
+- `ui-port`（被否的旧视觉分支，保留作参考）
+- `ui-rescope`（**本分支，在本节就是它**）
+- `worktree-vip-membership-quota`（codex 会员分级线，已评审决定丢弃但分支保留）
+- 用户早前决定**全部保留**，别清。
