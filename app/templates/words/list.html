@@ -2,45 +2,53 @@
 {% block title %}词库 · 记搭{% endblock %}
 {% block content %}
 <div class="container">
-  <div class="header-section">
-    <h1>我的词库</h1>
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <h1>词库</h1>
+    {% if current_language %}
+    <span style="color:var(--text-secondary);font-size:14px;">
+      当前语言：<strong>{{ lang_name }}</strong> · 共 {{ words|length }} 个词
+    </span>
+    {% endif %}
   </div>
 
-  <div class="form-card">
-    <form method="post" action="{{ url_for('words.lists') }}">
-      {{ form.csrf_token }}
-      <div class="form-group" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        {{ form.name(placeholder="词表名", class="form-control") }}
-        {{ form.language_code(class="form-control") }}
-        <button type="submit" class="btn success">新建词表</button>
+  {% if not current_language %}
+    {# 未设语言：引导去设置。词表对用户是隐式的，不展示建表表单。 #}
+    <div class="word-card">
+      <p class="card-word">📖</p>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
+        先选一个正在学的语言，词库按语言分类。
+      </p>
+      <div class="button-group">
+        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
       </div>
-    </form>
-  </div>
-
-  {% if lists %}
-  <div class="table-container">
-    <table class="word-table">
-      <thead><tr><th>词表</th><th>语言</th><th>词数</th><th>操作</th></tr></thead>
-      <tbody>
-        {% for wl, count in lists %}
-        <tr class="word-row">
-          <td class="word-cell"><a href="{{ url_for('words.detail', list_id=wl.id) }}" style="color:inherit;text-decoration:none;">{{ wl.name }}</a></td>
-          <td>{{ wl.language_code }}</td>
-          <td>{{ count }}</td>
-          <td>
-            <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
-                  style="display:inline" onsubmit="return confirm('确认删除该词表？')">
-              {{ form.csrf_token }}
-              <button type="submit" class="btn danger" style="padding:6px 12px;font-size:13px;">删除</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    </div>
+  {% elif not words %}
+    <div class="word-card">
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:20px;">
+        {{ lang_name }} 词库还空着，加几个词开始背。
+      </p>
+      <div class="button-group">
+        <a class="btn success" href="{{ url_for('words.add_center') }}">去加词 →</a>
+      </div>
+    </div>
   {% else %}
-  <p style="text-align:center;color:var(--text-secondary);">还没有词表，先新建一个。</p>
+    <div class="table-container">
+      <table class="word-table">
+        <thead><tr><th>词</th><th>释义</th><th>状态</th></tr></thead>
+        <tbody>
+          {% for w in words %}
+          <tr class="word-row">
+            <td class="word-cell">{{ w.word }}</td>
+            <td>{% for d in w.definitions %}<span class="part-of-speech">{{ d.part_of_speech }}</span> <span class="meaning">{{ d.meaning }}</span>{% if not loop.last %}；{% endif %}{% endfor %}</td>
+            <td><small style="color:var(--text-secondary);">
+              due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}
+              {% if w.lapses %} · 忘 {{ w.lapses }}{% endif %}
+            </small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -91,6 +91,20 @@ def get_current_language_list(user_id: int) -> WordList | None:
             .filter_by(user_id=user_id, language_code=lang).first())
 
 
+def get_words_for_current_language(user_id: int) -> tuple[str | None, list[Word]]:
+    """词列表页用：返回 (当前语言 code 或 None, 该语言隐式词表的词列表)。
+
+    预加载 definitions 消除模板逐词懒加载。未设语言 → (None, [])，调用方提示去设置。
+    """
+    wl = get_current_language_list(user_id)
+    if wl is None:
+        return (get_current_language(user_id), [])
+    ws = (Word.query.filter_by(list_id=wl.id)
+          .options(selectinload(Word.definitions))
+          .order_by(Word.due_date).all())
+    return (wl.language_code, ws)
+
+
 def get_word_lists(user_id: int, *, language_code: str | None = None) -> list[tuple[WordList, int]]:
     """返回 [(word_list, word_count), ...]，一次聚合查出词数，避免模板 N+1。
 

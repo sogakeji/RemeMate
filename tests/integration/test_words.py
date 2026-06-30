@@ -10,12 +10,9 @@ def test_create_list_and_add_word(app, client, bypass_engine):
     provision_user(app, "a@t.com", PW)
     login(client, "a@t.com", PW)
 
-    # 建词表
+    # 建词表（兼容路由；隐式化后 UI 不暴露建表，但 router/service 保留测试可用）
     client.post("/words", data={"name": "法语核心", "language_code": "fr"})
-    page = client.get("/words").get_data(as_text=True)
-    assert "法语核心" in page
-
-    # 取 list_id（bypass 读）
+    # 取 list_id（bypass 读）；隐式化后 /words 列表页按当前语言显示词而非词表名
     with bypass_engine.connect() as c:
         list_id = c.execute(text("SELECT id FROM word_lists WHERE name='法语核心'")).scalar()
 

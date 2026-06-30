@@ -139,11 +139,15 @@ def generate_note():
 def lists():
     form = NewListForm()
     if form.validate_on_submit():
+        # 兼容旧入口：显式建表路由保留（测试 / 下一小步隐式化时删），但 UI 不再渲染表单。
+        # 上方加词中心走 set_current_language 闭环建隐式词表。
         words_svc.create_word_list(_uid(), form.name.data, form.language_code.data)
         flash("词表已创建")
         return redirect(url_for("words.lists"))
-    return render_template("words/list.html",
-                           lists=words_svc.get_word_lists(_uid()), form=form)
+    lang, ws = words_svc.get_words_for_current_language(_uid())
+    return render_template("words/list.html", words=ws,
+                           current_language=lang,
+                           lang_name=words_svc._language_name(lang) if lang else None)
 
 
 @bp.route("/words/<int:list_id>", methods=["GET", "POST"])
