@@ -9,10 +9,8 @@ PW = "pw12345678"
 def _setup_user_with_word(app, client, bypass_engine, email="w@t.com"):
     provision_user(app, email, PW)
     login(client, email, PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{lid}", data={"word": "décollage", "meaning": "起飞"})
+    client.post("/words/add", json={"language_code": "fr", "word": "décollage",
+                                    "definitions": [{"meaning": "起飞"}]})
     with bypass_engine.connect() as c:
         wid = c.execute(text("SELECT id FROM words WHERE word='décollage'")).scalar()
         uid = c.execute(text("SELECT id FROM users WHERE email=:e"), {"e": email}).scalar()

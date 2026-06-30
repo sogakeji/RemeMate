@@ -1,30 +1,54 @@
 {% extends "base.html" %}
 {% block title %}词库 · 记搭{% endblock %}
 {% block content %}
-<h1>我的词库</h1>
+<div class="container">
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <h1>词库</h1>
+    {% if current_language %}
+    <span style="color:var(--text-secondary);font-size:14px;">
+      当前语言：<strong>{{ lang_name }}</strong> · 共 {{ words|length }} 个词
+    </span>
+    {% endif %}
+  </div>
 
-<form method="post" action="{{ url_for('words.lists') }}">
-  {{ form.csrf_token }}
-  {{ form.name(placeholder="词表名") }}
-  {{ form.language_code() }}
-  <button type="submit">新建词表</button>
-</form>
-
-{% if lists %}
-<ul>
-  {% for wl, count in lists %}
-  <li>
-    <a href="{{ url_for('words.detail', list_id=wl.id) }}">{{ wl.name }}</a>
-    <small>[{{ wl.language_code }}] {{ count }} 词</small>
-    <form method="post" action="{{ url_for('words.delete', list_id=wl.id) }}"
-          style="display:inline" onsubmit="return confirm('确认删除该词表？')">
-      {{ form.csrf_token }}
-      <button type="submit">删除</button>
-    </form>
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>还没有词表，先新建一个。</p>
-{% endif %}
+  {% if not current_language %}
+    {# 未设语言：引导去设置。词表对用户是隐式的，不展示建表表单。 #}
+    <div class="word-card">
+      <p class="card-word">📖</p>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
+        先选一个正在学的语言，词库按语言分类。
+      </p>
+      <div class="button-group">
+        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+      </div>
+    </div>
+  {% elif not words %}
+    <div class="word-card">
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:20px;">
+        {{ lang_name }} 词库还空着，加几个词开始背。
+      </p>
+      <div class="button-group">
+        <a class="btn success" href="{{ url_for('words.add_center') }}">去加词 →</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-container">
+      <table class="word-table">
+        <thead><tr><th>词</th><th>释义</th><th>状态</th></tr></thead>
+        <tbody>
+          {% for w in words %}
+          <tr class="word-row">
+            <td class="word-cell">{{ w.word }}</td>
+            <td>{% for d in w.definitions %}<span class="part-of-speech">{{ d.part_of_speech }}</span> <span class="meaning">{{ d.meaning }}</span>{% if not loop.last %}；{% endif %}{% endfor %}</td>
+            <td><small style="color:var(--text-secondary);">
+              due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}
+              {% if w.lapses %} · 忘 {{ w.lapses }}{% endif %}
+            </small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

@@ -1,39 +1,42 @@
 {% extends "base.html" %}
 {% block title %}候选词审核 · 记搭{% endblock %}
 {% block content %}
-<h1>候选词审核</h1>
-<p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+<div class="container">
+  <div class="header-section">
+    <h1>候选词审核</h1>
+    <p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+  </div>
 
-<form method="post" action="{{ url_for('intake.bulk_accept', source_id=source.id) }}"
-      style="display:inline">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <button type="submit">全部接受</button>
-</form>
-<form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}"
-      style="display:inline">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <button type="submit">提交入库（已接受的）</button>
-</form>
+  <div class="action-bar" style="margin-bottom:20px;">
+    <form method="post" action="{{ url_for('intake.bulk_accept', source_id=source.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn success">全部接受</button>
+    </form>
+    <form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn primary">提交入库（已接受的）</button>
+    </form>
+  </div>
 
-<ul>
   {% for c, is_dup in candidates %}
-  <li id="cand-{{ c.id }}">
+  <div class="word-card" id="cand-{{ c.id }}" style="padding:16px 20px;">
     {% if c.status != 'pending' %}
       <span>{{ c.word }} — {{ '已接受' if c.status == 'accepted' else '已忽略' }}</span>
     {% else %}
       <form hx-post="{{ url_for('intake.accept', candidate_id=c.id) }}"
-            hx-target="#cand-{{ c.id }}" hx-swap="innerHTML" style="display:inline">
-        <input name="word" value="{{ c.word }}" size="14">
-        <input name="part_of_speech" value="{{ c.part_of_speech or '' }}" size="6" placeholder="词性">
-        <input name="meaning" value="{{ c.meaning or '' }}" size="20" placeholder="释义">
-        <input name="example" value="{{ c.example or '' }}" size="24" placeholder="例句">
-        {% if is_dup %}<span title="该词表已有此词">⚠重复</span>{% endif %}
-        <button type="submit">接受</button>
+            hx-target="#cand-{{ c.id }}" hx-swap="innerHTML" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input name="word" value="{{ c.word }}" class="form-control" style="width:auto;min-width:100px;">
+        <input name="part_of_speech" value="{{ c.part_of_speech or '' }}" class="form-control" style="width:70px;" placeholder="词性">
+        <input name="meaning" value="{{ c.meaning or '' }}" class="form-control" style="width:160px;" placeholder="释义">
+        <input name="example" value="{{ c.example or '' }}" class="form-control" style="width:200px;" placeholder="例句">
+        {% if is_dup %}<span title="该词表已有此词" style="color:var(--warning-color);">⚠重复</span>{% endif %}
+        <button type="submit" class="btn success" style="padding:6px 14px;font-size:13px;">接受</button>
       </form>
-      <button hx-post="{{ url_for('intake.ignore', candidate_id=c.id) }}"
+      <button class="btn default" style="margin-top:8px;padding:6px 14px;font-size:13px;"
+              hx-post="{{ url_for('intake.ignore', candidate_id=c.id) }}"
               hx-target="#cand-{{ c.id }}" hx-swap="innerHTML">忽略</button>
     {% endif %}
-  </li>
+  </div>
   {% endfor %}
-</ul>
+</div>
 {% endblock %}

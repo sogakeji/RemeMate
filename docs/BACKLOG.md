@@ -19,12 +19,22 @@
      `UPDATE user_quota SET corrections_today=corrections_today+1 WHERE corrections_today<:limit RETURNING`，
      按返回行数判放行。邀请制下影响有限，开放注册前必修。
 
-- **htmx 本地化**（review 2026-06-23 L7）
-  base.html 从 unpkg CDN 加载 htmx；CDN 宕/被墙时核心复习/造句交互全废。改为本地静态资源。
+- **htmx 本地化**（review 2026-06-23 L7）✅ 2026-06-28
+  base.html 改用 `app/static/vendor/htmx.min.js` 本地引用，不再走 unpkg CDN。
 
 - **CI 自动跑迁移**（review 2026-06-23 L6）
   conftest 不自动迁移；测试库需手动 `flask db upgrade` 到最新。CI 必须有该步骤，否则
   级联/索引类回归测试会因 DB 落后而误判。
+  > **已知约束**（2026-06-28 排摸）：测试库的 `rememate` 角色在 init-test-db.sql 里
+  > `REVOKE CREATE ON SCHEMA public FROM PUBLIC` 且未单独 GRANT CREATE，**无建表权**；
+  > 而 TestingConfig.MIGRATE_DATABASE_URL 指向 TEST_DATABASE_URL（rememate 角色）。
+  > 自动迁移需引入 `TEST_MIGRATE_DATABASE_URL`（owner 角色 + rememate_test）让
+  > conftest 用 owner 跑 alembic upgrade head。加 CI 时一并处理。
+
+- **迁移约束名动态化（可重入）**（review 2026-06-23 M7）✅ 2026-06-28
+  1ca04f530(b27062024cc0 cascade FK → 查 pg_constraint 动态取名/IF EXISTS)＋
+  0be5bc17 / fe681cf5 / f7429a9 全部幂等化（policy DROP+CREATE、column IF NOT EXISTS）。
+  两轮 downgrade base → upgrade head 验证可重入。
 
 - **Bitwarden 迁机评估**（v0.1 §2.3）
   开放注册前评估把同机 Bitwarden 迁到独立机器（RemeMate 漏洞勿波及密码库）。
@@ -45,19 +55,21 @@
 
 ## 功能 / 体验（相关阶段顺带）
 
-- **stats 时区一致性**（review 2026-06-23 M2）
-  `get_stats` 的「今日已复习」按 UTC 午夜切，没用 `current_user.timezone`。应复用 timeutil
-  按用户本地午夜算。Asia/Shanghai 用户本地 00:00–08:00 的复习会错位。
+- **stats 时区一致性**（review 2026-06-23 M2）✅ 2026-06-28
+  `get_stats` 「今日已复习」改用 `today_local_start_utc(user.timezone)` 按本地午夜切。
+  +`timeutil.today_local_start_utc`（可注入 `now_utc` 供单测）+ 4 个单测覆盖跨时区边界。
 
-- **/words 详情页 N+1**（review 2026-06-23 M6）
-  detail.html 逐词懒加载 `w.definitions`。`get_word_list` 改 `selectinload`/`joinedload` 预加载。
+- **/words 详情页 N+1**（review 2026-06-23 M6）✅ 2026-06-28
+  `get_word_list(..., eager=True)` 用 `selectinload(words).selectinload(definitions)`，
+  detail 路由 eager 取。+集成测试用查询计数断言 definitions 只查一次。
 
-- **lapse 复习体验**（review 2026-06-23 M8）
-  lapse 后 `due_date=now` + `/review` limit=1 → 同一张牌可能立刻再现，有「死循环感」。
-  考虑 lapse 后压到队尾或加最小间隔。
+- **lapse 复习体验**（review 2026-06-23 M8）✅ 2026-06-28
+  lapse 后 `due_date = now + LAPSE_MIN_DELAY(10min)`，从「即时到期」队首移开，
+  本轮先转去复习其他到期词，稍后回到 lapse 牌。死循环感消除。
 
-- **「今日到期」文案**（review 2026-06-23 L1）
-  `due_count` 实为「所有到期（due_date<=now）」，文案写「今日到期」，语义不符。
+- **「今日到期」文案**（review 2026-06-23 L1）✅ 2026-06-28
+  `due_count` 实为「所有到期（due_date<=now）」（含逾期），文案从「今日到期」改述
+  为「待复习」/「待复习：N」（main/index.html + words/stats.html）。语义与 query 对齐。
 
 - **add_word 词表内去重**（review 2026-06-23 L10）
   同表可重复加同词；输入管道 commit 时会埋重复牌。加服务层去重或 unique。
@@ -66,8 +78,7 @@
 
 ## 健壮性 / 纵深防御
 
-- **迁移约束名动态化**（review 2026-06-23 M7）
-  b27062024cc0 硬编码 FK 约束名、无 `IF EXISTS`，不可重入。改查 `pg_constraint` 动态取名。
+- **迁移约束名动态化**（review 2026-06-23 M7）✅ 2026-06-28 → 见「上线前必做」段同名条目的完成注记。
 
 - **output_entries INSERT policy 校验 word_id 归属**（review 2026-06-23 L12）
   oe_ins 只校验 user_id，未断言 word_id 属于本人。正常路径不可达，但配合 word_id CASCADE

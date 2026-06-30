@@ -56,6 +56,34 @@ def create_app(config_name=None):
 
     register_commands(app)
 
+    # 全局模板上下文：把「当前语言 + 语言清单」注入所有模板，供 base.html 全局语言
+    # 切换器用。无请求未登录时为 None/空。service 层显式收 user_id，不依赖 request。
+    from app.services import words as _words_svc
+
+    @app.context_processor
+    def inject_lang():
+        from flask_login import current_user
+        lang = None
+        if current_user.is_authenticated:
+            try:
+                lang = _words_svc.get_current_language(current_user.id)
+            except Exception:                       # 容错：模板渲染绝不因 service 挂
+                lang = None
+        return {"current_language": lang,
+                "lang_choices": _words_svc._LANGUAGE_NAMES}
+
+    @app.context_processor
+    def inject_learning():
+        """注入「在学语言集合」（首页切换器 menu 只列这些）。与上方 inject_lang 同模式。"""
+        from flask_login import current_user
+        learning = []
+        if current_user.is_authenticated:
+            try:
+                learning = _words_svc.get_learning_languages(current_user.id)
+            except Exception:
+                learning = []
+        return {"learning_languages": learning}
+
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}

@@ -1,30 +1,42 @@
 {% extends "base.html" %}
 {% block title %}文本抽词 · 记搭{% endblock %}
 {% block content %}
-<h1>文本抽词</h1>
-<p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词 ·
-  <a href="{{ url_for('intake.import_page') }}">CSV 导入</a> ·
-  <a href="{{ url_for('intake.quick_add_page') }}">快速加词</a></small></p>
+<div class="container">
+  <div class="header-section">
+    <h1>文本抽词</h1>
+    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词
+      · <a class="nav-link" href="{{ url_for('intake.import_page') }}" style="display:inline;padding:2px 6px;">CSV 导入</a>
+      · <a class="nav-link" href="{{ url_for('intake.quick_add_page') }}" style="display:inline;padding:2px 6px;">快速加词</a></small></p>
+  </div>
 
-{% if not lists %}
-  <p>先去<a href="{{ url_for('words.lists') }}">建词表</a>。</p>
-{% else %}
-<form method="post" action="{{ url_for('intake.extract') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <p>
-    <label>词表
-      <select name="word_list_id" required>
-        {% for wl in lists %}<option value="{{ wl.id }}">{{ wl.name }}（{{ wl.language_code }}）</option>{% endfor %}
-      </select>
-    </label>
-  </p>
-  <p>
-    <textarea name="text" rows="10" maxlength="{{ max_chars }}" required
-              oninput="document.getElementById('cc').textContent=this.value.length"
-              placeholder="粘贴文章/字幕（≤ {{ max_chars }} 字符），最多抽 50 个生词"></textarea><br>
-    <small><span id="cc">0</span>/{{ max_chars }}</small>
-  </p>
-  <button type="submit">抽词</button>
-</form>
-{% endif %}
+  {% if not lang_choices %}
+  <div class="word-card" style="text-align:center;">
+    <p style="margin-bottom:16px;color:var(--text-secondary);">先在设置里选择正在学的语言。</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">去设置选语言</a>
+  </div>
+  {% else %}
+  <div class="form-card">
+    <form method="post" action="{{ url_for('intake.extract') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">语言
+          <select name="language_code" class="form-control" required>
+            {% for code, name in lang_choices %}
+            <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form-group">
+        <textarea name="text" rows="10" maxlength="{{ max_chars }}" required
+                  class="form-control"
+                  oninput="document.getElementById('cc').textContent=this.value.length"
+                  placeholder="粘贴文章/字幕（≤ {{ max_chars }} 字符），最多抽 50 个生词"></textarea>
+        <span class="form-text"><span id="cc">0</span>/{{ max_chars }}</span>
+      </div>
+      <button type="submit" class="btn primary">抽词</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

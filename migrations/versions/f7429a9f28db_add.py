@@ -17,11 +17,12 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "user_quota",
-        sa.Column("imports_today", sa.Integer(), nullable=False, server_default="0"),
+    # IF NOT EXISTS 保证可重入（review 2026-06-23 M7）。
+    op.execute(
+        "ALTER TABLE user_quota "
+        "ADD COLUMN IF NOT EXISTS imports_today integer NOT NULL DEFAULT 0;"
     )
 
 
 def downgrade():
-    op.drop_column("user_quota", "imports_today")
+    op.execute("ALTER TABLE user_quota DROP COLUMN IF EXISTS imports_today;")

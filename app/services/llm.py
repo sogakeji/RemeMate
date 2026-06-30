@@ -171,3 +171,100 @@ def chat(messages, *, task="general", json_mode=False) -> LLMResult:
             last_err = e
             continue
     raise AllProvidersDown(f"task={task} 全部 provider 不可用：{last_err}")
+
+
+# ---- 加词中心高层封装（对齐 demo services/llm_service.py） ----
+# 走 chat() + failover；失败 fail-closed：返回 None（生成例句/笔记）或 {"error":...}
+# （一键填充）。调方负责提示「AI 暂不可用」，不抛异常打断流程。
+#
+# language 传中文语言名（如「法语」），与 demo prompt 链一致；service 层外可由
+# language_code→name 映射后传入（见 words._language_name）。
+
+def _strip_quotes(s: str) -> str:
+    """demo 同款清理：去成对引号包裹。"""
+    s = (s or "").strip()
+    s = s.replace("“", "").replace("”", "").replace("\"", "")
+    if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
+        s = s[1:-1]
+    return s
+
+
+def generate_example(word, part_of_speech, meaning, *, language="英语"):
+    """为一个词生成例句。失败返回 None（fail-closed）。"""
+    if not word or not meaning:
+        return None
+    prompt = (
+        f"请为{language}单词 '{word}' ({part_of_speech}) 生成一个自然、简单易懂且地道的{language}例句，"
+        f"要体现它的含义：'{meaning}'与常用用法。"
+        f"直接输出{language}例句与这句话的中文意思，不要有任何其它解释。")
+    messages = [
+        {"role": "system", "content": f"你是一个{language}学习助手，擅长生成简单易懂的例句。"},
+        {"role": "user", "content": prompt},
+    ]
+    try:
+        return _strip_quotes(chat(messages, task="general").content)
+    except AllProvidersDown:
+        return None
+
+
+def generate_note(word, part_of_speech, meaning, *, language="英语"):
+    """生成学习笔记/记忆技巧。失败返回 None。"""
+    if not word or not meaning:
+        return None
+    prompt = (
+        f"请为{language}单词 '{word}' ({part_of_speech}) 编写一个简短的学习笔记或记忆技巧，50字以内，包含：\n"
+        "1. 记忆技巧或联想方法\n2. 常见用法提示（如固定搭配等）\n3. 易混淆点提醒\n"
+        f"帮助中国学生记住它的含义：'{meaning}'。只返回笔记内容，不要有标题或任何其他说明。")
+    messages = [
+        {"role": "system", "content": f"你是一个{language}学习助手，擅长帮助中国学生记忆{language}单词。"},
+        {"role": "user", "content": prompt},
+    ]
+    try:
+        return _strip_quotes(chat(messages, task="general").content)
+    except AllProvidersDown:
+        return None
+
+
+def generate_full_word_info(word, *, language="英语"):
+    """AI 一键填充：返回 {"definitions": [{part_of_speech,meaning,example,note}, ...]}。
+
+    失败/非法输入返回 {"error": "..."}（对齐 demo generate_full_word_info）。
+    provenance：走 extract 链（DeepSeek 主），JSON 模式保证可解析。
+    """
+    import json
+    if not word:
+        return {"error": "单词不能为空"}
+    prompt = f"""请为{language}单词 '{word}' 生成完整的学习信息。
+
+可用的词性列表（共12个）：
+- n. (名词)  - v. (动词)  - adj. (形容词)  - adv. (副词)
+- prep. (介词)  - conj. (连词)  - pron. (代词)  - interj. (感叹词)
+- num. (数词)  - art. (冠词)  - phr. (短语)
+
+要求：
+1. 首先验证输入是否为合法的{language}单词或短语，如果不是（如其它语言、数字、乱码等），返回包含error字段的JSON
+2. 按词性分组，每个词性一个definition对象
+3. 同一词性如果有多个释义，用分号"；"分隔放在meaning字段中
+4. 例句：{language}例句\n中文翻译，自然简单易懂，体现释义含义与常用用法
+5. 学习笔记包含巧记技巧、常用搭配等，80字以内
+6. 排在前面的更常用
+严格只返回如下 JSON：
+{{"definitions":[{{"part_of_speech":"词性","meaning":"释义","example":"{language}例句\\n中文翻译","note":"学习笔记"}}]}}
+失败：{{"error":"原因"}}"""
+    messages = [
+        {"role": "system", "content": f"你是一个专业的{language}学习助手，擅长分析单词并生成完整的学习资料。你必须返回有效的JSON格式。请仔细验证输入是否为合法的{language}单词。"},
+        {"role": "user", "content": prompt},
+    ]
+    try:
+        content = chat(messages, task="extract", json_mode=True).content
+    except AllProvidersDown:
+        return {"error": "AI服务暂时不可用，请稍后重试"}
+    try:
+        data = json.loads(content)
+    except (ValueError, TypeError):
+        return {"error": "AI返回格式错误，请重试"}
+    if isinstance(data, dict) and "error" in data:
+        return data
+    if not (isinstance(data, dict) and data.get("definitions")):
+        return {"error": "AI返回数据格式错误"}
+    return {"definitions": data["definitions"]}

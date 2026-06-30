@@ -17,6 +17,7 @@ from app.models.word import WordList, Word, Definition
 from app.models.intake import IntakeSource, SourceSegment, WordCandidate
 from app.services import llm
 from app.services import quota as quota_svc
+from app.services import words as words_svc
 
 # 前置硬上限（可配；人工测试后调）
 INTAKE_MAX_EXTRACT_CHARS = 8000
@@ -39,17 +40,20 @@ class CsvFormatError(Exception):
     pass
 
 
-def _check_word_list(user_id, word_list_id) -> WordList | None:
-    return WordList.query.filter_by(id=word_list_id, user_id=user_id).first()
+def _language_word_list(user_id, language_code) -> WordList | None:
+    if language_code not in words_svc._LANGUAGE_NAMES:
+        return None
+    return words_svc.get_or_create_language_list(user_id, language_code)
 
 
 # ---- 入口 1：CSV ----
 
-def prepare_csv(user_id, word_list_id, language_code, file_bytes, filename):
+def prepare_csv(user_id, language_code, file_bytes, filename):
     """校验 CSV 大小/行数/格式，建 intake_source + source_segments（不调 LLM）。"""
     if len(file_bytes) > INTAKE_MAX_CSV_BYTES:
         raise CsvTooLarge(f"CSV 超过 {INTAKE_MAX_CSV_BYTES // 1024}KB，请拆分上传")
-    if _check_word_list(user_id, word_list_id) is None:
+    wl = _language_word_list(user_id, language_code)
+    if wl is None:
         return None
 
     try:
@@ -77,7 +81,7 @@ def prepare_csv(user_id, word_list_id, language_code, file_bytes, filename):
 
     source = IntakeSource(
         user_id=user_id, source_type="csv", language_code=language_code,
-        word_list_id=word_list_id, original_name=filename or "import.csv",
+        word_list_id=wl.id, original_name=filename or "import.csv",
         status="processing", total_segments=len(rows),
     )
     db.session.add(source)
@@ -93,7 +97,7 @@ def prepare_csv(user_id, word_list_id, language_code, file_bytes, filename):
 
 # ---- 入口 2：文本抽词 ----
 
-def prepare_extract(user_id, word_list_id, language_code, text):
+def prepare_extract(user_id, language_code, text):
     """校验文档长度，建 intake_source + 单 segment（原文）。超长不进 LLM。"""
     text = (text or "").strip()
     if not text:
@@ -101,12 +105,13 @@ def prepare_extract(user_id, word_list_id, language_code, text):
     if len(text) > INTAKE_MAX_EXTRACT_CHARS:
         raise DocumentTooLong(
             f"文档 {len(text)} 字符，超过 {INTAKE_MAX_EXTRACT_CHARS}，请分段")
-    if _check_word_list(user_id, word_list_id) is None:
+    wl = _language_word_list(user_id, language_code)
+    if wl is None:
         return None
 
     source = IntakeSource(
         user_id=user_id, source_type="text_extract", language_code=language_code,
-        word_list_id=word_list_id, original_name=text[:50], status="processing",
+        word_list_id=wl.id, original_name=text[:50], status="processing",
         total_segments=1,
     )
     db.session.add(source)
@@ -238,18 +243,19 @@ def process_source(user_id, source_id):
     yield {"type": "done", "candidates": created, "source_id": source.id}
 
 
-def quick_add(user_id, word_list_id, language_code, word, meaning=None):
+def quick_add(user_id, language_code, word, meaning=None):
     """快速加词：单词，AI 补全，建 source + 1 候选。返回 (source, candidate)。"""
     word = (word or "").strip()
     if not word or len(word) > QUICK_ADD_MAX_CHARS:
         raise CsvFormatError("词为空或过长")
-    if _check_word_list(user_id, word_list_id) is None:
+    wl = _language_word_list(user_id, language_code)
+    if wl is None:
         return None, None
     quota_svc.check_import_quota(user_id, 1)    # 超限抛 ImportQuotaExceeded
 
     source = IntakeSource(
         user_id=user_id, source_type="quick_add", language_code=language_code,
-        word_list_id=word_list_id, original_name=word, status="processing",
+        word_list_id=wl.id, original_name=word, status="processing",
         total_segments=1,
     )
     db.session.add(source)

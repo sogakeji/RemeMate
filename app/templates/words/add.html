@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}加词中心 · 记搭{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="header-section">
+    <h1>加词中心</h1>
+    <p style="color:var(--text-secondary);font-size:14px;">
+      手工加完整词条，或让 AI 一键填充；导入 CSV / 文本抽词在下方。
+      <small>选个语言开始——系统会自动归类到该语言的词库。</small>
+    </p>
+  </div>
+
+  <div class="form-card">
+    <!-- 语言选择（隐式词表入口） -->
+    {{ form.csrf_token }}
+    <div class="form-group">
+      <label class="form-label">语言</label>
+      {{ form.language_code(class="form-control", id="lang-select") }}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">词</label>
+      <div class="input-with-button" style="display:flex;gap:8px;">
+        <input type="text" id="word-input" class="form-control" placeholder="输入单词或短语" style="flex:1;">
+        <button type="button" class="btn" id="ai-fill-btn" title="AI 一键填充词性/释义/例句/笔记">AI 填充</button>
+      </div>
+    </div>
+
+    <div id="definitions-container">
+      <!-- 多词义条由 JS 动态生成；初始一条 -->
+    </div>
+    <button type="button" class="btn default" id="add-def-btn" style="margin:10px 0;">+ 加一条词义</button>
+
+    <div class="button-group">
+      <button type="button" class="btn primary" id="submit-btn">加入词库</button>
+    </div>
+    <p id="msg" style="margin-top:10px;color:var(--text-secondary);font-size:14px;"></p>
+  </div>
+
+  <div class="header-section" style="margin-top:25px;">
+    <h2 style="font-size:18px;">批量导入</h2>
+  </div>
+  <div class="action-bar" style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a class="btn success" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
+    <a class="btn success" href="{{ url_for('intake.extract_page') }}">文本抽词</a>
+    <a class="btn default" href="{{ url_for('intake.quick_add_page') }}">随手加一个（AI 补释义）</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  var posChoices = {{ pos_choices|tojson }};
+  var langSelect = document.getElementById('lang-select');
+  var wordInput = document.getElementById('word-input');
+  var defsWrap = document.getElementById('definitions-container');
+  var msg = document.getElementById('msg');
+
+  function defRow(index) {
+    var div = document.createElement('div');
+    div.className = 'definition-form';
+    div.style.cssText = 'border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:12px;';
+    var opts = posChoices.map(function (p) {
+      return '<option value="' + p + '">' + (p || '-- 词性 --') + '</option>';
+    }).join('');
+    div.innerHTML =
+      '<h3 style="font-size:15px;margin:0 0 10px;">词义 #' + index + '</h3>' +
+      '<div class="form-group"><label class="form-label">词性</label>' +
+        '<select name="part_of_speech" class="form-control">' + opts + '</select></div>' +
+      '<div class="form-group"><label class="form-label">释义</label>' +
+        '<input type="text" name="meaning" class="form-control"></div>' +
+      '<div class="form-group"><label class="form-label">例句</label>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<textarea name="example" class="form-control" style="flex:1;"></textarea>' +
+          '<button type="button" class="btn gen-example-btn">生成例句</button>' +
+        '</div></div>' +
+      '<div class="form-group"><label class="form-label">笔记</label>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<textarea name="note" class="form-control" style="flex:1;"></textarea>' +
+          '<button type="button" class="btn gen-note-btn">生成笔记</button>' +
+        '</div></div>' +
+      (index > 1 ? '<button type="button" class="btn danger remove-def" style="margin-top:6px;font-size:13px;">移除</button>' : '');
+    return div;
+  }
+
+  function addDef() {
+    var idx = defsWrap.children.length + 1;
+    defsWrap.appendChild(defRow(idx));
+  }
+  addDef();
+  document.getElementById('add-def-btn').onclick = addDef;
+
+  defsWrap.addEventListener('click', function (e) {
+    var row = e.target.closest('.definition-form');
+    if (!row) return;
+    if (e.target.classList.contains('remove-def')) { row.remove(); renumber(); return; }
+    if (e.target.classList.contains('gen-example')) { gen(row, 'example'); return; }
+    if (e.target.classList.contains('gen-note')) { gen(row, 'note'); return; }
+  });
+
+  function renumber() {
+    [].forEach.call(defsWrap.children, function (row, i) {
+      var h = row.querySelector('h3'); if (h) h.textContent = '词义 #' + (i + 1);
+      var rm = row.querySelector('.remove-def'); if (rm) rm.style.display = (i >= 1) ? '' : 'none';
+    });
+  }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (j) { return {ok: r.ok, data: j}; }); });
+  }
+
+  function collectDefs() {
+    return [].map.call(defsWrap.querySelectorAll('.definition-form'), function (row) {
+      var q = function (n) { var el = row.querySelector('[name="' + n + '"]'); return el ? el.value : ''; };
+      return {part_of_speech: q('part_of_speech'), meaning: q('meaning'),
+              example: q('example'), note: q('note')};
+    });
+  }
+
+  function gen(row, kind) {
+    var lang = langSelect.value;
+    var word = wordInput.value.trim();
+    var pos = (row.querySelector('[name="part_of_speech"]') || {}).value;
+    var meaning = (row.querySelector('[name="meaning"]') || {}).value;
+    if (!word || !meaning) { alert('词与释义都要填'); return; }
+    var url = kind === 'example' ? '{{ url_for("words.generate_example") }}' : '{{ url_for("words.generate_note") }}';
+    post(url, {word: word, part_of_speech: pos, meaning: meaning, language_code: lang})
+      .then(function (r) {
+        var field = row.querySelector('[name="' + kind + '"]');
+        if (r.ok && r.data[kind]) { field.value = r.data[kind]; msg.textContent = ''; }
+        else { msg.textContent = r.data.error || '生成失败'; }
+      });
+  }
+
+  // AI 一键填充：把 word 之外的清空，按返回的 definitions 重建多词义条
+  document.getElementById('ai-fill-btn').onclick = function () {
+    var word = wordInput.value.trim();
+    var lang = langSelect.value;
+    if (!word) { alert('先输入词'); return; }
+    if (!lang) { alert('先选语言'); return; }
+    post('{{ url_for("words.ai_fill") }}', {word: word, language_code: lang})
+      .then(function (r) {
+        if (r.ok && r.data.definitions) {
+          defsWrap.innerHTML = '';
+          r.data.definitions.forEach(function () { addDef(); });
+          [].forEach.call(defsWrap.children, function (row, i) {
+            var d = r.data.definitions[i];
+            var pos = row.querySelector('[name="part_of_speech"]');
+            if (pos) { for (var k = 0; k < pos.options.length; k++) { if (pos.options[k].value === d.part_of_speech) { pos.selectedIndex = k; break; } } }
+            var m = row.querySelector('[name="meaning"]'); if (m) m.value = d.meaning || '';
+            var ex = row.querySelector('[name="example"]'); if (ex) ex.value = d.example || '';
+            var nt = row.querySelector('[name="note"]'); if (nt) nt.value = d.note || '';
+          });
+          msg.textContent = 'AI 已填充 ' + r.data.definitions.length + ' 条词义';
+        } else { msg.textContent = r.data.error || 'AI 暂不可用'; }
+      });
+  };
+
+  document.getElementById('submit-btn').onclick = function () {
+    var word = wordInput.value.trim();
+    var lang = langSelect.value;
+    if (!word) { msg.textContent = '请输入词'; return; }
+    if (!lang) { msg.textContent = '请选语言'; return; }
+    post('{{ url_for("words.add_submit") }}',
+         {word: word, language_code: lang, definitions: collectDefs()})
+      .then(function (r) {
+        if (r.ok) {
+          msg.style.color = 'var(--success-color)';
+          msg.textContent = '已加「' + word + '」';
+          wordInput.value = '';
+          defsWrap.innerHTML = '';
+          addDef();
+        } else {
+          msg.style.color = 'var(--danger-color)';
+          msg.textContent = r.data.error || '加词失败';
+        }
+      });
+  };
+})();
+</script>
+{% endblock %}

@@ -11,7 +11,7 @@ from flask_login import login_required, current_user
 
 from app.services import intake as intake_svc
 from app.services import quota as quota_svc
-from app.services.words import get_word_lists
+from app.services import words as words_svc
 
 bp = Blueprint("intake", __name__)
 
@@ -20,9 +20,13 @@ def _uid():
     return current_user.id
 
 
-def _lists_for_picker():
-    # get_word_lists 返回 (wl, count) 元组；这里只要 wl
-    return [wl for wl, _ in get_word_lists(_uid())]
+def _language_choices():
+    return [(code, words_svc._language_name(code))
+            for code in words_svc.get_learning_languages(_uid())]
+
+
+def _current_language():
+    return words_svc.get_current_language(_uid())
 
 
 # ---- CSV ----
@@ -30,22 +34,23 @@ def _lists_for_picker():
 @bp.get("/intake/import")
 @login_required
 def import_page():
-    return render_template("intake/import.html", lists=_lists_for_picker(),
+    return render_template("intake/import.html",
+                           lang_choices=_language_choices(),
+                           current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()))
 
 
 @bp.post("/intake/import")
 @login_required
 def import_csv():
-    word_list_id = request.form.get("word_list_id", type=int)
+    language_code = request.form.get("language_code", "").strip()
     file = request.files.get("file")
-    if not word_list_id or file is None or not file.filename:
-        flash("请选择词表并上传 CSV")
+    if not language_code or file is None or not file.filename:
+        flash("请选择语言并上传 CSV")
         return redirect(url_for("intake.import_page"))
     try:
         source = intake_svc.prepare_csv(
-            _uid(), word_list_id, request.form.get("language_code", "fr"),
-            file.read(), file.filename)
+            _uid(), language_code, file.read(), file.filename)
     except (intake_svc.CsvTooLarge, intake_svc.CsvFormatError) as e:
         flash(str(e))
         return redirect(url_for("intake.import_page"))
@@ -59,7 +64,9 @@ def import_csv():
 @bp.get("/intake/extract")
 @login_required
 def extract_page():
-    return render_template("intake/extract.html", lists=_lists_for_picker(),
+    return render_template("intake/extract.html",
+                           lang_choices=_language_choices(),
+                           current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()),
                            max_chars=intake_svc.INTAKE_MAX_EXTRACT_CHARS)
 
@@ -67,14 +74,13 @@ def extract_page():
 @bp.post("/intake/extract")
 @login_required
 def extract():
-    word_list_id = request.form.get("word_list_id", type=int)
-    if not word_list_id:
-        flash("请选择词表")
+    language_code = request.form.get("language_code", "").strip()
+    if not language_code:
+        flash("请选择语言")
         return redirect(url_for("intake.extract_page"))
     try:
         source = intake_svc.prepare_extract(
-            _uid(), word_list_id, request.form.get("language_code", "fr"),
-            request.form.get("text", ""))
+            _uid(), language_code, request.form.get("text", ""))
     except intake_svc.DocumentTooLong as e:
         flash(str(e))
         return redirect(url_for("intake.extract_page"))
@@ -115,21 +121,23 @@ def process_stream(source_id):
 @bp.get("/intake/quick-add")
 @login_required
 def quick_add_page():
-    return render_template("intake/quick_add.html", lists=_lists_for_picker(),
+    return render_template("intake/quick_add.html",
+                           lang_choices=_language_choices(),
+                           current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()))
 
 
 @bp.post("/intake/quick-add")
 @login_required
 def quick_add():
-    word_list_id = request.form.get("word_list_id", type=int)
-    if not word_list_id:
-        flash("请选择词表")
+    language_code = request.form.get("language_code", "").strip()
+    if not language_code:
+        flash("请选择语言")
         return redirect(url_for("intake.quick_add_page"))
     try:
         source, _ = intake_svc.quick_add(
-            _uid(), word_list_id, request.form.get("language_code", "fr"),
-            request.form.get("word", ""), request.form.get("meaning"))
+            _uid(), language_code, request.form.get("word", ""),
+            request.form.get("meaning"))
     except quota_svc.ImportQuotaExceeded as e:
         flash(f"今日导入额度已用完（{e.used}/{e.limit}）")
         return redirect(url_for("intake.quick_add_page"))
@@ -184,5 +192,6 @@ def commit(source_id):
     if source is None:
         abort(404)
     n = intake_svc.commit_intake_source(_uid(), source_id)
+    words_svc.set_current_language(_uid(), source.language_code)
     flash(f"已入库 {n} 个词")
-    return redirect(url_for("words.detail", list_id=source.word_list_id))
+    return redirect(url_for("words.lists"))

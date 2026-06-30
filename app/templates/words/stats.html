@@ -1,12 +1,58 @@
 {% extends "base.html" %}
 {% block title %}统计 · 记搭{% endblock %}
 {% block content %}
-<h1>学习统计</h1>
-<ul>
-  <li>词表数：{{ stats.list_count }}</li>
-  <li>总词数：{{ stats.total_words }}</li>
-  <li>今日到期：{{ stats.due_count }}</li>
-  <li>今日已复习：{{ stats.reviewed_today }}</li>
-</ul>
-<p><a href="{{ url_for('words.review') }}">开始复习</a></p>
+<div class="container">
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <h1>学习统计</h1>
+    {% if current_language %}
+    <span style="color:var(--text-secondary);font-size:14px;">当前语言：<strong>{{ lang_name }}</strong></span>
+    {% endif %}
+  </div>
+
+  {% if not current_language %}
+    <div class="word-card">
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:20px;">
+        先选一个正在学的语言再看统计。
+      </p>
+      <div class="button-group" style="display:flex;justify-content:center;">
+        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+      </div>
+    </div>
+  {% else %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:15px;margin-bottom:25px;">
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;">{{ stats.list_count }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">词库数</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;">{{ stats.total_words }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">总词数</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;border-left:4px solid var(--danger-color);">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;color:var(--danger-color);">{{ stats.due_count }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">待复习</div>
+    </div>
+    <div class="word-card" style="text-align:center;padding:20px;margin-bottom:0;border-left:4px solid var(--success-color);">
+      <div class="card-word" style="font-size:32px;margin-bottom:8px;color:var(--success-color);">{{ stats.reviewed_today }}</div>
+      <div style="color:var(--text-secondary);font-size:13px;">今日已复习</div>
+    </div>
+  </div>
+
+  <div class="word-card" style="text-align:center;">
+    {% if stats.due_count > 0 %}
+      <p style="margin-bottom:16px;color:var(--text-secondary);">有 <strong style="color:var(--danger-color);">{{ stats.due_count }}</strong> 个词待复习</p>
+      <a class="btn primary" href="{{ url_for('main.index') }}">开始复习 →</a>
+    {% else %}
+      <p style="margin-bottom:16px;color:var(--text-secondary);">今日复习完成 🎉</p>
+      <p style="margin-bottom:0;color:var(--text-secondary);font-size:13px;">
+        刚刚标记“没记住”的词会在约 10 分钟后回来。
+      </p>
+    {% endif %}
+  </div>
+
+  <p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:20px;">
+    学习热力图待阶段补（需按复习日志聚合）
+  </p>
+  {% endif %}
+</div>
 {% endblock %}

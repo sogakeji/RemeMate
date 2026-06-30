@@ -37,46 +37,54 @@ DIRECT_TABLES = [
 ALL_RLS_TABLES = DIRECT_TABLES + ["words", "definitions", "messages", "output_entries"]
 
 
+def _recreate_policy(name, table, stmt):
+    """CREATE POLICY 无 IF NOT EXISTS；先 DROP IF EXISTS 再 CREATE，保证可重入
+    （review 2026-06-23 M7）。
+    """
+    op.execute(f"DROP POLICY IF EXISTS {name} ON {table};")
+    op.execute(stmt)
+
+
 def upgrade():
-    # 1. ENABLE + FORCE
+    # 1. ENABLE + FORCE（幂等：重复 ENABLE/FORCE 不报错）
     for t in ALL_RLS_TABLES:
         op.execute(f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;")
         op.execute(f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY;")
 
     # 2. 直接 user_id 的 policy
     for t in DIRECT_TABLES:
-        op.execute(f"CREATE POLICY iso ON {t} USING (user_id = {UID});")
+        _recreate_policy("iso", t, f"CREATE POLICY iso ON {t} USING (user_id = {UID});")
 
     # 3. 级联 policy
-    op.execute(f"""
+    _recreate_policy("iso", "words", f"""
         CREATE POLICY iso ON words USING (
             list_id IN (SELECT id FROM word_lists WHERE user_id = {UID}));
     """)
-    op.execute(f"""
+    _recreate_policy("iso", "definitions", f"""
         CREATE POLICY iso ON definitions USING (
             word_id IN (SELECT w.id FROM words w
                         JOIN word_lists wl ON w.list_id = wl.id
                         WHERE wl.user_id = {UID}));
     """)
-    op.execute(f"""
+    _recreate_policy("iso", "messages", f"""
         CREATE POLICY iso ON messages USING (
             conv_id IN (SELECT id FROM conversations WHERE user_id = {UID}));
     """)
 
     # 4. output_entries：读=本人 OR 已公开；写=仅本人（读写分离，防改/删他人公开句）
-    op.execute(f"""
+    _recreate_policy("oe_sel", "output_entries", f"""
         CREATE POLICY oe_sel ON output_entries FOR SELECT
             USING (user_id = {UID} OR is_public = true);
     """)
-    op.execute(f"""
+    _recreate_policy("oe_ins", "output_entries", f"""
         CREATE POLICY oe_ins ON output_entries FOR INSERT
             WITH CHECK (user_id = {UID});
     """)
-    op.execute(f"""
+    _recreate_policy("oe_upd", "output_entries", f"""
         CREATE POLICY oe_upd ON output_entries FOR UPDATE
             USING (user_id = {UID}) WITH CHECK (user_id = {UID});
     """)
-    op.execute(f"""
+    _recreate_policy("oe_del", "output_entries", f"""
         CREATE POLICY oe_del ON output_entries FOR DELETE
             USING (user_id = {UID});
     """)

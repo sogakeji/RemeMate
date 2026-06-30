@@ -20,3 +20,11 @@ class AddWordForm(FlaskForm):
     meaning = TextAreaField("释义")
     example = TextAreaField("例句")
     note = TextAreaField("备注")
+
+
+class LanguageChoiceForm(FlaskForm):
+    """只用于选语言（加词中心用）：保 CSRF + 校验 language_code 合法。
+
+    词本身的多词义走 JSON POST（前端动态加多条 definition），不入 WTForms 单字段。
+    """
+    language_code = SelectField("语言", choices=LANG_CHOICES, validators=[DataRequired()])

@@ -50,7 +50,7 @@ def test_lapse_resets_and_counts():
     assert w.reps == 0
     assert w.interval == 1
     assert w.lapses == 1
-    assert w.due_date == now   # 今天重排
+    assert w.due_date == now + srs.LAPSE_MIN_DELAY   # 推迟一个最小区间（消除死循环感）
     assert w.ease < 2.5        # ease 下降
 
 

@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}记搭 RemeMate{% endblock %}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Inter(苹果风) + 思源黑体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
   <script>
     // 给所有 HTMX 请求带上 CSRF 头（Flask-WTF 接受 X-CSRFToken）
     document.addEventListener('htmx:configRequest', function (e) {
@@ -13,19 +16,64 @@
       if (t) e.detail.headers['X-CSRFToken'] = t.getAttribute('content');
     });
   </script>
+  {% block head %}{% endblock %}
 </head>
 <body>
-  {% if current_user.is_authenticated %}
-  <nav>
-    <a href="{{ url_for('main.index') }}">首页</a> ·
-    <a href="{{ url_for('words.lists') }}">词库</a> ·
-    <a href="{{ url_for('intake.quick_add_page') }}">加词</a> ·
-    <a href="{{ url_for('words.review') }}">复习</a> ·
-    <a href="{{ url_for('write.compose') }}">造句</a> ·
-    <a href="{{ url_for('words.stats') }}">统计</a> ·
-    <a href="{{ url_for('auth.logout') }}">登出</a>
-  </nav>
-  {% endif %}
+  <!-- 顶部：品牌头 + nav pill 栏 + 主题切换 -->
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-name">记搭 · RemeMate</span>
+      <span class="brand-slogan">每个词都记得</span>
+      {% if current_user.is_authenticated %}
+      <span class="brand-user">{{ current_user.display_name }}</span>
+      {% endif %}
+    </div>
+    <div class="theme-slot">
+      {% if current_user.is_authenticated %}
+      <nav class="app-nav">
+        <a class="nav-link" href="{{ url_for('main.index') }}">首页</a>
+        <a class="nav-link" href="{{ url_for('words.lists') }}">词库</a>
+        <a class="nav-link" href="{{ url_for('words.add_center') }}">加词</a>
+        <a class="nav-link" href="{{ url_for('write.compose') }}">造句</a>
+        <a class="nav-link" href="{{ url_for('words.stats') }}">统计</a>
+        <a class="nav-link" href="{{ url_for('main.settings') }}">设置</a>
+        <a class="nav-link" href="{{ url_for('auth.logout') }}">登出</a>
+      </nav>
+      {% endif %}
+      {% if current_user.is_authenticated %}
+      <div class="lang-switcher" id="langSwitcher" style="display:inline-block;">
+        <button type="button" class="lang-current" id="langCurrent" title="切换当前语言">
+          <span class="lang-flag">
+            {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺'} %}
+            {{ _flag.get(current_language, '📖') }}
+          </span>
+          <span class="lang-label">{{ lang_choices.get(current_language, '选语言') }}</span>
+          <svg class="lang-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <form id="langSwitchForm" method="post" action="{{ url_for('main.switch_language') }}" style="display:none;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="language_code" id="langCodeInput" value="{{ current_language or '' }}">
+        </form>
+        <div class="lang-menu" id="langMenu">
+          {% for code in learning_languages %}
+          <button type="button" class="lang-item {% if code == current_language %}active{% endif %}"
+                  data-code="{{ code }}">
+            <span>{{ _flag.get(code, '📖') }}</span>
+            <span>{{ lang_choices.get(code, code) }}</span>
+          </button>
+          {% endfor %}
+          {% if not learning_languages %}
+          <span class="lang-empty">先在设置里选语言</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <button id="themeToggleBtn" class="theme-toggle-btn" title="切换主题">
+        <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+  </header>
+
   {% with messages = get_flashed_messages() %}
     {% if messages %}
       <ul class="flashes">
@@ -33,6 +81,54 @@
       </ul>
     {% endif %}
   {% endwith %}
+
   {% block content %}{% endblock %}
+
+  <script>
+    // 主题切换（localStorage 持久化；字面量 SVG 避免在 line fetch 模板）
+    (function () {
+      var btn = document.getElementById('themeToggleBtn');
+      var icon = document.getElementById('themeIcon');
+      var sun = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+      var moon = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+      function updateIcon(isDark) { if (icon) icon.innerHTML = isDark ? sun : moon; }
+      if (localStorage.getItem('darkMode') === 'true') {
+        document.documentElement.classList.add('dark-mode');
+        updateIcon(true);
+      }
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var isDark = document.documentElement.classList.toggle('dark-mode');
+          localStorage.setItem('darkMode', isDark);
+          updateIcon(isDark);
+        });
+      }
+
+      // 全局语言切换器（base.html）：点当前条开/关下拉，点语言项提交隐藏表单切当前语言。
+      var sw = document.getElementById('langSwitcher');
+      if (sw) {
+        var cur = document.getElementById('langCurrent');
+        var menu = document.getElementById('langMenu');
+        var form = document.getElementById('langSwitchForm');
+        var codeInput = document.getElementById('langCodeInput');
+        cur.addEventListener('click', function (e) {
+          e.stopPropagation();
+          sw.classList.toggle('open');
+        });
+        document.addEventListener('click', function (e) {
+          if (!sw.contains(e.target)) sw.classList.remove('open');
+        });
+        menu.addEventListener('click', function (e) {
+          var item = e.target.closest('.lang-item');
+          if (!item) return;
+          var code = item.getAttribute('data-code');
+          if (!code) return;
+          codeInput.value = code;
+          form.submit();
+        });
+      }
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

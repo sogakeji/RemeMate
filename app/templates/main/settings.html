@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}设置 · 记搭{% endblock %}
+{% block content %}
+<div class="container" style="max-width:520px;">
+  <h1>设置</h1>
+
+  <div class="form-card">
+    <h2 style="font-size:18px;margin-bottom:12px;">正在学的语言</h2>
+    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+      勾选你正在学的所有语言，系统会为每种建好词库。
+      首页复习、词库都按「当前主攻」语言来——首页切换器只在下面勾选的语言里切。
+      想只学一种语言了，把多选改成只勾那一种再保存即可。
+    </p>
+    <form method="post" action="{{ url_for('main.save_settings') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        {% for code, name in lang_choices.items() %}
+        <label class="lang-check">
+          <input type="checkbox" name="languages" value="{{ code }}"
+                 {% if code in learning %}checked{% endif %}>
+          <span>{{ name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn primary">保存</button>
+    </form>
+    {% if not learning %}
+    <p style="color:var(--text-secondary);font-size:13px;margin-top:14px;">
+      还没选任何语言——首页会提示你先来这里选语言。
+    </p>
+    {% endif %}
+  </div>
+
+  <p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:20px;">
+    推送（Bark）/ 播客 / 自带 API key 等设置将在后续阶段补。
+  </p>
+</div>
+{% endblock %}

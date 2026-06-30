@@ -1,12 +1,22 @@
 {% extends "base.html" %}
-{% block title %}首页 · 记搭{% endblock %}
+{% block title %}记搭 · 每个词都记得{% endblock %}
 {% block content %}
-<h1>欢迎，{{ user.display_name }}</h1>
-{% if stats.due_count > 0 %}
-  <p>今日有 <strong>{{ stats.due_count }}</strong> 个词到期。
-     <a href="{{ url_for('words.review') }}">开始复习 →</a></p>
-{% else %}
-  <p>今日没有到期的词。<a href="{{ url_for('words.lists') }}">去加词</a></p>
-{% endif %}
-<p><small>总词数 {{ stats.total_words }} · 今日已复习 {{ stats.reviewed_today }}</small></p>
+<div class="container">
+  {# 语言切换器现已移到 base.html 右上（主题钮左边），全局生效。 #}
+  {% if current_language is none %}
+    {# 未设语言：引导去设置（也可直接点右上切换器选语言）。 #}
+    <div class="word-card">
+      <p class="card-word">📖</p>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
+        先选一个正在学的语言，开始背词。
+      </p>
+      <div class="button-group">
+        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+      </div>
+    </div>
+  {% else %}
+    {# 主词卡：直接复用复习片段（含 hx 三按钮打 words.grade，端点完全不动）。 #}
+    {% include "review/_card.html" %}
+  {% endif %}
+</div>
 {% endblock %}
