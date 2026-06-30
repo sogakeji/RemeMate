@@ -8,10 +8,15 @@
       · <a class="nav-link" href="{{ url_for('write.history') }}" style="display:inline;padding:2px 6px;">历史</a></small></p>
   </div>
 
-  {% if not words %}
+  {% if not current_language %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">还没有词，先去加词。</p>
-    <a class="btn success" href="{{ url_for('words.lists') }}">去加词</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">先选一个正在学的语言，再开始造句。</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">去设置</a>
+  </div>
+  {% elif not words %}
+  <div class="word-card" style="text-align:center;">
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ lang_name }}还没有词，先去加词。</p>
+    <a class="btn success" href="{{ url_for('words.add_center') }}">去加词</a>
   </div>
   {% elif quota.used >= quota.limit %}
   <div class="word-card" style="text-align:center;">

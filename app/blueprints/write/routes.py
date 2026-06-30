@@ -24,9 +24,11 @@ def _uid():
 def compose():
     from app.services import words as words_svc
     lang = words_svc.get_current_language(_uid())
+    words = [] if lang is None else writing_svc.get_practice_words(
+        _uid(), language_code=lang)
     return render_template(
         "write/compose.html",
-        words=writing_svc.get_practice_words(_uid(), language_code=lang),
+        words=words,
         quota=quota_svc.write_quota_status(_uid()),
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
         current_language=lang,
@@ -37,12 +39,18 @@ def compose():
 @bp.post("/write/submit")
 @login_required
 def submit():
+    from app.services import words as words_svc
     word_id = request.form.get("word_id", type=int)
     sentence = request.form.get("sentence", "")
     if not word_id:
         abort(400)
+    lang = words_svc.get_current_language(_uid())
+    if lang is None:
+        abort(400)
     try:
-        result = writing_svc.submit_correction(_uid(), word_id, sentence)
+        result = writing_svc.submit_correction(
+            _uid(), word_id, sentence, language_code=lang,
+        )
     except quota_svc.SentenceQuotaExceeded as e:
         return render_template("write/_quota_exceeded.html", used=e.used, limit=e.limit)
     except writing_svc.SentenceTooLong:

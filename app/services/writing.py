@@ -5,6 +5,8 @@
 - save_entry：用户显式确认后才写 output_entries。
 - is_nsfw 由批改结果决定，经签名 session 传递（路由层），不信客户端。
 """
+from sqlalchemy import case
+
 from app.extensions import db
 from app.models.word import WordList, Word
 from app.models.output import OutputEntry
@@ -22,20 +24,25 @@ class SentenceTooLong(Exception):
 
 def get_practice_words(user_id: int, limit: int = 50, *,
                        language_code: str | None = None) -> list[Word]:
-    """造句可选词：到期词在前，其余按加入顺序。
+    """造句可选词：当前语言内，到期词在前；同组里优先易忘词。
 
     language_code 给定时只取该语言的词（与首页/词库按当前语言闭环一致）。
     """
+    now = utc_now()
     q = (Word.query.join(WordList)
          .filter(WordList.user_id == user_id))
     if language_code is not None:
         q = q.filter(WordList.language_code == language_code)
-    return q.order_by(Word.due_date.asc()).limit(limit).all()
+    due_bucket = case((Word.due_date <= now, 0), else_=1)
+    return (q.order_by(due_bucket, Word.lapses.desc(), Word.due_date.asc())
+            .limit(limit).all())
 
 
-def submit_correction(user_id: int, word_id: int, sentence: str):
+def submit_correction(user_id: int, word_id: int, sentence: str, *,
+                      language_code: str | None = None):
     """批改一句（不入库）。返回 CorrectionResult；词不属于用户返回 None。
 
+    language_code 给定时，词还必须属于该语言；这是页面过滤之外的后端兜底。
     可能抛 quota.SentenceQuotaExceeded / SentenceTooLong。
     """
     sentence = (sentence or "").strip()
@@ -45,11 +52,13 @@ def submit_correction(user_id: int, word_id: int, sentence: str):
     word = get_word(user_id, word_id)
     if word is None:
         return None
+    wl = db.session.get(WordList, word.list_id)
+    if language_code is not None and wl.language_code != language_code:
+        return None
 
     source = quota_svc.check_write_quota(user_id)   # 超限抛 SentenceQuotaExceeded
     used_user_key = source == "user_key"
 
-    wl = db.session.get(WordList, word.list_id)
     result = correction_svc.correct_sentence(
         sentence=sentence, target_word=word.word, language_code=wl.language_code,
     )

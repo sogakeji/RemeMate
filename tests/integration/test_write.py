@@ -1,4 +1,6 @@
 """造句闭环：不自动保存 / 显式保存 / 刷新不重存 / 额度 / 隔离 / NSFW 发布拦截。"""
+import re
+
 from sqlalchemy import text
 
 from tests.helpers import provision_user, login
@@ -21,6 +23,12 @@ def _count_entries(bypass_engine, uid):
     with bypass_engine.connect() as c:
         return c.execute(text("SELECT count(*) FROM output_entries WHERE user_id=:u"),
                          {"u": uid}).scalar()
+
+
+def _switch_lang(client, code):
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/").get_data(as_text=True)).group(1)
+    client.post("/language/switch", data={"language_code": code, "csrf_token": csrf})
 
 
 def test_submit_does_not_persist(app, client, bypass_engine, fake_llm):
@@ -61,6 +69,58 @@ def test_daily_quota_system_key_3(app, client, bypass_engine, fake_llm):
     # 第 4 句被额度拦
     r4 = client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
     assert "额度" in r4.get_data(as_text=True)
+
+
+def test_compose_requires_current_language(app, client, bypass_engine, fake_llm):
+    provision_user(app, "nolanguage@t.com", PW)
+    login(client, "nolanguage@t.com", PW)
+
+    page = client.get("/write").get_data(as_text=True)
+    assert "先选一个正在学的语言" in page
+    assert client.post("/write/submit", data={
+        "word_id": 1, "sentence": "x",
+    }).status_code == 400
+
+
+def test_compose_uses_current_language_and_rejects_other_language_word(
+        app, client, bypass_engine, fake_llm):
+    uid, _ = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/words/add", json={"language_code": "en", "word": "apple",
+                                    "definitions": [{"meaning": "苹果"}]})
+    with bypass_engine.connect() as c:
+        en_wid = c.execute(text("SELECT id FROM words WHERE word='apple'")).scalar()
+
+    _switch_lang(client, "fr")
+    page = client.get("/write").get_data(as_text=True)
+    assert "décollage" in page
+    assert "apple" not in page
+
+    resp = client.post("/write/submit", data={"word_id": en_wid, "sentence": "Apple."})
+    assert resp.status_code == 404
+    with bypass_engine.connect() as c:
+        used = c.execute(text(
+            "SELECT corrections_today FROM user_quota WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert used == 0
+
+
+def test_compose_prioritizes_due_lapses(app, client, bypass_engine, fake_llm):
+    _setup_user_with_word(app, client, bypass_engine)
+    client.post("/words/add", json={"language_code": "fr", "word": "fragile",
+                                    "definitions": [{"meaning": "易碎"}]})
+    client.post("/words/add", json={"language_code": "fr", "word": "steady",
+                                    "definitions": [{"meaning": "稳定"}]})
+    with bypass_engine.connect() as c:
+        c.execute(text(
+            "UPDATE words SET due_date='2020-01-01', lapses=3 "
+            "WHERE word='fragile'"))
+        c.execute(text(
+            "UPDATE words SET due_date='2020-01-01', lapses=0 "
+            "WHERE word='steady'"))
+        c.commit()
+
+    page = client.get("/write").get_data(as_text=True)
+    assert page.index("fragile") < page.index("steady")
 
 
 def test_target_word_not_used_flagged(app, client, bypass_engine, fake_llm):
