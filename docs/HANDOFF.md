@@ -340,4 +340,43 @@ ui-rescope 全部收尾后，真机走一遍六页（首页/词库/加词/造句
 - `ui-port`（被否的旧视觉分支，保留作参考）
 - `ui-rescope`（**本分支，在本节就是它**）
 - `worktree-vip-membership-quota`（codex 会员分级线，已评审决定丢弃但分支保留）
-- 用户早前决定**全部保留**，别清。
+- 用户早前决定**全部保留**，别清。### 8. 接手前的环境速查（WSL / 项目路径 / 不要踩的坑前置汇总）
+
+> 这一节把散落在各踩坑条里的环境信息集中一份，接手第一件事先读这里定位环境，再回 §4 接手清单。
+
+**项目根**：WSL `Ubuntu`，路径 `/root/rememate`（Windows 端经 `\\wsl.localhost\Ubuntu\root\rememate\` 访问）。从 Windows shell 跑命令统一用 `wsl bash -lc 'cd /root/rememate && ...'`。
+
+**Python**：系统 `python3` 无 `python`；项目虚拟环境在 `.venv/`，跑任何东西都用 **`.venv/bin/python`**（不是 `python` / `python3`）。例：
+```bash
+.venv/bin/python -m pytest -q                 # 跑测试
+.venv/bin/python -m flask db current          # 查迁移当前
+```
+
+**DB（PostgreSQL，本地 5432）**——三个角色对应三套 URL，**别混用**：
+| URL（`.env`） | 角色 | 用途 | 权限 |
+|---|---|---|---|
+| `DATABASE_URL` | `rememate`（app 角色） | 应用运行时连 | 受 RLS policy 约束 |
+| `MIGRATE_DATABASE_URL` | `rememate_owner` | **跑迁移 / 改 schema** | 有 ALTER/CREATE |
+| `DISPATCH_DATABASE_URL` | `rememate_dispatch` | 定时派发 | 受限 |
+| `TEST_DATABASE_URL` | `rememate` 角色但指 `rememate_test` 库 | 测试连 | **无 ALTER/CREATE** |
+
+- **主 dev 库**=`rememate`，**测试库**=`rememate_test`。两库当前 alembic head 都 = `b2c3d4e5f6a7`（修1 迁移已 apply 到两库）。
+- **跑迁移只能用 `MIGRATE_DATABASE_URL`（owner 角色）**——`rememate` 角色无 ALTER 权限（踩坑 #2）。测试库跑迁移要把 `MIGRATE_DATABASE_URL` 的库名改指 `rememate_test` 再跑，或手工 `ALTER + UPDATE alembic_version`。conftest 暂不自动跑迁移（B2 pending）。
+
+**gunicorn（dev server）**：bind `127.0.0.1:8891`，2 worker，`-k gevent`，`preload_app=False`，**无 `--reload`**。
+```bash
+pgrep -af gunicorn                      # 看在不在跑（master pid 常为 1614）
+kill -HUP <master_pid>                  # 改代码后手动重载 worker
+```
+改完代码**必须 HUP 重载**，否则真机看不到改动（worker 没自动 reload）。
+
+**真机测试账号**：`test@local.dev` / `_mxE8RVt9Rwk6BbI`（之前手建，不在 `.env` / 脚本里）。`provision_user` + `login` 见 `tests/helpers.py`，测试里用 `PW="pw12345678"` 建临时账号。
+
+**前置不要踩的坑（接手必读，详情见对应踩坑条）**：
+- **#11 时钟坑**：dev WSL 的 `datetime.utcnow()`（Python 进程）与 DB server `now()` 时钟差约 8 小时（已知漂移）。造/重置到期词测试时，`due_date` **必须用 Python `utcnow()` 表盘写，不要用 DB `now()`**——否则 service 用 Python utcnow() 比较，due_date 落 DB 表盘未来时刻 → 首页判空。生产不受影响（生产写也走 Python utcnow()，自洽）。
+- **#6 引号炸**：在 Windows git-bash 经 `wsl.exe` 跑复杂 bash（`$()` / 反引号 / 引号多层嵌套）会 syntax error。写多步命令优先用单引号包裹 `wsl bash -lc '...'`；实在复杂就写成 `.py` 脚本在 WSL 里跑，或 Write 到 `C:\Users\suqing\AppData\Local\Temp\` 再 `wsl cp /mnt/c/...`。**别堆 heredoc + 反引号**。
+- **#2 测试库无 ALTER**：`rememate` 角色对 `rememate_test` 也无 ALTER，跑迁移用 `MIGRATE_DATABASE_URL`（owner 角色）。
+- **#1 / #3 迁移链污染**：alembic `alembic_version` 表是**库级全局状态**，不随分支隔离。跨分支实验迁移要么用独立测试库，要么跑完 `flask db stamp <主线head>` 拉回。别用 dev 库的 `MIGRATE_DATABASE_URL` 在 worktree 里跑非主线迁移。
+- **#10 隐式词表口径**：词表对用户**不可见**，**严禁再在 UI 上让用户建/命名/删词表**。不变量「每用户每语言零或一张」由 `words.get_or_create_language_list` upsert 保证，不靠 schema 唯一索引。只改 UX/路由/service，不动 `word_lists` schema。
+- **#9 职责层先于视觉层**：UI 改动先问「这页职责对不对」再问「美不美」，别只套 CSS 皮（`ui-port` 旧分支就是只套皮被否）。
+- **#12 lapse 冷却**：`srs.py LAPSE_MIN_DELAY=10min` 硬编码，全标忘记后队列瞬时清空是正确行为，UI 要明示「N 分钟后回来」——**算法不改，只改文案**。
