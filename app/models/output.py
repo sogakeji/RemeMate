@@ -2,9 +2,8 @@
 
 同时承载私人草稿与广场公开句：RLS policy 按 is_public 做读例外（见 RLS migration）。
 """
-from datetime import datetime
-
 from app.extensions import db
+from app.services.timeutil import utc_now
 
 
 class OutputEntry(db.Model):
@@ -21,4 +20,4 @@ class OutputEntry(db.Model):
     is_public    = db.Column(db.Boolean, default=False, nullable=False)  # 是否公开到广场
     upvote_count = db.Column(db.Integer, default=0, nullable=False)      # 夯票冗余缓存
     is_nsfw      = db.Column(db.Boolean, default=False, nullable=False)  # 批改时返回
-    created_at   = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at   = db.Column(db.DateTime, default=utc_now, nullable=False)

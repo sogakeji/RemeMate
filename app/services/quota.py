@@ -5,11 +5,9 @@
 - 每日按用户时区午夜重置（复用 quota_reset_at）。
 - token 计数（tokens_used_today）保留作观测，不作为 /write 的限制。
 """
-from datetime import datetime
-
 from app.extensions import db
 from app.models.user import User, UserSettings, UserQuota, TokenUsageLog
-from app.services.timeutil import next_midnight_utc
+from app.services.timeutil import next_midnight_utc, utc_now
 
 SYSTEM_DAILY_SENTENCES = 3
 OWNKEY_DAILY_SENTENCES = 20
@@ -49,7 +47,7 @@ def _get_or_create_quota(user_id) -> UserQuota:
 
 def _maybe_reset(quota: UserQuota):
     # None（漏初始化）也当「需重置」，否则永不重置（回归 review A3）
-    if quota.quota_reset_at is None or datetime.utcnow() >= quota.quota_reset_at:
+    if quota.quota_reset_at is None or utc_now() >= quota.quota_reset_at:
         quota.tokens_used_today = 0
         quota.bonus_tokens_today = 0
         quota.corrections_today = 0
@@ -101,7 +99,7 @@ def record_correction(user_id, *, prompt_tokens, completion_tokens,
     quota.corrections_today += 1
     if not used_user_key:
         quota.tokens_used_today += (prompt_tokens or 0) + (completion_tokens or 0)
-    quota.updated_at = datetime.utcnow()
+    quota.updated_at = utc_now()
     db.session.add(TokenUsageLog(
         user_id=user_id, provider=provider, model=model, feature=feature,
         prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
@@ -156,7 +154,7 @@ def record_import(user_id, *, count, prompt_tokens=0, completion_tokens=0,
     quota.imports_today += count
     if not used_user_key:
         quota.tokens_used_today += (prompt_tokens or 0) + (completion_tokens or 0)
-    quota.updated_at = datetime.utcnow()
+    quota.updated_at = utc_now()
     db.session.add(TokenUsageLog(
         user_id=user_id, provider=provider, model=model, feature=feature,
         prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,

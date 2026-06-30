@@ -3,6 +3,11 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
+def utc_now() -> datetime:
+    """Return the current UTC time as a naive datetime for DB DateTime columns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def next_midnight_utc(tz_name: str | None) -> datetime:
     """返回用户时区「下一个午夜」对应的 UTC naive datetime（用于额度重置点）。"""
     tz = ZoneInfo(tz_name or "Asia/Shanghai")
@@ -23,7 +28,7 @@ def today_local_start_utc(tz_name: str | None, *, now_utc: datetime | None = Non
     ``now_utc`` 仅用于测试注入固定时刻；生产留空取当前 UTC。
     """
     tz = ZoneInfo(tz_name or "Asia/Shanghai")
-    now_utc = now_utc or datetime.utcnow()
+    now_utc = now_utc or utc_now()
     # 注入的 naive datetime 当 UTC；aware 直接用。
     now_utc = now_utc.replace(tzinfo=timezone.utc) if now_utc.tzinfo is None else now_utc
     now_local = now_utc.astimezone(tz)

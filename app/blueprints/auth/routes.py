@@ -6,7 +6,7 @@
 - next 必须是同域相对路径（防开放重定向）。
 - CSRF 由 Flask-WTF 的 FlaskForm 自动校验。
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 from urllib.parse import urlsplit
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash
@@ -16,6 +16,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db
 from app.models.user import User
 from app.blueprints.auth.forms import LoginForm
+from app.services.timeutil import utc_now
 
 bp = Blueprint("auth", __name__)
 
@@ -50,7 +51,7 @@ def login():
         user = User.query.filter_by(email=email, is_active=True).first()
 
         locked = bool(user and user.locked_until
-                      and user.locked_until > datetime.utcnow())
+                      and user.locked_until > utc_now())
 
         # 始终跑一次哈希校验（user 为 None 时校验 dummy），消除「存在与否」的计时差。
         pw_ok = check_password_hash(
@@ -71,7 +72,7 @@ def login():
         if user and not locked:
             user.login_attempts = (user.login_attempts or 0) + 1
             if user.login_attempts >= MAX_ATTEMPTS:
-                user.locked_until = datetime.utcnow() + timedelta(minutes=LOCK_MINUTES)
+                user.locked_until = utc_now() + timedelta(minutes=LOCK_MINUTES)
                 user.login_attempts = 0
             db.session.commit()
         flash(_GENERIC_ERROR)

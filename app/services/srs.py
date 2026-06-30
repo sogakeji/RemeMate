@@ -9,6 +9,8 @@ FSRS 字段（stability/difficulty）P1 留空，P2 切换时本映射改 FSRS �
 """
 from datetime import datetime, timedelta
 
+from app.services.timeutil import utc_now
+
 EASE_FLOOR = 1.3
 BUTTON_TO_QUALITY = {"forgot": 2, "fuzzy": 3, "easy": 5}
 
@@ -33,7 +35,7 @@ def _next_ease(ease: float, quality: int) -> float:
 
 def grade(word, quality: int, now: datetime | None = None):
     """按质量分更新 word 的 SM-2 字段（原地修改，不 commit）。返回 word。"""
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     word.ease = _next_ease(word.ease, quality)  # ease 每次都更新（含 lapse）
 
     if quality < 3:

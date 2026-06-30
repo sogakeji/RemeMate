@@ -10,14 +10,13 @@ import csv
 import io
 import json
 
-from datetime import datetime
-
 from app.extensions import db
 from app.models.word import WordList, Word, Definition
 from app.models.intake import IntakeSource, SourceSegment, WordCandidate
 from app.services import llm
 from app.services import quota as quota_svc
 from app.services import words as words_svc
+from app.services.timeutil import utc_now
 
 # 前置硬上限（可配；人工测试后调）
 INTAKE_MAX_EXTRACT_CHARS = 8000
@@ -387,7 +386,7 @@ def commit_intake_source(user_id, source_id) -> int:
         if c.word.strip().lower() in existing:        # 静默去重
             continue
         word = Word(list_id=source.word_list_id, word=c.word,
-                    due_date=datetime.utcnow(), interval=1, ease=2.5, reps=0, lapses=0)
+                    due_date=utc_now(), interval=1, ease=2.5, reps=0, lapses=0)
         db.session.add(word)
         db.session.flush()
         if any([c.meaning, c.part_of_speech, c.example, c.note]):
@@ -399,6 +398,6 @@ def commit_intake_source(user_id, source_id) -> int:
         committed += 1
 
     source.accepted_count = committed
-    source.completed_at = datetime.utcnow()
+    source.completed_at = utc_now()
     db.session.commit()
     return committed

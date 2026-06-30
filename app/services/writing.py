@@ -5,13 +5,12 @@
 - save_entry：用户显式确认后才写 output_entries。
 - is_nsfw 由批改结果决定，经签名 session 传递（路由层），不信客户端。
 """
-from datetime import datetime
-
 from app.extensions import db
 from app.models.word import WordList, Word
 from app.models.output import OutputEntry
 from app.services import correction as correction_svc
 from app.services import quota as quota_svc
+from app.services.timeutil import utc_now
 from app.services.words import get_word
 
 MAX_SENTENCE_CHARS = 140
@@ -81,7 +80,7 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
         has_error=has_error,
         is_nsfw=bool(pending.get("is_nsfw", True)),
         is_public=False,
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
     )
     db.session.add(entry)
     db.session.commit()

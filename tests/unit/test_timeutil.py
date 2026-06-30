@@ -4,7 +4,13 @@
 """
 from datetime import datetime, timezone
 
-from app.services.timeutil import next_midnight_utc, today_local_start_utc
+from app.services.timeutil import next_midnight_utc, today_local_start_utc, utc_now
+
+
+def test_utc_now_returns_naive_utc_datetime():
+    now = utc_now()
+    assert now.tzinfo is None
+    assert abs((now - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()) < 2
 
 
 def test_today_local_start_shanghai_before_utc_midnight():
@@ -22,9 +28,9 @@ def test_today_local_start_aware_utc():
 
 
 def test_today_local_start_naive_utc_treated_as_utc():
-    """注入 naive 也按 UTC 解释（生产 now_utc or datetime.utcnow() 路径）。
+    """注入 naive 也按 UTC 解释（生产 now_utc or utc_now() 路径）。
 
-    系统 TZ 非 UTC 时，naive utcnow 若被当本地时区会算错；timeutil 应显式按 UTC。
+    系统 TZ 非 UTC 时，naive UTC 若被当本地时区会算错；timeutil 应显式按 UTC。
     """
     start = today_local_start_utc("UTC", now_utc=datetime(2026, 6, 27, 5, 0, 0))
     assert start == datetime(2026, 6, 27, 0, 0, 0)

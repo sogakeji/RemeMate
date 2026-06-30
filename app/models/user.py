@@ -1,9 +1,8 @@
 """用户、设置、额度、token 用量。"""
-from datetime import datetime
-
 from flask_login import UserMixin
 
 from app.extensions import db
+from app.services.timeutil import utc_now
 
 
 class User(db.Model, UserMixin):
@@ -23,7 +22,7 @@ class User(db.Model, UserMixin):
     # 在学语言集合（修1）：设置页多选存储，逗号拼接（如 "fr,en,ja"），nullable 兼容老用户。
     # current_language 必须是集合子集（不变量由 service 收敛）。
     learning_languages = db.Column(db.String(200), nullable=True)
-    created_at     = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at     = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     settings = db.relationship("UserSettings", backref="user", uselist=False)
     quota    = db.relationship("UserQuota", backref="user", uselist=False)
@@ -56,7 +55,7 @@ class UserQuota(db.Model):
     corrections_today  = db.Column(db.Integer, default=0, nullable=False)  # 今日造句批改次数（按提交计）
     imports_today      = db.Column(db.Integer, default=0, nullable=False)  # 今日导入候选词数（抽词/归一化时计）
     quota_reset_at     = db.Column(db.DateTime, nullable=True)  # create_user 时初始化，禁留 None
-    updated_at         = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at         = db.Column(db.DateTime, default=utc_now)
 
 
 class TokenUsageLog(db.Model):
@@ -70,4 +69,4 @@ class TokenUsageLog(db.Model):
     prompt_tokens     = db.Column(db.Integer)
     completion_tokens = db.Column(db.Integer)
     used_user_key     = db.Column(db.Boolean, default=False)
-    created_at        = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at        = db.Column(db.DateTime, default=utc_now, nullable=False)

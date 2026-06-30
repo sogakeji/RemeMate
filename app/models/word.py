@@ -1,7 +1,6 @@
 """词库、词、释义、复习记录。"""
-from datetime import datetime
-
 from app.extensions import db
+from app.services.timeutil import utc_now
 
 
 class WordList(db.Model):
@@ -14,7 +13,7 @@ class WordList(db.Model):
     user_id       = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name          = db.Column(db.String(200), nullable=False)
     language_code = db.Column(db.String(10), nullable=False)
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at    = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     words = db.relationship("Word", backref="word_list",
                             cascade="all, delete-orphan", passive_deletes=True)
@@ -28,7 +27,7 @@ class Word(db.Model):
     word        = db.Column(db.String(200), nullable=False)
     marked      = db.Column(db.Boolean, default=False, nullable=False)
     # SM-2 字段（P1 使用）
-    due_date    = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    due_date    = db.Column(db.DateTime, default=utc_now, nullable=False)
     interval    = db.Column(db.Integer, default=1, nullable=False)
     ease        = db.Column(db.Float, default=2.5, nullable=False)
     reps        = db.Column(db.Integer, default=0, nullable=False)
@@ -59,7 +58,7 @@ class ReviewLog(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
     word_id        = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="CASCADE"), nullable=False)
     user_id        = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    ts             = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    ts             = db.Column(db.DateTime, default=utc_now, nullable=False)
     grade          = db.Column(db.Integer)        # SM-2 质量分 0-5
     source         = db.Column(db.String(20))     # review / write 等
     interval_after = db.Column(db.Integer)

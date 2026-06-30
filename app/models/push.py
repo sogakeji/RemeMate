@@ -1,7 +1,6 @@
 """推送幂等记录（dispatch 写入，BYPASSRLS）。"""
-from datetime import datetime
-
 from app.extensions import db
+from app.services.timeutil import utc_now
 
 
 class PushLog(db.Model):
@@ -11,4 +10,4 @@ class PushLog(db.Model):
     idempotency_key = db.Column(db.String(200), unique=True, nullable=False)
     user_id         = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     push_type       = db.Column(db.String(30))  # review_reminder / daily_summary / podcast
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at      = db.Column(db.DateTime, default=utc_now, nullable=False)

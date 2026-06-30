@@ -8,7 +8,7 @@
 get_or_create_language_list 集中创建，避免多入口分叉。
 见 docs/arch/ui-rescope-plan.md §1.3 + HANDOFF 踩坑 #10。
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -18,7 +18,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.services import srs
-from app.services.timeutil import today_local_start_utc
+from app.services.timeutil import today_local_start_utc, utc_now
 
 
 # language_code → 隐式词表的内部 name（用户不可见；不展示、不让改名）。
@@ -215,7 +215,7 @@ def add_word(user_id, list_id, word, *, meaning=None,
     wl = get_word_list(user_id, list_id)
     if wl is None:
         return None
-    w = Word(list_id=wl.id, word=word, due_date=datetime.utcnow(),
+    w = Word(list_id=wl.id, word=word, due_date=utc_now(),
              interval=1, ease=2.5, reps=0, lapses=0)
     db.session.add(w)
     db.session.flush()
@@ -268,7 +268,7 @@ def get_due_words(user_id: int, limit: int | None = None, *,
     q = (Word.query
          .join(WordList)
          .filter(WordList.user_id == user_id,
-                 Word.due_date <= datetime.utcnow()))
+                 Word.due_date <= utc_now()))
     if language_code is not None:
         q = q.filter(WordList.language_code == language_code)
     q = q.order_by(Word.due_date)
@@ -284,7 +284,7 @@ def get_stats(user_id: int, *, language_code: str | None = None) -> dict:
     # 注意 `due_count` 是「所有到期（due_date <= now）」语义，含逾期未做的词；
     # 模板文案以「待复习」表达，不要称作「今日到期」（review 2026-06-23 L1）。
     tz = (db.session.get(User, user_id) or User()).timezone or "Asia/Shanghai"
-    now = datetime.utcnow()
+    now = utc_now()
     today_start = today_local_start_utc(tz)
     # 注意：lang_filter 是 SA 二元表达式，其布尔值不可靠（语言 expression 的 __bool__ 在
     # 不同 SA 版本会报错或恒为 False）。用字符串 language_code 的 truthiness 判断是否过滤。
@@ -331,7 +331,7 @@ def _heatmap(user_id: int, tz_name: str, *, weeks: int = 12) -> dict:
     """
     from zoneinfo import ZoneInfo
     tz = tz_name or "Asia/Shanghai"
-    since = datetime.utcnow() - timedelta(weeks=weeks)
+    since = utc_now() - timedelta(weeks=weeks)
     from sqlalchemy import text as _text
     rows = db.session.execute(_text(
         "SELECT to_char((ts AT TIME ZONE 'UTC') AT TIME ZONE :tz, 'YYYY-MM-DD') d,"

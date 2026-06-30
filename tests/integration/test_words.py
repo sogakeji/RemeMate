@@ -68,8 +68,8 @@ def test_review_grade_updates_sm2(app, client, bypass_engine):
             "SELECT count(*) FROM review_logs WHERE word_id=:i"), {"i": word_id}).scalar()
     assert reps == 1
     assert logs == 1
-    from datetime import datetime
-    assert due > datetime.utcnow()      # 不再到期
+    from app.services.timeutil import utc_now
+    assert due > utc_now()      # 不再到期
 
 
 def test_grade_invalid_button_400(app, client, bypass_engine):

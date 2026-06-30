@@ -1,7 +1,6 @@
 """输入管道：来源、分段、候选词。"""
-from datetime import datetime
-
 from app.extensions import db
+from app.services.timeutil import utc_now
 
 
 class IntakeSource(db.Model):
@@ -17,7 +16,7 @@ class IntakeSource(db.Model):
     total_segments   = db.Column(db.Integer, default=0)
     total_candidates = db.Column(db.Integer, default=0)
     accepted_count   = db.Column(db.Integer, default=0)
-    created_at       = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at       = db.Column(db.DateTime, default=utc_now, nullable=False)
     completed_at     = db.Column(db.DateTime, nullable=True)
 
 
@@ -46,4 +45,4 @@ class WordCandidate(db.Model):
     context_end    = db.Column(db.Integer, nullable=True)
     status         = db.Column(db.String(20), default="pending")  # pending / accepted / ignored
     word_id        = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="SET NULL"), nullable=True)  # commit 后填入；词删则断链
-    created_at     = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at     = db.Column(db.DateTime, default=utc_now, nullable=False)
