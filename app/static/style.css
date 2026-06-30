@@ -751,3 +751,91 @@ textarea.form-control {
     cursor: not-allowed;
     transform: none;
 }
+/* ===== 语言切换器（首页全局，对齐 WordNest demo 下拉菜单形式） ===== */
+.lang-switcher { position: relative; }
+.lang-current {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border: none; cursor: pointer;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1); font-size: 14px; font-weight: 500;
+    color: var(--text-color); transition: all .2s ease;
+}
+.lang-current:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(0,0,0,0.15); }
+.lang-flag { font-size: 16px; line-height: 1; }
+.lang-chevron { width: 14px; height: 14px; opacity: .55; }
+.lang-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; min-width: 180px;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18); padding: 6px; overflow: hidden;
+    display: none; z-index: 1000;
+}
+.lang-switcher.open .lang-menu { display: block; }
+.lang-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 12px; border: none; background: none; cursor: pointer;
+    border-radius: 8px; font-size: 14px; color: var(--text-color); text-align: left;
+}
+.lang-item:hover { background: rgba(74,108,247,0.10); }
+.lang-item.active { color: var(--primary-color); font-weight: 600; }
+.lang-item.active::after { content: "✓"; margin-left: auto; }
+.dark-mode .lang-current, .dark-mode .lang-menu { background: #2b3240; color: #e2e8f0; }
+.dark-mode .lang-item { color: #e2e8f0; }
+
+/* ===== 语言切换器（首页全局，对齐 WordNest demo 下拉菜单形式） ===== */
+.lang-switcher { position: relative; }
+.lang-current {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border: none; cursor: pointer;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1); font-size: 14px; font-weight: 500;
+    color: var(--text-color); transition: all .2s ease;
+}
+.lang-current:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(0,0,0,0.15); }
+.lang-flag { font-size: 16px; line-height: 1; }
+.lang-chevron { width: 14px; height: 14px; opacity: .55; }
+.lang-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; min-width: 180px;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18); padding: 6px; overflow: hidden;
+    display: none; z-index: 1000;
+}
+.lang-switcher.open .lang-menu { display: block; }
+.lang-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 12px; border: none; background: none; cursor: pointer;
+    border-radius: 8px; font-size: 14px; color: var(--text-color); text-align: left;
+}
+.lang-item:hover { background: rgba(74,108,247,0.10); }
+.lang-item.active { color: var(--primary-color); font-weight: 600; }
+.lang-item.active::after { content: "✓"; margin-left: auto; }
+.dark-mode .lang-current, .dark-mode .lang-menu { background: #2b3240; color: #e2e8f0; }
+.dark-mode .lang-item { color: #e2e8f0; }
+/* ===== 语言切换器（首页全局，对齐 WordNest demo 下拉菜单形式） ===== */
+.lang-switcher { position: relative; }
+.lang-current {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border: none; cursor: pointer;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1); font-size: 14px; font-weight: 500;
+    color: var(--text-color); transition: all .2s ease;
+}
+.lang-current:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(0,0,0,0.15); }
+.lang-flag { font-size: 16px; line-height: 1; }
+.lang-chevron { width: 14px; height: 14px; opacity: .55; }
+.lang-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; min-width: 180px;
+    background: var(--card-bg); border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18); padding: 6px; overflow: hidden;
+    display: none; z-index: 1000;
+}
+.lang-switcher.open .lang-menu { display: block; }
+.lang-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 12px; border: none; background: none; cursor: pointer;
+    border-radius: 8px; font-size: 14px; color: var(--text-color); text-align: left;
+}
+.lang-item:hover { background: rgba(74,108,247,0.10); }
+.lang-item.active { color: var(--primary-color); font-weight: 600; }
+.lang-item.active::after { content: "✓"; margin-left: auto; }
+.dark-mode .lang-current, .dark-mode .lang-menu { background: #2b3240; color: #e2e8f0; }
+.dark-mode .lang-item { color: #e2e8f0; }

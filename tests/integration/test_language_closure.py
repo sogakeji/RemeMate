@@ -24,10 +24,9 @@ def test_add_center_defaults_to_current_language(app, client, bypass_engine):
     login(client, "lc1@t.com", PW)
     _switch(client, "ru")
     page = client.get("/words/add").get_data(as_text=True)
-    # WTForms 渲染 selected 有两种顺序：selected 在 value 前或后，都认
-    assert ("selected" in page and 'value="ru"' in page
-            and page.find("selected") < page.find('value="ru"')) or \
-           ('value="ru" selected' in page)
+    # 加词中心 LanguageChoiceForm 渲染的 ru option 带 selected 标记
+    # （WTForms 顺序：`selected value="ru"`，hidden base 切换器 form 不渲染 select）
+    assert ('selected value="ru"' in page) or ('value="ru" selected' in page)
 
 
 def test_stats_filtered_by_current_language(app, client, bypass_engine):
