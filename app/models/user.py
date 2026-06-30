@@ -20,6 +20,9 @@ class User(db.Model, UserMixin):
     timezone       = db.Column(db.String(50), default="Asia/Shanghai", nullable=False)
     # 当前正在学的语言（ui-rescope：首页切换器/设置页/词列表页共用，隐式词表闭环）
     current_language = db.Column(db.String(10), nullable=True)
+    # 在学语言集合（修1）：设置页多选存储，逗号拼接（如 "fr,en,ja"），nullable 兼容老用户。
+    # current_language 必须是集合子集（不变量由 service 收敛）。
+    learning_languages = db.Column(db.String(200), nullable=True)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     settings = db.relationship("UserSettings", backref="user", uselist=False)

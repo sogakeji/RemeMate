@@ -55,13 +55,16 @@
           <input type="hidden" name="language_code" id="langCodeInput" value="{{ current_language or '' }}">
         </form>
         <div class="lang-menu" id="langMenu">
-          {% for code, name in lang_choices.items() %}
+          {% for code in learning_languages %}
           <button type="button" class="lang-item {% if code == current_language %}active{% endif %}"
                   data-code="{{ code }}">
             <span>{{ _flag.get(code, '📖') }}</span>
-            <span>{{ name }}</span>
+            <span>{{ lang_choices.get(code, code) }}</span>
           </button>
           {% endfor %}
+          {% if not learning_languages %}
+          <span class="lang-empty">先在设置里选语言</span>
+          {% endif %}
         </div>
       </div>
       {% endif %}

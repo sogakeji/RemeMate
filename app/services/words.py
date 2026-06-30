@@ -59,6 +59,52 @@ def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
 
 # ---- 当前语言状态（首页切换器/设置页/词列表页共用） ----
 
+def _parse_learning(raw: str | None) -> list[str]:
+    """users.learning_languages 逗号串 → code 列表（去重保序、过滤非法）。"""
+    if not raw:
+        return []
+    return [c for c in (s.strip() for s in raw.split(",")) if c in _LANGUAGE_NAMES]
+
+
+def _serialize_learning(codes: list[str]) -> str | None:
+    return ",".join(codes) if codes else None
+
+
+def get_learning_languages(user_id: int) -> list[str]:
+    """用户在学语言集合（code 列表，保序）；老用户未设为空。"""
+    u = db.session.get(User, user_id)
+    return _parse_learning((u or User()).learning_languages)
+
+
+def set_learning_languages(user_id: int, codes: list[str]) -> list[str]:
+    """设置页多选保存：写 learning_languages，并保证 current_language 收敛到集合内。
+
+    不变量收敛：
+    - 过滤非法 code、去重保序。
+    - 集合变空 → current_language 清空（用户没在学任何语言，首页引导去设置）。
+    - 当前 current_language 不在新集合内 → 自动收成集合首个（若无则清空）。
+    - 同时 ensure 每个新进集合的语言有隐式词表（get_or_create_language_list）。
+    """
+    seen, cleaned = set(), []
+    for c in codes:
+        if c in _LANGUAGE_NAMES and c not in seen:
+            seen.add(c)
+            cleaned.append(c)
+    u = db.session.get(User, user_id)
+    if u is None:
+        raise ValueError(f"用户不存在：{user_id}")
+    # 给每个在学语言建（或复用）隐式词表，方便随时切过去刷词/加词。
+    for c in cleaned:
+        get_or_create_language_list(user_id, c)
+    u.learning_languages = _serialize_learning(cleaned)
+    if not cleaned:
+        u.current_language = None
+    elif u.current_language not in cleaned:
+        u.current_language = cleaned[0]
+    db.session.commit()
+    return cleaned
+
+
 def get_current_language(user_id: int) -> str | None:
     """用户当前正在学的语言 code；未设过为 None（首页/词列表应提示去设置选语言）。"""
     u = db.session.get(User, user_id)
@@ -66,17 +112,21 @@ def get_current_language(user_id: int) -> str | None:
 
 
 def set_current_language(user_id: int, language_code: str) -> str:
-    """设当前语言，并保证该语言隐式词表存在（闭环）。返回设后的 language_code。
+    """设当前语言（首页切换器用），并保证该语言已在学集合内 + 隐式词表存在。
 
-    校验 language_code 合法；同时建（或复用）隐式词表，这样用户切语言后立刻能加词/
-    刷复习，不用再多一步「先建表」。
+    不变量：current_language 必须是 learning_languages 子集。该语言若不在学集合，
+    一并加入（用户在首页切语言即默认「在学」），保证首切不卡。
     """
     if language_code not in _LANGUAGE_NAMES:
         raise ValueError(f"未知语言 code：{language_code!r}")
-    get_or_create_language_list(user_id, language_code)
     u = db.session.get(User, user_id)
     if u is None:
         raise ValueError(f"用户不存在：{user_id}")
+    learning = _parse_learning(u.learning_languages)
+    if language_code not in learning:
+        learning.append(language_code)
+        u.learning_languages = _serialize_learning(learning)
+    get_or_create_language_list(user_id, language_code)   # 隐式词表存在
     u.current_language = language_code
     db.session.commit()
     return language_code

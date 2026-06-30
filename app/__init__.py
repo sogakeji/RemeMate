@@ -72,6 +72,18 @@ def create_app(config_name=None):
         return {"current_language": lang,
                 "lang_choices": _words_svc._LANGUAGE_NAMES}
 
+    @app.context_processor
+    def inject_learning():
+        """注入「在学语言集合」（首页切换器 menu 只列这些）。与上方 inject_lang 同模式。"""
+        from flask_login import current_user
+        learning = []
+        if current_user.is_authenticated:
+            try:
+                learning = _words_svc.get_learning_languages(current_user.id)
+            except Exception:
+                learning = []
+        return {"learning_languages": learning}
+
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}

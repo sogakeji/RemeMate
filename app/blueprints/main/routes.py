@@ -10,7 +10,6 @@ from flask import (Blueprint, render_template, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
-from app.blueprints.words.forms import LanguageChoiceForm
 
 bp = Blueprint("main", __name__)
 
@@ -44,17 +43,21 @@ def switch_language():
 @bp.get("/settings")
 @login_required
 def settings():
-    form = LanguageChoiceForm()
-    form.language_code.data = words_svc.get_current_language(current_user.id) or "fr"
-    return render_template("main/settings.html", form=form,
+    """设置页：在学语言集合多选（偏好清单），不是单选当前主攻。
+
+    首页切换器「当前主攻」单选走 /language/switch；这里管的是「在学哪几种语言」
+    集合。current_language 由 set_learning_languages 收敛到集合内（删当前主攻后
+    自动收成集合首个/清空）。见 words.set_learning_languages 不变量。
+    """
+    return render_template("main/settings.html",
+                           learning=words_svc.get_learning_languages(current_user.id),
                            lang_choices=words_svc._LANGUAGE_NAMES)
 
 
 @bp.post("/settings")
 @login_required
 def save_settings():
-    form = LanguageChoiceForm()
-    if form.validate_on_submit():
-        words_svc.set_current_language(current_user.id, form.language_code.data)
-        flash("已设当前语言")
+    codes = request.form.getlist("languages")
+    words_svc.set_learning_languages(current_user.id, codes)
+    flash("已保存正在学的语言")
     return redirect(url_for("main.settings"))
