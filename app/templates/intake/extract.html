@@ -9,19 +9,21 @@
       · <a class="nav-link" href="{{ url_for('intake.quick_add_page') }}" style="display:inline;padding:2px 6px;">快速加词</a></small></p>
   </div>
 
-  {% if not lists %}
+  {% if not lang_choices %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">先去建词表。</p>
-    <a class="btn success" href="{{ url_for('words.lists') }}">建词表</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">先在设置里选择正在学的语言。</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">去设置选语言</a>
   </div>
   {% else %}
   <div class="form-card">
     <form method="post" action="{{ url_for('intake.extract') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label class="form-label">词表
-          <select name="word_list_id" class="form-control" required>
-            {% for wl in lists %}<option value="{{ wl.id }}">{{ wl.name }}（{{ wl.language_code }}）</option>{% endfor %}
+        <label class="form-label">语言
+          <select name="language_code" class="form-control" required>
+            {% for code, name in lang_choices %}
+            <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
           </select>
         </label>
       </div>

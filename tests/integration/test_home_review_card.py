@@ -23,15 +23,20 @@ def _switch_lang(client, code):
                 data={"language_code": code, "csrf_token": csrf})
 
 
+def _add_word(client, language_code, word, meaning="m"):
+    return client.post("/words/add", json={
+        "language_code": language_code,
+        "word": word,
+        "definitions": [{"meaning": meaning}],
+    })
+
+
 def test_home_renders_due_word_card(app, client, bypass_engine):
     """有到期词时，首页 `/` 第一眼就是该词 + 三按钮，不是大字仪表盘。"""
     provision_user(app, "h1@t.com", PW)
     login(client, "h1@t.com", PW)
     _switch_lang(client, "fr")
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{lid}", data={"word": "décollage", "meaning": "起飞"})
+    _add_word(client, "fr", "décollage", "起飞")
 
     page = client.get("/").get_data(as_text=True)
     assert "décollage" in page                  # 第一眼暴露词
@@ -66,10 +71,8 @@ def test_home_grade_button_hits_words_grade(app, client, bypass_engine):
     """首页三按钮刷词：POST words.grade 后卡片推进，不报错。"""
     provision_user(app, "h3@t.com", PW)
     login(client, "h3@t.com", PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{lid}", data={"word": "w1", "meaning": "m"})
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "w1", "m")
     with bypass_engine.connect() as c:
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
 

@@ -1,8 +1,4 @@
-"""ui-rescope step4d-切片A：词列表页隐式化（UI 不暴露建表/删表/加词表单）。
-
-router/service 兼容层保留（POST /words 建表、POST /words/<id>/delete 删表仍在，
-供测试 / 切换器闭环用）；UI 不再渲染建表表单与删表按钮。
-"""
+"""ui-rescope step4d：词列表页隐式化（UI/路由均不暴露建表/删表/加词表单）。"""
 import re
 
 from sqlalchemy import text
@@ -59,9 +55,9 @@ def test_words_detail_no_embedded_add_form(app, client, bypass_engine):
     """词表详情页不再内嵌加词表单（加词移到加词中心）。"""
     provision_user(app, "wl4@t.com", PW)
     login(client, "wl4@t.com", PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
+    _switch(client, "fr")
     with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
+        lid = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
     page = client.get(f"/words/{lid}").get_data(as_text=True)
     assert "加词" in page                            # 有「加词 →」导流链接
     # 但不是内嵌表单的提交按钮（form 提交到 words.detail 的 POST 加词分支）

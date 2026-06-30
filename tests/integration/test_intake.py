@@ -11,9 +11,11 @@ PW = "pw12345678"
 def _setup(app, client, bypass_engine, email="i@t.com"):
     provision_user(app, email, PW)
     login(client, email, PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
+    client.post("/settings", data={"languages": ["fr"]})
     with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
+        lid = c.execute(text(
+            "SELECT id FROM word_lists WHERE user_id=(SELECT id FROM users WHERE email=:e) "
+            "AND language_code='fr'"), {"e": email}).scalar()
         uid = c.execute(text("SELECT id FROM users WHERE email=:e"), {"e": email}).scalar()
     return uid, lid
 
@@ -29,7 +31,7 @@ def _count(bypass_engine, table, uid):
 def test_extract_too_long_blocked_no_source(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     client.post("/intake/extract",
-                data={"word_list_id": lid, "text": "x" * 9000})   # >8000
+                data={"language_code": "fr", "text": "x" * 9000})   # >8000
     assert _count(bypass_engine, "intake_sources", uid) == 0       # 没建 source，没进 LLM
 
 
@@ -37,7 +39,7 @@ def test_csv_bad_header_blocked(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     bad = io.BytesIO("foo,bar\na,b\n".encode("utf-8"))
     client.post("/intake/import", content_type="multipart/form-data",
-                data={"word_list_id": lid, "file": (bad, "x.csv")})
+                data={"language_code": "fr", "file": (bad, "x.csv")})
     assert _count(bypass_engine, "intake_sources", uid) == 0
 
 
@@ -46,7 +48,7 @@ def test_csv_too_many_rows_blocked(app, client, bypass_engine, fake_extract):
     rows = "word,meaning\n" + "".join(f"w{i},m{i}\n" for i in range(600))
     big = io.BytesIO(rows.encode("utf-8"))
     client.post("/intake/import", content_type="multipart/form-data",
-                data={"word_list_id": lid, "file": (big, "big.csv")})
+                data={"language_code": "fr", "file": (big, "big.csv")})
     assert _count(bypass_engine, "intake_sources", uid) == 0
 
 
@@ -56,7 +58,7 @@ def test_extract_flow_to_commit(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     # 提交抽词 → 建 source → 跳处理页
     r = client.post("/intake/extract",
-                    data={"word_list_id": lid, "text": "Le décollage. Un essai."})
+                    data={"language_code": "fr", "text": "Le décollage. Un essai."})
     assert r.status_code == 302
     with bypass_engine.connect() as c:
         sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
@@ -88,7 +90,7 @@ def test_extract_flow_to_commit(app, client, bypass_engine, fake_extract):
 
 def test_process_idempotent_on_reopen(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
-    client.post("/intake/extract", data={"word_list_id": lid, "text": "Un essai."})
+    client.post("/intake/extract", data={"language_code": "fr", "text": "Un essai."})
     with bypass_engine.connect() as c:
         sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
                         {"u": uid}).scalar()
@@ -100,8 +102,9 @@ def test_process_idempotent_on_reopen(app, client, bypass_engine, fake_extract):
 def test_commit_dedupes_existing_word(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     # 先手动加一个 décollage 到该词表
-    client.post(f"/words/{lid}", data={"word": "décollage", "meaning": "x"})
-    client.post("/intake/extract", data={"word_list_id": lid, "text": "Le décollage."})
+    client.post("/words/add", json={"language_code": "fr", "word": "décollage",
+                                    "definitions": [{"meaning": "x"}]})
+    client.post("/intake/extract", data={"language_code": "fr", "text": "Le décollage."})
     with bypass_engine.connect() as c:
         sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
                         {"u": uid}).scalar()
@@ -119,7 +122,7 @@ def test_commit_dedupes_existing_word(app, client, bypass_engine, fake_extract):
 def test_quick_add_creates_candidate(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     r = client.post("/intake/quick-add",
-                    data={"word_list_id": lid, "word": "bonjour"})
+                    data={"language_code": "fr", "word": "bonjour"})
     assert r.status_code == 302
     assert _count(bypass_engine, "word_candidates", uid) == 1
 
@@ -128,7 +131,7 @@ def test_quick_add_creates_candidate(app, client, bypass_engine, fake_extract):
 
 def test_cross_user_candidate_isolation(app, client, bypass_engine, fake_extract):
     ub, lb = _setup(app, client, bypass_engine, email="b@t.com")
-    client.post("/intake/extract", data={"word_list_id": lb, "text": "Un essai."})
+    client.post("/intake/extract", data={"language_code": "fr", "text": "Un essai."})
     with bypass_engine.connect() as c:
         sid_b = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
                           {"u": ub}).scalar()

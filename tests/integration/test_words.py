@@ -15,18 +15,22 @@ def _switch_lang(client, code):
     client.post("/language/switch", data={"language_code": code, "csrf_token": csrf})
 
 
-def test_create_list_and_add_word(app, client, bypass_engine):
+def _add_word(client, language_code, word, meaning="m"):
+    return client.post("/words/add", json={
+        "language_code": language_code,
+        "word": word,
+        "definitions": [{"meaning": meaning}],
+    })
+
+
+def test_language_list_and_add_word(app, client, bypass_engine):
     provision_user(app, "a@t.com", PW)
     login(client, "a@t.com", PW)
 
-    # 建词表（兼容路由；隐式化后 UI 不暴露建表，但 router/service 保留测试可用）
-    client.post("/words", data={"name": "法语核心", "language_code": "fr"})
-    # 取 list_id（bypass 读）；隐式化后 /words 列表页按当前语言显示词而非词表名
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "décollage", "起飞")
     with bypass_engine.connect() as c:
-        list_id = c.execute(text("SELECT id FROM word_lists WHERE name='法语核心'")).scalar()
-
-    # 加词
-    client.post(f"/words/{list_id}", data={"word": "décollage", "meaning": "起飞"})
+        list_id = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
     detail = client.get(f"/words/{list_id}").get_data(as_text=True)
     assert "décollage" in detail and "起飞" in detail
 
@@ -47,10 +51,8 @@ def test_cross_user_list_isolation(app, client, bypass_engine):
 def test_review_grade_updates_sm2(app, client, bypass_engine):
     provision_user(app, "r@t.com", PW)
     login(client, "r@t.com", PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        list_id = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{list_id}", data={"word": "w1", "meaning": "m"})
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "w1", "m")
     with bypass_engine.connect() as c:
         word_id = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
 
@@ -74,10 +76,8 @@ def test_grade_invalid_button_400(app, client, bypass_engine):
     """M1：缺失/非法 button 返回 400 而非 500。"""
     provision_user(app, "g@t.com", PW)
     login(client, "g@t.com", PW)
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{lid}", data={"word": "w1", "meaning": "m"})
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "w1", "m")
     with bypass_engine.connect() as c:
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
 
@@ -99,11 +99,8 @@ def test_stats_counts(app, client, bypass_engine):
     login(client, "s@t.com", PW)
     # stats 按当前语言看板：先切 fr（隐式化后 stats 未设语言是引导卡）
     _switch_lang(client, "fr")
-    client.post("/words", data={"name": "L", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        list_id = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
-    client.post(f"/words/{list_id}", data={"word": "w1", "meaning": "m"})
-    client.post(f"/words/{list_id}", data={"word": "w2", "meaning": "m"})
+    _add_word(client, "fr", "w1", "m")
+    _add_word(client, "fr", "w2", "m")
 
     page = client.get("/stats").get_data(as_text=True)
     # UI 套了卡片网格：数字与「总词数 / 待复习」标签分体；守语义即可。
@@ -114,31 +111,36 @@ def test_stats_counts(app, client, bypass_engine):
     assert page.count(">2<") >= 2
 
 
-def test_delete_list(app, client, bypass_engine):
+def test_post_create_list_route_removed(app, client, bypass_engine):
     provision_user(app, "d@t.com", PW)
     login(client, "d@t.com", PW)
-    client.post("/words", data={"name": "ToDelete", "language_code": "fr"})
+    assert client.post("/words", data={"name": "ToDelete", "language_code": "fr"}).status_code == 405
+
+
+def test_post_add_word_to_list_route_removed(app, client, bypass_engine):
+    provision_user(app, "pa@t.com", PW)
+    login(client, "pa@t.com", PW)
+    _switch_lang(client, "fr")
     with bypass_engine.connect() as c:
-        list_id = c.execute(text("SELECT id FROM word_lists WHERE name='ToDelete'")).scalar()
-    client.post(f"/words/{list_id}/delete")
-    assert "ToDelete" not in client.get("/words").get_data(as_text=True)
+        list_id = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
+    assert client.post(f"/words/{list_id}", data={"word": "w1", "meaning": "m"}).status_code == 405
 
 
-def test_delete_list_after_review_cascades(app, client, bypass_engine):
-    """回归 review 2026-06-23：复习过的词表也能删（review_logs ON DELETE CASCADE）。"""
-    provision_user(app, "dr@t.com", PW)
+def test_delete_list_service_after_review_cascades(app, client, bypass_engine):
+    """回归 review 2026-06-23：内部词表删除时 review_logs 仍由 DB 级联清理。"""
+    uid = provision_user(app, "dr@t.com", PW)
     login(client, "dr@t.com", PW)
-    client.post("/words", data={"name": "Reviewed", "language_code": "fr"})
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "w1", "m")
     with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='Reviewed'")).scalar()
-    client.post(f"/words/{lid}", data={"word": "w1", "meaning": "m"})
-    with bypass_engine.connect() as c:
+        lid = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
     client.post(f"/review/{wid}/grade", data={"button": "easy"})   # 产生 review_logs
 
-    resp = client.post(f"/words/{lid}/delete")
-    assert resp.status_code == 302                  # 删除成功应重定向（L5）
     with bypass_engine.connect() as c:
+        c.execute(text("DELETE FROM word_lists WHERE id=:i AND user_id=:u"),
+                  {"i": lid, "u": uid})
+        c.commit()
         assert c.execute(text("SELECT count(*) FROM word_lists WHERE id=:i"),
                          {"i": lid}).scalar() == 0
         # 子表也清干净

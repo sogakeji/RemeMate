@@ -11,17 +11,24 @@ from tests.helpers import login, provision_user
 PW = "pw12345678"
 
 
+def _add_word(client, word):
+    client.post("/words/add", json={
+        "language_code": "fr",
+        "word": word,
+        "definitions": [{"meaning": "m"}],
+    })
+
+
 def test_detail_page_no_n_plus_one_definitions(app, client, bypass_engine):
     provision_user(app, "n1@t.com", PW)
     login(client, "n1@t.com", PW)
-    client.post("/words", data={"name": "N", "language_code": "fr"})
-    with bypass_engine.connect() as c:
-        lid = c.execute(text("SELECT id FROM word_lists WHERE name='N'")).scalar()
 
     # 5 个词、各带 1 条释义。lazy 路径会逐词查 → 5 次 definitions 查询；
     # eager（selectinload）应只查一次（definitions IN (...)）。
     for i in range(5):
-        client.post(f"/words/{lid}", data={"word": f"w{i}", "meaning": "m"})
+        _add_word(client, f"w{i}")
+    with bypass_engine.connect() as c:
+        lid = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
 
     counter = {"defs": 0}
 

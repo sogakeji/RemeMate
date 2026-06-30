@@ -44,6 +44,9 @@
       <a class="btn primary" href="{{ url_for('main.index') }}">开始复习 →</a>
     {% else %}
       <p style="margin-bottom:16px;color:var(--text-secondary);">今日复习完成 🎉</p>
+      <p style="margin-bottom:0;color:var(--text-secondary);font-size:13px;">
+        刚刚标记“没记住”的词会在约 10 分钟后回来。
+      </p>
     {% endif %}
   </div>
 

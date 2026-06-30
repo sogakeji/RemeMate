@@ -4,13 +4,12 @@
 """
 import json
 
-from flask import (Blueprint, render_template, redirect, url_for, request,
-                   flash, abort, jsonify)
+from flask import Blueprint, render_template, request, abort, jsonify
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
 from app.services import llm as llm_svc
-from app.blueprints.words.forms import NewListForm, AddWordForm, LanguageChoiceForm
+from app.blueprints.words.forms import LanguageChoiceForm
 
 bp = Blueprint("words", __name__)
 
@@ -138,47 +137,22 @@ def generate_note():
 
 # ---- 词库 / 词表 / 复习 / 统计（既有） ----
 
-@bp.route("/words", methods=["GET", "POST"])
+@bp.get("/words")
 @login_required
 def lists():
-    form = NewListForm()
-    if form.validate_on_submit():
-        # 兼容旧入口：显式建表路由保留（测试 / 下一小步隐式化时删），但 UI 不再渲染表单。
-        # 上方加词中心走 set_current_language 闭环建隐式词表。
-        words_svc.create_word_list(_uid(), form.name.data, form.language_code.data)
-        flash("词表已创建")
-        return redirect(url_for("words.lists"))
     lang, ws = words_svc.get_words_for_current_language(_uid())
     return render_template("words/list.html", words=ws,
                            current_language=lang,
                            lang_name=words_svc._language_name(lang) if lang else None)
 
 
-@bp.route("/words/<int:list_id>", methods=["GET", "POST"])
+@bp.get("/words/<int:list_id>")
 @login_required
 def detail(list_id):
     wl = words_svc.get_word_list(_uid(), list_id, eager=True)
     if wl is None:
         abort(404)
-    form = AddWordForm()
-    if form.validate_on_submit():
-        words_svc.add_word(
-            _uid(), list_id, form.word.data,
-            meaning=form.meaning.data, part_of_speech=form.part_of_speech.data,
-            example=form.example.data, note=form.note.data,
-        )
-        flash("已加词")
-        return redirect(url_for("words.detail", list_id=list_id))
-    return render_template("words/detail.html", wl=wl, form=form)
-
-
-@bp.route("/words/<int:list_id>/delete", methods=["POST"])
-@login_required
-def delete(list_id):
-    if not words_svc.delete_word_list(_uid(), list_id):
-        abort(404)
-    flash("词表已删除")
-    return redirect(url_for("words.lists"))
+    return render_template("words/detail.html", wl=wl)
 
 
 @bp.route("/review")
