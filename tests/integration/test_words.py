@@ -1,9 +1,18 @@
 """阶段三：词库 CRUD + RLS 隔离 + 复习递推 + stats（走 HTTP，真实 RLS 路径）。"""
+import re
+
 from sqlalchemy import text
 
 from tests.helpers import provision_user, login, make_user, make_word
 
 PW = "pw12345678"
+
+
+def _switch_lang(client, code):
+    """经首页切换器设当前语言（隐式词表闭环：自动建该语言词表 + 写 current_language）。"""
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/").get_data(as_text=True)).group(1)
+    client.post("/language/switch", data={"language_code": code, "csrf_token": csrf})
 
 
 def test_create_list_and_add_word(app, client, bypass_engine):
@@ -88,6 +97,8 @@ def test_review_grade_other_users_word_404(app, client, bypass_engine):
 def test_stats_counts(app, client, bypass_engine):
     provision_user(app, "s@t.com", PW)
     login(client, "s@t.com", PW)
+    # stats 按当前语言看板：先切 fr（隐式化后 stats 未设语言是引导卡）
+    _switch_lang(client, "fr")
     client.post("/words", data={"name": "L", "language_code": "fr"})
     with bypass_engine.connect() as c:
         list_id = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()

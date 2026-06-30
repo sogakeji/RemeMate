@@ -225,12 +225,13 @@ def get_stats(user_id: int, *, language_code: str | None = None) -> dict:
     tz = (db.session.get(User, user_id) or User()).timezone or "Asia/Shanghai"
     now = datetime.utcnow()
     today_start = today_local_start_utc(tz)
-    lang_filter = (WordList.language_code == language_code) if language_code else None
+    # 注意：lang_filter 是 SA 二元表达式，其布尔值不可靠（语言 expression 的 __bool__ 在
+    # 不同 SA 版本会报错或恒为 False）。用字符串 language_code 的 truthiness 判断是否过滤。
+    lang_q = [WordList.language_code == language_code] if language_code else []
     total = (Word.query.join(WordList)
-             .filter(WordList.user_id == user_id, *([lang_filter] if lang_filter else [])).count())
+             .filter(WordList.user_id == user_id, *lang_q).count())
     due = (Word.query.join(WordList)
-           .filter(WordList.user_id == user_id, *([lang_filter] if lang_filter else []),
-                   Word.due_date <= now).count())
+           .filter(WordList.user_id == user_id, *lang_q, Word.due_date <= now).count())
     # reviewed_today / heatmap 跨语言合计（复习历史不按语言切，更稳）
     reviewed_today = (ReviewLog.query
                       .filter(ReviewLog.user_id == user_id,

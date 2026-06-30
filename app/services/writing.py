@@ -21,12 +21,17 @@ class SentenceTooLong(Exception):
     pass
 
 
-def get_practice_words(user_id: int, limit: int = 50) -> list[Word]:
-    """造句可选词：到期词在前，其余按加入顺序。"""
-    return (Word.query.join(WordList)
-            .filter(WordList.user_id == user_id)
-            .order_by(Word.due_date.asc())
-            .limit(limit).all())
+def get_practice_words(user_id: int, limit: int = 50, *,
+                       language_code: str | None = None) -> list[Word]:
+    """造句可选词：到期词在前，其余按加入顺序。
+
+    language_code 给定时只取该语言的词（与首页/词库按当前语言闭环一致）。
+    """
+    q = (Word.query.join(WordList)
+         .filter(WordList.user_id == user_id))
+    if language_code is not None:
+        q = q.filter(WordList.language_code == language_code)
+    return q.order_by(Word.due_date.asc()).limit(limit).all()
 
 
 def submit_correction(user_id: int, word_id: int, sentence: str):

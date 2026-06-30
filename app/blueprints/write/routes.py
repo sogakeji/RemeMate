@@ -22,11 +22,15 @@ def _uid():
 @bp.get("/write")
 @login_required
 def compose():
+    from app.services import words as words_svc
+    lang = words_svc.get_current_language(_uid())
     return render_template(
         "write/compose.html",
-        words=writing_svc.get_practice_words(_uid()),
+        words=writing_svc.get_practice_words(_uid(), language_code=lang),
         quota=quota_svc.write_quota_status(_uid()),
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
+        current_language=lang,
+        lang_name=words_svc._language_name(lang) if lang else None,
     )
 
 

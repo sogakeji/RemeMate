@@ -29,6 +29,10 @@ _POS_CHOICES = ["", "n.", "v.", "adj.", "adv.", "prep.", "conj.",
 @login_required
 def add_center():
     form = LanguageChoiceForm()
+    # 默认选当前语言（用户切了语言，进加词中心就该是该语言；仍可下拉切其它语言加多语言）
+    cur = words_svc.get_current_language(_uid())
+    if cur:
+        form.language_code.data = cur
     return render_template("words/add.html", form=form, pos_choices=_POS_CHOICES,
                            lang_map=words_svc._LANGUAGE_NAMES,
                            ai_enabled=bool(llm_svc.get_chain("general")))
@@ -202,4 +206,10 @@ def grade(word_id):
 @bp.route("/stats")
 @login_required
 def stats():
-    return render_template("words/stats.html", stats=words_svc.get_stats(_uid()))
+    # 统计按当前语言看板（与首页/词库/加词闭环一致）：total/due/list 都按当前语言切，
+    # reviewed_today/heatmap 跨语言合计（复习历史不按语言切更稳）。
+    lang = words_svc.get_current_language(_uid())
+    return render_template("words/stats.html",
+                           stats=words_svc.get_stats(_uid(), language_code=lang),
+                           current_language=lang,
+                           lang_name=words_svc._language_name(lang) if lang else None)
