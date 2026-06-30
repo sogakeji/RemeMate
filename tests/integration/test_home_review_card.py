@@ -2,7 +2,12 @@
 
 首页 `/` 直接渲染到期词卡 + SRS 三按钮；空态显示「今日复习完成」而非大字待复习数。
 独立 /review 作日常入口已从 nav 移除（路由保留兼容），grade 端点 words.grade 不动。
+
+step4c 起首页按「当前语言」过滤：未设语言显示「先去设置选语言」引导卡，
+设了语言只刷该语言的到期词。测试先经 /language/switch 设当前语言。
 """
+import re
+
 from sqlalchemy import text
 
 from tests.helpers import provision_user, login
@@ -10,10 +15,19 @@ from tests.helpers import provision_user, login
 PW = "pw12345678"
 
 
+def _switch_lang(client, code):
+    """经首页切换器设当前语言（走真实闭环：建隐式词表 + 写 current_language）。"""
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/").get_data(as_text=True)).group(1)
+    client.post("/language/switch",
+                data={"language_code": code, "csrf_token": csrf})
+
+
 def test_home_renders_due_word_card(app, client, bypass_engine):
     """有到期词时，首页 `/` 第一眼就是该词 + 三按钮，不是大字仪表盘。"""
     provision_user(app, "h1@t.com", PW)
     login(client, "h1@t.com", PW)
+    _switch_lang(client, "fr")
     client.post("/words", data={"name": "L", "language_code": "fr"})
     with bypass_engine.connect() as c:
         lid = c.execute(text("SELECT id FROM word_lists WHERE name='L'")).scalar()
@@ -27,14 +41,25 @@ def test_home_renders_due_word_card(app, client, bypass_engine):
 
 
 def test_home_empty_state_no_dashboard(app, client, bypass_engine):
-    """无到期词时，首页显示完成态，不展示大字待复习数仪表盘。"""
+    """设了语言但无到期词：首页显示完成态，不展示大字待复习数仪表盘。"""
     provision_user(app, "h2@t.com", PW)
     login(client, "h2@t.com", PW)
+    _switch_lang(client, "fr")                  # 设语言（无词）
 
     page = client.get("/").get_data(as_text=True)
     assert "开始复习" not in page               # 无大字 CTA
     # 空态文案（_card.html 的 else 分支）
     assert "没有到期的词" in page or "今日复习完成" in page
+
+
+def test_home_prompts_when_no_language(app, client, bypass_engine):
+    """未设语言：首页显示「先去设置选语言」引导卡，不渲染词卡。"""
+    provision_user(app, "h2b@t.com", PW)
+    login(client, "h2b@t.com", PW)
+    page = client.get("/").get_data(as_text=True)
+    assert "先选一个正在学的语言" in page
+    assert "去设置选语言" in page
+    assert "没记住" not in page                  # 未设语言不渲染三按钮
 
 
 def test_home_grade_button_hits_words_grade(app, client, bypass_engine):

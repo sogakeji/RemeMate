@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}设置 · 记搭{% endblock %}
+{% block content %}
+<div class="container" style="max-width:520px;">
+  <h1>设置</h1>
+
+  <div class="form-card">
+    <h2 style="font-size:18px;margin-bottom:15px;">正在学的语言</h2>
+    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+      选一个正在学的语言——系统会自动建好该语言的词库，首页复习、词库都按它来。
+      以后想换语言，在这里改或直接在首页切换器切。
+    </p>
+    <form method="post" action="{{ url_for('main.save_settings') }}">
+      {{ form.csrf_token }}
+      <div class="form-group">
+        {{ form.language_code.label(class="form-label") }}<br>
+        {{ form.language_code(class="form-control") }}
+      </div>
+      <button type="submit" class="btn primary">保存</button>
+    </form>
+  </div>
+
+  <p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:20px;">
+    推送（Bark）/ 播客 / 自带 API key 等设置将在后续阶段补。
+  </p>
+</div>
+{% endblock %}

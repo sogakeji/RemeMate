@@ -2,7 +2,34 @@
 {% block title %}记搭 · 每个词都记得{% endblock %}
 {% block content %}
 <div class="container">
-  {# 主词卡：直接复用复习片段（含 hx 三按钮打 words.grade，端点完全不动）。 #}
-  {% include "review/_card.html" %}
+  {# 语言切换器：切当前语言 = 切词库。post 到 main.switch_language，闭环建隐式词表。 #}
+  <form method="post" action="{{ url_for('main.switch_language') }}"
+        style="display:flex;justify-content:center;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <span style="color:var(--text-secondary);font-size:14px;">正在学</span>
+    <select name="language_code" class="form-control"
+            style="width:auto;min-width:120px;"
+            onchange="this.form.submit()">
+      {% for code, name in lang_choices.items() %}
+        <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if current_language is none %}
+    {# 未设语言：引导去设置。 #}
+    <div class="word-card">
+      <p class="card-word">📖</p>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
+        先选一个正在学的语言，开始背词。
+      </p>
+      <div class="button-group">
+        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+      </div>
+    </div>
+  {% else %}
+    {# 主词卡：直接复用复习片段（含 hx 三按钮打 words.grade，端点完全不动）。 #}
+    {% include "review/_card.html" %}
+  {% endif %}
 </div>
 {% endblock %}
