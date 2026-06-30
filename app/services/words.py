@@ -57,12 +57,52 @@ def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
     return wl
 
 
-def get_word_lists(user_id: int) -> list[tuple[WordList, int]]:
-    """返回 [(word_list, word_count), ...]，一次聚合查出词数，避免模板 N+1。"""
-    return (db.session.query(WordList, func.count(Word.id))
-            .outerjoin(Word, Word.list_id == WordList.id)
-            .filter(WordList.user_id == user_id)
-            .group_by(WordList.id)
+# ---- 当前语言状态（首页切换器/设置页/词列表页共用） ----
+
+def get_current_language(user_id: int) -> str | None:
+    """用户当前正在学的语言 code；未设过为 None（首页/词列表应提示去设置选语言）。"""
+    u = db.session.get(User, user_id)
+    return (u or User()).current_language
+
+
+def set_current_language(user_id: int, language_code: str) -> str:
+    """设当前语言，并保证该语言隐式词表存在（闭环）。返回设后的 language_code。
+
+    校验 language_code 合法；同时建（或复用）隐式词表，这样用户切语言后立刻能加词/
+    刷复习，不用再多一步「先建表」。
+    """
+    if language_code not in _LANGUAGE_NAMES:
+        raise ValueError(f"未知语言 code：{language_code!r}")
+    get_or_create_language_list(user_id, language_code)
+    u = db.session.get(User, user_id)
+    if u is None:
+        raise ValueError(f"用户不存在：{user_id}")
+    u.current_language = language_code
+    db.session.commit()
+    return language_code
+
+
+def get_current_language_list(user_id: int) -> WordList | None:
+    """当前语言对应的隐式词表；未设语言或尚无词表都返回 None。"""
+    lang = get_current_language(user_id)
+    if lang is None:
+        return None
+    return (WordList.query
+            .filter_by(user_id=user_id, language_code=lang).first())
+
+
+def get_word_lists(user_id: int, *, language_code: str | None = None) -> list[tuple[WordList, int]]:
+    """返回 [(word_list, word_count), ...]，一次聚合查出词数，避免模板 N+1。
+
+    language_code 给定时按该语言过滤（隐式词表页：只展示当前语言的词库）。
+    None=所有语言（兼容跨语言概览）。
+    """
+    q = (db.session.query(WordList, func.count(Word.id))
+         .outerjoin(Word, Word.list_id == WordList.id)
+         .filter(WordList.user_id == user_id))
+    if language_code is not None:
+        q = q.filter(WordList.language_code == language_code)
+    return (q.group_by(WordList.id)
             .order_by(WordList.created_at.desc())
             .all())
 
@@ -143,12 +183,20 @@ def review_word(user_id: int, word_id: int, button: str) -> Word | None:
     return w
 
 
-def get_due_words(user_id: int, limit: int | None = None) -> list[Word]:
+def get_due_words(user_id: int, limit: int | None = None, *,
+                  language_code: str | None = None) -> list[Word]:
+    """取到期词。language_code 给定时只查该语言（首页/复习按当前语言刷）。
+
+    language_code=None 且当前语言未设时，调用方应先提示去设置选语言；
+    None=跨所有语言（兼容旧调用，但隐式化后首页应传当前语言）。
+    """
     q = (Word.query
          .join(WordList)
          .filter(WordList.user_id == user_id,
-                 Word.due_date <= datetime.utcnow())
-         .order_by(Word.due_date))
+                 Word.due_date <= datetime.utcnow()))
+    if language_code is not None:
+        q = q.filter(WordList.language_code == language_code)
+    q = q.order_by(Word.due_date)
     if limit:
         q = q.limit(limit)
     return q.all()
@@ -156,37 +204,45 @@ def get_due_words(user_id: int, limit: int | None = None) -> list[Word]:
 
 # ---- 统计 ----
 
-def get_stats(user_id: int) -> dict:
+def get_stats(user_id: int, *, language_code: str | None = None) -> dict:
     # 「今日已复习」按用户本地午夜切（review 2026-06-23 M2）。
     # 注意 `due_count` 是「所有到期（due_date <= now）」语义，含逾期未做的词；
     # 模板文案以「待复习」表达，不要称作「今日到期」（review 2026-06-23 L1）。
     tz = (db.session.get(User, user_id) or User()).timezone or "Asia/Shanghai"
     now = datetime.utcnow()
     today_start = today_local_start_utc(tz)
+    lang_filter = (WordList.language_code == language_code) if language_code else None
     total = (Word.query.join(WordList)
-             .filter(WordList.user_id == user_id).count())
+             .filter(WordList.user_id == user_id, *([lang_filter] if lang_filter else [])).count())
     due = (Word.query.join(WordList)
-           .filter(WordList.user_id == user_id, Word.due_date <= now).count())
+           .filter(WordList.user_id == user_id, *([lang_filter] if lang_filter else []),
+                   Word.due_date <= now).count())
+    # reviewed_today / heatmap 跨语言合计（复习历史不按语言切，更稳）
     reviewed_today = (ReviewLog.query
                       .filter(ReviewLog.user_id == user_id,
                               ReviewLog.ts >= today_start).count())
-    lists = WordList.query.filter_by(user_id=user_id).count()
+    lists = WordList.query.filter_by(user_id=user_id)
+    if language_code:
+        lists = lists.filter_by(language_code=language_code)
+    lists = lists.count()
     return {
         "total_words": total,
         "due_count": due,
         "reviewed_today": reviewed_today,
         "list_count": lists,
-        "top_lapses": _top_lapses(user_id),
+        "top_lapses": _top_lapses(user_id, language_code=language_code),
         "heatmap": _heatmap(user_id, tz, weeks=12),
     }
 
 
-def _top_lapses(user_id: int, limit: int = 20) -> list[Word]:
+def _top_lapses(user_id: int, limit: int = 20, *,
+                language_code: str | None = None) -> list[Word]:
     """易忘词 Top：按忘记次数（lapses）降序的词（属该用户）。写句日记/广场强相关。"""
-    return (Word.query.join(WordList)
-            .filter(WordList.user_id == user_id, Word.lapses > 0)
-            .order_by(Word.lapses.desc())
-            .limit(limit).all())
+    q = (Word.query.join(WordList)
+         .filter(WordList.user_id == user_id, Word.lapses > 0))
+    if language_code is not None:
+        q = q.filter(WordList.language_code == language_code)
+    return q.order_by(Word.lapses.desc()).limit(limit).all()
 
 
 def _heatmap(user_id: int, tz_name: str, *, weeks: int = 12) -> dict:
