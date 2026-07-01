@@ -21,11 +21,9 @@
            href="#entry-{{ e.id }}" data-entry-id="entry-{{ e.id }}">
           <span class="timeline-tick" aria-hidden="true"></span>
           <span class="timeline-meta">{{ e.created_at.strftime('%m-%d %H:%M') }}</span>
-          <span class="timeline-popover">
+          <span class="timeline-body">
             <span class="timeline-word">{{ e.word_text }}</span>
-            <span class="timeline-snippet">
-              {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(42, True) }}
-            </span>
+            <span class="timeline-snippet">{{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(46, True) }}</span>
           </span>
         </a>
         {% endfor %}
