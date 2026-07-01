@@ -30,6 +30,12 @@
       <div class="button-group" style="margin-top:14px;">
         {% if entry.user_id == current_user.id %}
           <span class="btn default" aria-disabled="true">自己的句子</span>
+          <form method="post" action="{{ url_for('write.unpublish', entry_id=entry.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="square">
+            <input type="hidden" name="lang" value="{{ selected_language or 'all' }}">
+            <button type="submit" class="btn default">取消公开</button>
+          </form>
         {% elif upvoted %}
           <span class="btn success" aria-disabled="true">已夯</span>
         {% else %}

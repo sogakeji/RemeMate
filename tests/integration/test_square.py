@@ -109,3 +109,22 @@ def test_square_author_cannot_upvote_own_entry(app, client, bypass_engine):
     assert _count_votes(bypass_engine, entry_id) == 0
     page = client.get("/square?lang=all").get_data(as_text=True)
     assert "自己的句子" in page
+
+
+def test_square_owner_can_unpublish_own_entry(app, client, bypass_engine):
+    author = provision_user(app, "author5@t.com", PW, name="Author")
+    word_id = _make_word(bypass_engine, author, "fr", "maison")
+    entry_id = _make_entry(bypass_engine, author, word_id, "La maison est calme.")
+
+    login(client, "author5@t.com", PW)
+    page = client.get("/square?lang=fr").get_data(as_text=True)
+    assert "La maison est calme." in page
+    assert "取消公开" in page
+
+    resp = client.post(f"/write/{entry_id}/unpublish",
+                       data={"next": "square", "lang": "fr"},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "已取消公开" in body
+    assert "La maison est calme." not in body

@@ -75,6 +75,31 @@ def test_history_can_publish_saved_non_nsfw_entry(app, client, bypass_engine, fa
     assert is_public is True
 
 
+def test_owner_can_unpublish_entry_from_history(app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
+    client.post("/write/save")
+    with bypass_engine.connect() as c:
+        eid = c.execute(text("SELECT id FROM output_entries WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+
+    client.post(f"/write/{eid}/publish")
+    assert "phrase corrigée" in client.get("/square?lang=fr").get_data(as_text=True)
+
+    resp = client.post(f"/write/{eid}/unpublish", follow_redirects=True)
+    page = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "已取消公开" in page
+    assert "公开到广场" in page
+    assert f'action="/write/{eid}/unpublish"' not in page
+    with bypass_engine.connect() as c:
+        is_public = c.execute(text(
+            "SELECT is_public FROM output_entries WHERE id=:e"),
+            {"e": eid}).scalar()
+    assert is_public is False
+    assert "phrase corrigée" not in client.get("/square?lang=fr").get_data(as_text=True)
+
+
 def test_history_hides_publish_for_nsfw_entry(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     fake_llm["content"] = ('{"corrected":"x","translation":"t","target_word_used":true,'
@@ -319,6 +344,7 @@ def test_cross_user_history_isolation(app, client, bypass_engine, fake_llm):
     login(client, "a@t.com", PW)
     assert "B phrase." not in client.get("/write/history").get_data(as_text=True)
     assert client.post(f"/write/{b_entry}/publish").status_code == 400
+    assert client.post(f"/write/{b_entry}/unpublish").status_code == 400
 
 
 def test_sentence_too_long_400(app, client, bypass_engine, fake_llm):

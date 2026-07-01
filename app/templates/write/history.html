@@ -21,6 +21,10 @@
     <div class="button-group" style="margin-top:14px;">
       {% if e.is_public %}
         <a class="btn default" href="{{ url_for('square.index', lang=e.language_code) }}">去广场看看</a>
+        <form method="post" action="{{ url_for('write.unpublish', entry_id=e.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn default">取消公开</button>
+        </form>
       {% elif not e.is_nsfw %}
         <form method="post" action="{{ url_for('write.publish', entry_id=e.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

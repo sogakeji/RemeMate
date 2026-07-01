@@ -229,3 +229,13 @@ def publish_entry(user_id: int, entry_id: int) -> bool:
     entry.is_public = True
     db.session.commit()
     return True
+
+
+def unpublish_entry(user_id: int, entry_id: int) -> bool:
+    """撤回自己的公开句子；私有记录重复撤回视为成功幂等。"""
+    entry = get_entry(user_id, entry_id)
+    if entry is None:
+        return False
+    entry.is_public = False
+    db.session.commit()
+    return True

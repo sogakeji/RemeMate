@@ -136,6 +136,19 @@ def publish(entry_id):
     return render_template("write/_published.html")
 
 
+@bp.post("/write/<int:entry_id>/unpublish")
+@login_required
+def unpublish(entry_id):
+    ok = writing_svc.unpublish_entry(_uid(), entry_id)
+    if not ok:
+        abort(400)
+    flash("已取消公开")
+    if request.form.get("next") == "square":
+        lang = request.form.get("lang") or "all"
+        return redirect(url_for("square.index", lang=lang))
+    return redirect(url_for("write.history"))
+
+
 @bp.get("/write/history")
 @login_required
 def history():
