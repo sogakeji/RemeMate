@@ -44,12 +44,14 @@ def create_app(config_name=None):
     from app.blueprints.words import bp as words_bp
     from app.blueprints.write import bp as write_bp
     from app.blueprints.intake import bp as intake_bp
+    from app.blueprints.square import bp as square_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(words_bp)
     app.register_blueprint(write_bp)
     app.register_blueprint(intake_bp)
+    app.register_blueprint(square_bp)
 
     # CLI 命令
     from cli.commands import register_commands

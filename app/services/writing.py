@@ -95,6 +95,7 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
     word = get_word(user_id, word_id)
     if word is None:
         return None
+    wl = db.session.get(WordList, word.list_id)
     has_error = bool(pending.get("has_error"))   # 提交时已算好（见 write 路由）
     entry = OutputEntry(
         word_id=word_id, user_id=user_id,
@@ -102,6 +103,8 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
         corrected=pending.get("corrected", ""),
         feedback=pending.get("feedback", ""),
         translation=pending.get("translation", ""),
+        word_text=word.word,
+        language_code=wl.language_code,
         has_error=has_error,
         is_nsfw=bool(pending.get("is_nsfw", True)),
         is_public=False,

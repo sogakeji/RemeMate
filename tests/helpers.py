@@ -27,9 +27,12 @@ def make_word(bypass_engine, user_id, word="décollage"):
 def make_output_entry(bypass_engine, user_id, word_id, is_public):
     with bypass_engine.begin() as c:
         return c.execute(text(
-            "INSERT INTO output_entries(word_id,user_id,corrected,is_public,"
+            "INSERT INTO output_entries("
+            "word_id,user_id,corrected,word_text,language_code,is_public,"
             "upvote_count,is_nsfw,created_at) "
-            "VALUES (:w,:u,'phrase',:p,0,false,now()) RETURNING id"
+            "SELECT :w,:u,'phrase',w.word,wl.language_code,:p,0,false,now() "
+            "FROM words w JOIN word_lists wl ON wl.id=w.list_id "
+            "WHERE w.id=:w RETURNING id"
         ), {"w": word_id, "u": user_id, "p": is_public}).scalar()
 
 

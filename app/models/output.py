@@ -17,6 +17,8 @@ class OutputEntry(db.Model):
     feedback     = db.Column(db.Text)
     has_error    = db.Column(db.Boolean, default=False)
     translation  = db.Column(db.Text)                 # 母语翻译（批改时生成）
+    word_text    = db.Column(db.String(200), nullable=False)  # 广场展示快照，避免公开读私有 words
+    language_code = db.Column(db.String(10), nullable=False)
     is_public    = db.Column(db.Boolean, default=False, nullable=False)  # 是否公开到广场
     upvote_count = db.Column(db.Integer, default=0, nullable=False)      # 夯票冗余缓存
     is_nsfw      = db.Column(db.Boolean, default=False, nullable=False)  # 批改时返回

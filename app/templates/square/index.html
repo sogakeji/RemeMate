@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}句子广场 · 记搭{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="header-section">
+    <h1>句子广场</h1>
+    <p><small>公开的造句修正句，只展示用户主动发布的内容。</small></p>
+  </div>
+
+  <div class="button-group" style="margin-bottom:18px;">
+    <a class="btn {% if not selected_language %}primary{% else %}default{% endif %}"
+       href="{{ url_for('square.index', lang='all') }}">全部</a>
+    {% for code, name in lang_choices.items() %}
+      <a class="btn {% if selected_language == code %}primary{% else %}default{% endif %}"
+         href="{{ url_for('square.index', lang=code) }}">{{ name }}</a>
+    {% endfor %}
+  </div>
+
+  {% if entries %}
+    {% for entry, author, vote_count, upvoted in entries %}
+    <div class="word-card">
+      <p style="font-size:1.12rem;line-height:1.7;">{{ entry.corrected }}</p>
+      {% if entry.translation %}
+        <p style="color:var(--text-secondary);">{{ entry.translation }}</p>
+      {% endif %}
+      <small style="color:var(--text-secondary);">
+        词：{{ entry.word_text }} · {{ lang_choices.get(entry.language_code, entry.language_code) }}
+        · @{{ author.display_name }} · {{ vote_count }} 夯
+      </small>
+      <div class="button-group" style="margin-top:14px;">
+        {% if entry.user_id == current_user.id %}
+          <span class="btn default" aria-disabled="true">自己的句子</span>
+        {% elif upvoted %}
+          <span class="btn success" aria-disabled="true">已夯</span>
+        {% else %}
+          <form method="post" action="{{ url_for('square.upvote', entry_id=entry.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="lang" value="{{ selected_language or 'all' }}">
+            <button type="submit" class="btn primary">夯一下</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="word-card" style="text-align:center;">
+      <p style="color:var(--text-secondary);margin-bottom:14px;">这里还没有公开句子。</p>
+      <a class="btn success" href="{{ url_for('write.compose') }}">去写一句</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
