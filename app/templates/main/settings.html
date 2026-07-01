@@ -4,38 +4,72 @@
 <div class="container" style="max-width:520px;">
   <h1>设置</h1>
 
-  <div class="form-card">
-    <h2 style="font-size:18px;margin-bottom:12px;">正在学的语言</h2>
-    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
-      勾选你正在学的所有语言，系统会为每种建好词库。
-      首页复习、词库都按「当前主攻」语言来——首页切换器只在下面勾选的语言里切。
-      想只学一种语言了，把多选改成只勾那一种再保存即可。
-    </p>
+  <div class="form-card settings-card">
     <form method="post" action="{{ url_for('main.save_settings') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="form-group">
-        {% for code, name in lang_choices.items() %}
-        <label class="lang-check">
-          <input type="checkbox" name="languages" value="{{ code }}"
-                 {% if code in learning %}checked{% endif %}>
-          <span>{{ name }}</span>
-        </label>
-        {% endfor %}
+
+      <div class="settings-row">
+        <div class="settings-copy">
+          <div class="settings-title">正在学</div>
+          <div class="settings-value">
+            {% if learning %}
+              {% for code in learning %}
+                <span class="settings-chip">{{ lang_choices.get(code, code) }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="settings-empty">未选择</span>
+            {% endif %}
+          </div>
+        </div>
+        <button type="button" class="btn default settings-edit"
+                data-settings-toggle="learning-panel">
+          {% if learning %}修改{% else %}设置{% endif %}
+        </button>
+        <div class="settings-panel" id="learning-panel">
+          <div class="settings-options">
+            {% for code, name in lang_choices.items() %}
+            <label class="lang-check">
+              <input type="checkbox" name="languages" value="{{ code }}"
+                     {% if code in learning %}checked{% endif %}>
+              <span>{{ name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="submit" class="btn primary">确定</button>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="feedback_language">AI 解释和点评语言</label>
-        <select id="feedback_language" name="feedback_language">
+
+      <div class="settings-row">
+        <div class="settings-copy">
+          <div class="settings-title">母语</div>
+          <div class="settings-value">
+            <span class="settings-chip">{{ feedback_choices.get(feedback_language, feedback_language) }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn default settings-edit"
+                data-settings-toggle="feedback-panel">修改</button>
+        <div class="settings-panel" id="feedback-panel">
+          <div class="settings-options">
           {% for code, name in feedback_choices.items() %}
-          <option value="{{ code }}" {% if code == feedback_language %}selected{% endif %}>
-            {{ name }}
-          </option>
+            <label class="lang-check">
+              <input type="radio" name="feedback_language" value="{{ code }}"
+                     {% if code == feedback_language %}checked{% endif %}>
+              <span>{{ name }}</span>
+            </label>
           {% endfor %}
-        </select>
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="submit" class="btn primary">确定</button>
+          </div>
+        </div>
       </div>
-      <button type="submit" class="btn primary">保存</button>
     </form>
     {% if not learning %}
-    <p style="color:var(--text-secondary);font-size:13px;margin-top:14px;">
+    <p class="settings-footnote">
       还没选任何语言——首页会提示你先来这里选语言。
     </p>
     {% endif %}
@@ -45,4 +79,33 @@
     推送（Bark）/ 播客 / 自带 API key 等设置将在后续阶段补。
   </p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var panels = Array.prototype.slice.call(document.querySelectorAll('.settings-panel'));
+    var form = document.querySelector('.settings-card form');
+    function closeAll(keepDraft) {
+      if (!keepDraft && form) form.reset();
+      panels.forEach(function (panel) { panel.classList.remove('open'); });
+    }
+    document.querySelectorAll('[data-settings-toggle]').forEach(function (button) {
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        var panel = document.getElementById(button.getAttribute('data-settings-toggle'));
+        var willOpen = panel && !panel.classList.contains('open');
+        closeAll();
+        if (panel && willOpen) panel.classList.add('open');
+      });
+    });
+    document.querySelectorAll('.settings-cancel').forEach(function (button) {
+      button.addEventListener('click', closeAll);
+    });
+    panels.forEach(function (panel) {
+      panel.addEventListener('click', function (event) { event.stopPropagation(); });
+    });
+    document.addEventListener('click', closeAll);
+  })();
+</script>
 {% endblock %}

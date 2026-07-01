@@ -45,7 +45,7 @@
       <div class="lang-switcher" id="langSwitcher" style="display:inline-block;">
         <button type="button" class="lang-current" id="langCurrent" title="切换当前语言">
           <span class="lang-flag">
-            {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺'} %}
+            {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺','zh':'🇨🇳'} %}
             {{ _flag.get(current_language, '📖') }}
           </span>
           <span class="lang-label">{{ lang_choices.get(current_language, '选语言') }}</span>

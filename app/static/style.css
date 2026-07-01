@@ -782,14 +782,128 @@ textarea.form-control {
 .dark-mode .lang-current, .dark-mode .lang-menu { background: #2b3240; color: #e2e8f0; }
 .dark-mode .lang-item { color: #e2e8f0; }
 
-/* ===== 设置页：在学语言多选 ===== */
+/* ===== 设置页：摘要式偏好项 ===== */
+.settings-card {
+    padding: 10px 0;
+}
+
+.settings-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 74px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.settings-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 6px;
+}
+
+.settings-value {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.settings-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(74,108,247,0.10);
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.settings-empty,
+.settings-footnote {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.settings-footnote {
+    margin: 14px 20px 8px;
+}
+
+.settings-edit {
+    flex: 0 0 auto;
+    min-width: 72px;
+    padding: 8px 14px;
+    font-size: 14px;
+}
+
+.settings-panel {
+    position: absolute;
+    top: calc(100% - 8px);
+    right: 20px;
+    z-index: 20;
+    display: none;
+    width: min(320px, calc(100vw - 48px));
+    padding: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.16);
+}
+
+.settings-panel.open {
+    display: block;
+    animation: fadeIn 0.12s ease-out;
+}
+
+.settings-options {
+    display: grid;
+    gap: 6px;
+    max-height: 290px;
+    overflow: auto;
+    padding: 2px;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 2px 2px;
+}
+
 .lang-check {
     display: flex; align-items: center; gap: 10px;
-    padding: 11px 14px; margin-bottom: 8px; cursor: pointer;
+    padding: 11px 14px; cursor: pointer;
     background: var(--card-bg); border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.06); font-size: 15px;
     color: var(--text-color); transition: all .15s ease;
 }
 .lang-check:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); transform: translateY(-1px); }
 .lang-check input { width: 18px; height: 18px; accent-color: var(--primary-color); cursor: pointer; }
-.dark-mode .lang-check { background: #2b3240; color: #e2e8f0; }
+.dark-mode .lang-check,
+.dark-mode .settings-panel { background: #2b3240; color: #e2e8f0; }
+
+@media (max-width: 600px) {
+    .settings-row {
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    .settings-panel {
+        left: 16px;
+        right: 16px;
+        width: auto;
+    }
+}

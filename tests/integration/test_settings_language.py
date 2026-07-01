@@ -10,16 +10,19 @@ from tests.helpers import provision_user, login
 PW = "pw12345678"
 
 
-def test_settings_page_shows_multi_checkboxes(app, client, bypass_engine):
+def test_settings_page_shows_compact_language_preferences(app, client, bypass_engine):
     provision_user(app, "se1@t.com", PW)
     login(client, "se1@t.com", PW)
     page = client.get("/settings").get_data(as_text=True)
-    assert "正在学的语言" in page
+    assert "正在学" in page
     assert "中文" in page
-    assert "AI 解释和点评语言" in page
-    # 多选 checkbox 表单字段名 languages（修1）
+    assert "母语" in page
+    assert 'data-settings-toggle="learning-panel"' in page
+    assert 'data-settings-toggle="feedback-panel"' in page
+    assert 'class="settings-panel" id="learning-panel"' in page
+    assert 'class="settings-panel" id="feedback-panel"' in page
     assert 'name="languages"' in page
-    assert 'type="checkbox"' in page
+    assert 'name="feedback_language"' in page
 
 
 def test_settings_save_sets_learning_languages(app, client, bypass_engine):
