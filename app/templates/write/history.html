@@ -25,6 +25,8 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn primary">公开到广场</button>
         </form>
+      {% else %}
+        <span class="btn default" aria-disabled="true">不可公开</span>
       {% endif %}
     </div>
   </div>

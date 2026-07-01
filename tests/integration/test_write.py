@@ -85,6 +85,7 @@ def test_history_hides_publish_for_nsfw_entry(app, client, bypass_engine, fake_l
 
     page = client.get("/write/history").get_data(as_text=True)
     assert "公开到广场" not in page
+    assert "不可公开" in page
 
 
 def test_degraded_correction_cannot_be_saved(app, client, bypass_engine, fake_llm):

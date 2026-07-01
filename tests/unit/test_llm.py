@@ -54,6 +54,13 @@ def test_empty_chain_raises():
         llm.chat([{"role": "user", "content": "x"}], task="nsfw")
 
 
+def test_placeholder_keys_are_not_configured():
+    assert llm._configured_key(None) is None
+    assert llm._configured_key("") is None
+    assert llm._configured_key("CHANGE_ME") is None
+    assert llm._configured_key("sk-real") == "sk-real"
+
+
 def test_breaker_opens_after_threshold():
     p1 = FakeProvider("deepseek", "fail")
     p2 = FakeProvider("openai")

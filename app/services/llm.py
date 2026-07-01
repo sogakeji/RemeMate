@@ -100,18 +100,27 @@ class OpenAICompatProvider:
         )
 
 
+def _configured_key(value: str | None) -> str | None:
+    value = (value or "").strip()
+    if not value or value in {"CHANGE_ME", "changeme", "your-api-key"}:
+        return None
+    return value
+
+
 def _build_registry() -> dict:
     """从 config 构建各 task 的 provider 链；缺 key 的 provider 不入链。"""
     cfg = current_app.config
     deepseek = None
-    if cfg.get("DEEPSEEK_API_KEY"):
+    deepseek_key = _configured_key(cfg.get("DEEPSEEK_API_KEY"))
+    if deepseek_key:
         deepseek = OpenAICompatProvider(
-            "deepseek", cfg["DEEPSEEK_API_KEY"],
+            "deepseek", deepseek_key,
             cfg.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"), "deepseek-chat")
     gpt = None
-    if cfg.get("OPENAI_API_KEY"):
+    openai_key = _configured_key(cfg.get("OPENAI_API_KEY"))
+    if openai_key:
         gpt = OpenAICompatProvider(
-            "openai", cfg["OPENAI_API_KEY"],
+            "openai", openai_key,
             cfg.get("OPENAI_BASE_URL", "https://api.openai.com/v1"), "gpt-4o-mini")
 
     def chain(*providers):
