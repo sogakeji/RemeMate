@@ -33,36 +33,6 @@
                autocomplete="off" placeholder="留空则自动生成">
       </div>
 
-      <div class="form-group">
-        <label class="form-label">正在学</label>
-        <div class="settings-options" style="max-height:none;overflow:visible;">
-          {% for code, name in lang_choices.items() %}
-          <label class="lang-check">
-            <input type="checkbox" name="languages" value="{{ code }}">
-            <span>{{ name }}</span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">母语</label>
-        <div class="settings-options" style="max-height:none;overflow:visible;">
-          {% for code, name in feedback_choices.items() %}
-          <label class="lang-check">
-            <input type="radio" name="feedback_language" value="{{ code }}"
-                   {% if code == 'zh' %}checked{% endif %}>
-            <span>{{ name }}</span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <label class="lang-check" style="margin-bottom:16px;">
-        <input type="checkbox" name="admin" value="1">
-        <span>设为管理员</span>
-      </label>
-
       <button class="btn primary" type="submit">创建账号</button>
     </form>
   </div>

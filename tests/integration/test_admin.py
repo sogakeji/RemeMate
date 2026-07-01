@@ -24,8 +24,7 @@ def test_admin_page_requires_admin(app, client):
     assert client.get("/admin/").status_code == 403
 
 
-def test_admin_can_create_invited_user_with_language_defaults(
-        app, client, bypass_engine):
+def test_admin_can_create_invited_user(app, client, bypass_engine):
     provision_user(app, "owner@t.com", PW, admin=True)
     login(client, "owner@t.com", PW)
 
@@ -33,8 +32,6 @@ def test_admin_can_create_invited_user_with_language_defaults(
         "email": "friend@t.com",
         "name": "Friend",
         "password": "Friend123456",
-        "languages": ["zh"],
-        "feedback_language": "fr",
     })
     page = resp.get_data(as_text=True)
     assert resp.status_code == 200
@@ -48,12 +45,12 @@ def test_admin_can_create_invited_user_with_language_defaults(
             "FROM users u JOIN user_settings s ON s.user_id=u.id "
             "WHERE u.email='friend@t.com'"
         )).one()
-        word_list_lang = c.execute(text(
-            "SELECT language_code FROM word_lists wl JOIN users u ON u.id=wl.user_id "
+        word_list_count = c.execute(text(
+            "SELECT count(*) FROM word_lists wl JOIN users u ON u.id=wl.user_id "
             "WHERE u.email='friend@t.com'"
         )).scalar()
-    assert row == ("zh", "zh", "fr")
-    assert word_list_lang == "zh"
+    assert row == (None, None, "zh")
+    assert word_list_count == 0
 
     client.get("/logout")
     assert login(client, "friend@t.com", "Friend123456").status_code == 302
@@ -67,7 +64,6 @@ def test_admin_create_duplicate_shows_error(app, client):
     resp = client.post("/admin/", data={
         "email": "dup@t.com",
         "name": "Dup",
-        "feedback_language": "zh",
     }, follow_redirects=True)
     assert resp.status_code == 200
     assert "邮箱已存在" in resp.get_data(as_text=True)

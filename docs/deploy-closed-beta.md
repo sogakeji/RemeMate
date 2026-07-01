@@ -23,7 +23,9 @@ flask doctor --strict
 
 管理员可以登录网页后进入顶部“管理”页创建账号。适合日常闭测运营。
 
-CLI 仍保留，适合首次创建管理员账号或服务器应急操作。
+网页管理页只负责创建可登录账号，不预设学习语言和母语。朋友登录后自行在设置页选择。
+
+CLI 仍保留，适合首次创建唯一管理员账号或服务器应急操作。
 
 普通账号：
 
@@ -31,14 +33,13 @@ CLI 仍保留，适合首次创建管理员账号或服务器应急操作。
 flask create-user --email friend@example.com --name "Friend"
 ```
 
-法国朋友学中文：
+首次创建管理员账号：
 
 ```bash
 flask create-user \
-  --email friend@example.com \
-  --name "Friend" \
-  --language zh \
-  --feedback-language fr
+  --email you@example.com \
+  --name "Admin" \
+  --admin
 ```
 
 命令会打印初始密码。通过安全渠道发给对方，首次闭测后可用：

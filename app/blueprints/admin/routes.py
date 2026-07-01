@@ -6,7 +6,6 @@ from flask_login import current_user, login_required
 
 from app.models.user import User
 from app.services import provisioning
-from app.services import words as words_svc
 
 
 from . import bp
@@ -30,17 +29,12 @@ def index():
         email = request.form.get("email", "").strip()
         name = request.form.get("name", "").strip()
         password = (request.form.get("password") or "").strip() or None
-        languages = request.form.getlist("languages")
-        feedback_language = request.form.get("feedback_language", "zh")
-        admin = bool(request.form.get("admin"))
         if not email or not name:
             flash("邮箱和昵称必填")
             return redirect(url_for("admin.index"))
         try:
             uid, password = provisioning.create_user_with_defaults(
-                email, name, password=password, admin=admin,
-                learning_languages=languages,
-                feedback_language=feedback_language,
+                email, name, password=password,
             )
         except provisioning.UserExistsError:
             flash("邮箱已存在")
@@ -62,6 +56,4 @@ def index():
         "admin/index.html",
         created=created,
         users=users,
-        lang_choices=words_svc._LANGUAGE_NAMES,
-        feedback_choices=words_svc._FEEDBACK_LANGUAGE_NAMES,
     )
