@@ -63,11 +63,12 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
     try:
         res = llm.chat(messages, task="correction", json_mode=True)
     except llm.AllProvidersDown:
-        # AI 不可用：不批改、不判过；NSFW fail-closed（隐藏公开按钮）
+        # AI 不可用：不批改、不判过；NSFW fail-closed（隐藏公开按钮）。
+        # 调用方不会允许保存降级结果，避免把未批改原句混进造句历史。
         return CorrectionResult(
             corrected=sentence, translation="", target_word_used=False,
             incomplete=False, errors=[], is_nsfw=True,
-            feedback="AI 批改暂时不可用，已保存原句，稍后可重试批改。",
+            feedback="AI 批改暂时不可用，请稍后重试。",
             degraded=True,
         )
 
@@ -78,7 +79,7 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
         return CorrectionResult(
             corrected=sentence, translation="", target_word_used=False,
             incomplete=False, errors=[], is_nsfw=True,
-            feedback="批改结果解析异常，已保存原句，可稍后重试批改。",
+            feedback="批改结果解析异常，请稍后重试。",
             degraded=True,
             provider=res.provider, model=res.model,
             prompt_tokens=res.prompt_tokens, completion_tokens=res.completion_tokens,

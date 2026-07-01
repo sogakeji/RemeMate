@@ -15,8 +15,10 @@
   {% endif %}
 
   <div class="button-group" style="margin-top:18px;">
+    {% if not degraded %}
     <button class="btn success" hx-post="{{ url_for('write.save') }}" hx-target="#write-result"
             hx-swap="innerHTML" hx-disabled-elt="this">保存</button>
+    {% endif %}
     <button class="btn default" hx-post="{{ url_for('write.discard') }}" hx-target="#write-result"
             hx-swap="innerHTML">重写</button>
   </div>

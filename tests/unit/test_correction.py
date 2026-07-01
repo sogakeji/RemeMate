@@ -60,3 +60,4 @@ def test_all_providers_down_degraded():
     assert r.degraded is True
     assert r.corrected == "orig"             # 原样返回，不替写
     assert r.is_nsfw is True                 # fail-closed
+    assert "暂时不可用" in r.feedback

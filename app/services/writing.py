@@ -5,6 +5,8 @@
 - save_entry：用户显式确认后才写 output_entries。
 - is_nsfw 由批改结果决定，经签名 session 传递（路由层），不信客户端。
 """
+import re
+
 from sqlalchemy import case
 
 from app.extensions import db
@@ -20,6 +22,19 @@ MAX_SENTENCE_CHARS = 140
 
 class SentenceTooLong(Exception):
     pass
+
+
+class SentenceLanguageMismatch(Exception):
+    pass
+
+
+_CJK_OR_KANA_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
+
+
+def _validate_sentence_language(sentence: str, language_code: str):
+    """Cheap script-level guard; AI still handles real grammar/language judgment."""
+    if language_code in {"fr", "en", "de", "es", "ru"} and _CJK_OR_KANA_RE.search(sentence):
+        raise SentenceLanguageMismatch()
 
 
 def get_practice_words(user_id: int, limit: int = 50, *,
@@ -55,6 +70,7 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
     wl = db.session.get(WordList, word.list_id)
     if language_code is not None and wl.language_code != language_code:
         return None
+    _validate_sentence_language(sentence, wl.language_code)
 
     source = quota_svc.check_write_quota(user_id)   # 超限抛 SentenceQuotaExceeded
     used_user_key = source == "user_key"

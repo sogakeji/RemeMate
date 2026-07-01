@@ -53,6 +53,20 @@ def test_save_persists_then_cleared(app, client, bypass_engine, fake_llm):
     assert _count_entries(bypass_engine, uid) == 1
 
 
+def test_degraded_correction_cannot_be_saved(app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    fake_llm["empty"] = True
+    fake_llm["reinstall"]()
+
+    resp = client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
+    page = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "AI 批改暂时不可用" in page
+    assert "保存" not in page
+    assert "过期" in client.post("/write/save").get_data(as_text=True)
+    assert _count_entries(bypass_engine, uid) == 0
+
+
 def test_discard_drops_pending(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
@@ -97,6 +111,22 @@ def test_compose_uses_current_language_and_rejects_other_language_word(
 
     resp = client.post("/write/submit", data={"word_id": en_wid, "sentence": "Apple."})
     assert resp.status_code == 404
+    with bypass_engine.connect() as c:
+        used = c.execute(text(
+            "SELECT corrections_today FROM user_quota WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert used == 0
+
+
+def test_rejects_obvious_non_target_script_before_correction(
+        app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+
+    resp = client.post("/write/submit", data={"word_id": wid, "sentence": "我今天很开心。"})
+    page = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "不是当前目标语言" in page
+    assert _count_entries(bypass_engine, uid) == 0
     with bypass_engine.connect() as c:
         used = c.execute(text(
             "SELECT corrections_today FROM user_quota WHERE user_id=:u"),
