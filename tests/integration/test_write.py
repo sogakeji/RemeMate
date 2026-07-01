@@ -53,6 +53,25 @@ def test_save_persists_then_cleared(app, client, bypass_engine, fake_llm):
     assert _count_entries(bypass_engine, uid) == 1
 
 
+def test_history_renders_timeline_navigation(app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
+    client.post("/write/save")
+    with bypass_engine.connect() as c:
+        eid = c.execute(text(
+            "SELECT id FROM output_entries WHERE user_id=:u"),
+            {"u": uid}).scalar()
+
+    page = client.get("/write/history").get_data(as_text=True)
+
+    assert 'aria-label="造句时间轴"' in page
+    assert f'href="#entry-{eid}"' in page
+    assert f'id="entry-{eid}"' in page
+    assert 'class="timeline-word"' in page
+    assert "décollage" in page
+    assert "phrase corrigée" in page
+
+
 def test_history_can_publish_saved_non_nsfw_entry(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})

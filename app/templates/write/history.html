@@ -5,39 +5,85 @@
   <p><a class="nav-link" href="{{ url_for('write.compose') }}">← 造句</a></p>
   <div class="header-section"><h1>造句历史</h1></div>
   {% if entries %}
-  {% for e in entries %}
-  <div class="word-card">
-    <p>{{ e.original }}</p>
-    {% if e.corrected and e.corrected != e.original %}
-      <p><strong>修正：</strong>{{ e.corrected }}</p>
-    {% endif %}
-    {% if e.feedback %}<p style="color:var(--text-secondary);">{{ e.feedback }}</p>{% endif %}
-    <small style="color:var(--text-secondary);">
-      {{ e.word_text }} ·
-      {{ e.created_at.strftime('%Y-%m-%d %H:%M') }}
-      {% if e.is_public %}· 已公开{% endif %}
-      {% if e.has_error %}· 有修正{% endif %}
-    </small>
-    <div class="button-group" style="margin-top:14px;">
-      {% if e.is_public %}
-        <a class="btn default" href="{{ url_for('square.index', lang=e.language_code) }}">去广场看看</a>
-        <form method="post" action="{{ url_for('write.unpublish', entry_id=e.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn default">取消公开</button>
-        </form>
-      {% elif not e.is_nsfw %}
-        <form method="post" action="{{ url_for('write.publish', entry_id=e.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn primary">公开到广场</button>
-        </form>
-      {% else %}
-        <span class="btn default" aria-disabled="true">不可公开</span>
-      {% endif %}
+  <div class="history-shell">
+    <aside class="history-timeline" aria-label="造句时间轴">
+      <div class="timeline-rail" aria-hidden="true"></div>
+      <div class="timeline-list">
+        {% for e in entries %}
+        <a class="timeline-item {% if loop.first %}active{% endif %}"
+           href="#entry-{{ e.id }}" data-entry-id="entry-{{ e.id }}">
+          <span class="timeline-tick" aria-hidden="true"></span>
+          <span class="timeline-meta">{{ e.created_at.strftime('%m-%d %H:%M') }}</span>
+          <span class="timeline-word">{{ e.word_text }}</span>
+          <span class="timeline-snippet">
+            {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(30, True) }}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </aside>
+
+    <div class="history-list">
+      {% for e in entries %}
+      <article class="word-card history-entry" id="entry-{{ e.id }}">
+        <p>{{ e.original }}</p>
+        {% if e.corrected and e.corrected != e.original %}
+          <p><strong>修正：</strong>{{ e.corrected }}</p>
+        {% endif %}
+        {% if e.feedback %}<p style="color:var(--text-secondary);">{{ e.feedback }}</p>{% endif %}
+        <small style="color:var(--text-secondary);">
+          {{ e.word_text }} ·
+          {{ e.created_at.strftime('%Y-%m-%d %H:%M') }}
+          {% if e.is_public %}· 已公开{% endif %}
+          {% if e.has_error %}· 有修正{% endif %}
+        </small>
+        <div class="button-group" style="margin-top:14px;">
+          {% if e.is_public %}
+            <a class="btn default" href="{{ url_for('square.index', lang=e.language_code) }}">去广场看看</a>
+            <form method="post" action="{{ url_for('write.unpublish', entry_id=e.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn default">取消公开</button>
+            </form>
+          {% elif not e.is_nsfw %}
+            <form method="post" action="{{ url_for('write.publish', entry_id=e.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn primary">公开到广场</button>
+            </form>
+          {% else %}
+            <span class="btn default" aria-disabled="true">不可公开</span>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
     </div>
   </div>
-  {% endfor %}
   {% else %}
   <p style="text-align:center;color:var(--text-secondary);">还没有造句记录。</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.timeline-item'));
+    var entries = Array.prototype.slice.call(document.querySelectorAll('.history-entry'));
+    if (!links.length || !entries.length || !('IntersectionObserver' in window)) return;
+    var byId = {};
+    links.forEach(function (link) {
+      byId[link.getAttribute('data-entry-id')] = link;
+    });
+    var observer = new IntersectionObserver(function (items) {
+      var visible = items.filter(function (item) { return item.isIntersecting; });
+      if (!visible.length) return;
+      visible.sort(function (a, b) {
+        return Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top);
+      });
+      links.forEach(function (link) { link.classList.remove('active'); });
+      var active = byId[visible[0].target.id];
+      if (active) active.classList.add('active');
+    }, { rootMargin: '-18% 0px -70% 0px', threshold: 0.01 });
+    entries.forEach(function (entry) { observer.observe(entry); });
+  })();
+</script>
 {% endblock %}
