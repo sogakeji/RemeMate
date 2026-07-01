@@ -45,6 +45,7 @@ def create_app(config_name=None):
     from app.blueprints.write import bp as write_bp
     from app.blueprints.intake import bp as intake_bp
     from app.blueprints.square import bp as square_bp
+    from app.blueprints.admin import bp as admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -52,6 +53,7 @@ def create_app(config_name=None):
     app.register_blueprint(write_bp)
     app.register_blueprint(intake_bp)
     app.register_blueprint(square_bp)
+    app.register_blueprint(admin_bp)
 
     # CLI 命令
     from cli.commands import register_commands

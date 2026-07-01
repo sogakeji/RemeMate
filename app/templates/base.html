@@ -38,6 +38,9 @@
         <a class="nav-link" href="{{ url_for('square.index') }}">广场</a>
         <a class="nav-link" href="{{ url_for('words.stats') }}">统计</a>
         <a class="nav-link" href="{{ url_for('main.settings') }}">设置</a>
+        {% if current_user.role == 'admin' %}
+        <a class="nav-link" href="{{ url_for('admin.index') }}">管理</a>
+        {% endif %}
         <a class="nav-link" href="{{ url_for('auth.logout') }}">登出</a>
       </nav>
       {% endif %}
