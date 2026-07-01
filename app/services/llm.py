@@ -186,8 +186,8 @@ def chat(messages, *, task="general", json_mode=False) -> LLMResult:
 # 走 chat() + failover；失败 fail-closed：返回 None（生成例句/笔记）或 {"error":...}
 # （一键填充）。调方负责提示「AI 暂不可用」，不抛异常打断流程。
 #
-# language 传中文语言名（如「法语」），与 demo prompt 链一致；service 层外可由
-# language_code→name 映射后传入（见 words._language_name）。
+# language 传中文语言名（如「法语」），feedback_language 传解释/翻译语言名。
+# service 层外可由 language_code→name 映射后传入（见 words._language_name）。
 
 def _strip_quotes(s: str) -> str:
     """demo 同款清理：去成对引号包裹。"""
@@ -198,14 +198,15 @@ def _strip_quotes(s: str) -> str:
     return s
 
 
-def generate_example(word, part_of_speech, meaning, *, language="英语"):
+def generate_example(word, part_of_speech, meaning, *, language="英语",
+                     feedback_language="中文"):
     """为一个词生成例句。失败返回 None（fail-closed）。"""
     if not word or not meaning:
         return None
     prompt = (
-        f"请为{language}单词 '{word}' ({part_of_speech}) 生成一个自然、简单易懂且地道的{language}例句，"
+        f"请为{language}词或短语 '{word}' ({part_of_speech}) 生成一个自然、简单易懂且地道的{language}例句，"
         f"要体现它的含义：'{meaning}'与常用用法。"
-        f"直接输出{language}例句与这句话的中文意思，不要有任何其它解释。")
+        f"直接输出{language}例句与这句话的{feedback_language}意思，不要有任何其它解释。")
     messages = [
         {"role": "system", "content": f"你是一个{language}学习助手，擅长生成简单易懂的例句。"},
         {"role": "user", "content": prompt},
@@ -216,16 +217,18 @@ def generate_example(word, part_of_speech, meaning, *, language="英语"):
         return None
 
 
-def generate_note(word, part_of_speech, meaning, *, language="英语"):
+def generate_note(word, part_of_speech, meaning, *, language="英语",
+                  feedback_language="中文"):
     """生成学习笔记/记忆技巧。失败返回 None。"""
     if not word or not meaning:
         return None
     prompt = (
-        f"请为{language}单词 '{word}' ({part_of_speech}) 编写一个简短的学习笔记或记忆技巧，50字以内，包含：\n"
+        f"请为{language}词或短语 '{word}' ({part_of_speech}) 编写一个简短的学习笔记或记忆技巧，50字以内，包含：\n"
         "1. 记忆技巧或联想方法\n2. 常见用法提示（如固定搭配等）\n3. 易混淆点提醒\n"
-        f"帮助中国学生记住它的含义：'{meaning}'。只返回笔记内容，不要有标题或任何其他说明。")
+        f"帮助使用{feedback_language}学习的学生记住它的含义：'{meaning}'。"
+        "只返回笔记内容，不要有标题或任何其他说明。")
     messages = [
-        {"role": "system", "content": f"你是一个{language}学习助手，擅长帮助中国学生记忆{language}单词。"},
+        {"role": "system", "content": f"你是一个{language}学习助手，擅长帮助使用{feedback_language}学习的学生记忆{language}词语。"},
         {"role": "user", "content": prompt},
     ]
     try:
@@ -234,7 +237,7 @@ def generate_note(word, part_of_speech, meaning, *, language="英语"):
         return None
 
 
-def generate_full_word_info(word, *, language="英语"):
+def generate_full_word_info(word, *, language="英语", feedback_language="中文"):
     """AI 一键填充：返回 {"definitions": [{part_of_speech,meaning,example,note}, ...]}。
 
     失败/非法输入返回 {"error": "..."}（对齐 demo generate_full_word_info）。
@@ -243,7 +246,7 @@ def generate_full_word_info(word, *, language="英语"):
     import json
     if not word:
         return {"error": "单词不能为空"}
-    prompt = f"""请为{language}单词 '{word}' 生成完整的学习信息。
+    prompt = f"""请为{language}词或短语 '{word}' 生成完整的学习信息。
 
 可用的词性列表（共12个）：
 - n. (名词)  - v. (动词)  - adj. (形容词)  - adv. (副词)
@@ -251,14 +254,14 @@ def generate_full_word_info(word, *, language="英语"):
 - num. (数词)  - art. (冠词)  - phr. (短语)
 
 要求：
-1. 首先验证输入是否为合法的{language}单词或短语，如果不是（如其它语言、数字、乱码等），返回包含error字段的JSON
+1. 首先验证输入是否为合法的{language}词或短语，如果不是（如其它语言、数字、乱码等），返回包含error字段的JSON
 2. 按词性分组，每个词性一个definition对象
-3. 同一词性如果有多个释义，用分号"；"分隔放在meaning字段中
-4. 例句：{language}例句\n中文翻译，自然简单易懂，体现释义含义与常用用法
-5. 学习笔记包含巧记技巧、常用搭配等，80字以内
+3. 同一词性如果有多个释义，用分号"；"分隔放在meaning字段中；meaning 必须使用{feedback_language}
+4. 例句：{language}例句\n{feedback_language}翻译，自然简单易懂，体现释义含义与常用用法
+5. 学习笔记包含巧记技巧、常用搭配等，80字以内，必须使用{feedback_language}
 6. 排在前面的更常用
 严格只返回如下 JSON：
-{{"definitions":[{{"part_of_speech":"词性","meaning":"释义","example":"{language}例句\\n中文翻译","note":"学习笔记"}}]}}
+{{"definitions":[{{"part_of_speech":"词性","meaning":"{feedback_language}释义","example":"{language}例句\\n{feedback_language}翻译","note":"{feedback_language}学习笔记"}}]}}
 失败：{{"error":"原因"}}"""
     messages = [
         {"role": "system", "content": f"你是一个专业的{language}学习助手，擅长分析单词并生成完整的学习资料。你必须返回有效的JSON格式。请仔细验证输入是否为合法的{language}单词。"},

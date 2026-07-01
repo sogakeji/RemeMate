@@ -14,7 +14,9 @@ from dataclasses import dataclass, field
 from app.services import llm
 
 LANG_NAMES = {"fr": "法语", "en": "英语", "ja": "日语", "de": "德语",
-              "es": "西班牙语", "ru": "俄语"}
+              "es": "西班牙语", "ru": "俄语", "zh": "中文"}
+
+FEEDBACK_LANG_NAMES = {"zh": "中文", "fr": "法语", "en": "英语"}
 
 
 @dataclass
@@ -42,7 +44,7 @@ _SYSTEM_TMPL = """你是严格的{lang}写作批改老师。学生在练习目�
    但【绝对不要】替学生补全或重写成完整句子。
 4. 错误分级写入 errors 数组，每条 {{"type": "grammar"|"word_choice"|"idiom", "detail": "..."}}：
    grammar=语法（性数/时态/虚拟式等），word_choice=用词不当，idiom=不够地道的表达建议。
-5. translation 给出该句的中文翻译；feedback 用中文简短点评（不超过两句）。
+5. translation 给出该句的{feedback_lang}翻译；feedback 和 errors.detail 都用{feedback_lang}简短点评。
 6. is_nsfw 标记是否含成人/不适宜公开内容。
 
 只输出 JSON，字段：corrected, translation, target_word_used(bool),
@@ -50,22 +52,28 @@ incomplete(bool), errors(array), is_nsfw(bool), feedback。不要输出任何额
 
 
 _DIARY_SYSTEM_TMPL = """你是严格但温和的{lang}三行日记批改老师。
-学生会根据一个中文提示写三行{lang}微日记。
+学生会根据一个提示问题写三行{lang}微日记。
 规则（必须严格遵守）：
 1. 保持三行结构，corrected 必须也是三行，不要扩写成短文。
 2. 只修正真实错误；如果原句自然正确，尽量保留原表达。
 3. 判断是否完整回应了提示；严重跑题或少于三行时 incomplete=true。
 4. errors 数组写主要问题，每条 {{"type": "grammar"|"word_choice"|"idiom", "detail": "..."}}。
-5. translation 给出三行中文翻译；feedback 用中文简短点评（不超过两句）。
+5. translation 给出三行{feedback_lang}翻译；feedback 和 errors.detail 都用{feedback_lang}简短点评。
 6. is_nsfw 标记是否含成人/不适宜公开内容。
 
 只输出 JSON，字段：corrected, translation, target_word_used(bool),
 incomplete(bool), errors(array), is_nsfw(bool), feedback。target_word_used 固定输出 true。"""
 
 
-def _build_messages(sentence, target_word, language_code):
+def _feedback_name(feedback_language_code):
+    return FEEDBACK_LANG_NAMES.get(feedback_language_code or "zh", "中文")
+
+
+def _build_messages(sentence, target_word, language_code, feedback_language_code="zh"):
     lang = LANG_NAMES.get(language_code, language_code)
-    system = _SYSTEM_TMPL.format(lang=lang, word=target_word)
+    feedback_lang = _feedback_name(feedback_language_code)
+    system = _SYSTEM_TMPL.format(
+        lang=lang, word=target_word, feedback_lang=feedback_lang)
     user = f"目标词：{target_word}\n学生造句：{sentence}"
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
@@ -83,9 +91,11 @@ def _degraded_result(sentence, feedback, *, provider="", model="",
     )
 
 
-def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResult:
+def correct_sentence(*, sentence, target_word, language_code,
+                     feedback_language_code="zh") -> CorrectionResult:
     """批改一句，返回结构化结果。AI 全挂时返回 degraded 兜底（fail-closed NSFW）。"""
-    messages = _build_messages(sentence, target_word, language_code)
+    messages = _build_messages(
+        sentence, target_word, language_code, feedback_language_code)
     try:
         res = llm.chat(messages, task="correction", json_mode=True)
     except llm.AllProvidersDown:
@@ -106,11 +116,15 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
     return _result_from_data(data, sentence, res)
 
 
-def correct_diary(*, diary, prompt, language_code) -> CorrectionResult:
-    """批改三行日记。prompt 是中文提示问题，diary 是用户三行回答。"""
+def correct_diary(*, diary, prompt, language_code,
+                  feedback_language_code="zh") -> CorrectionResult:
+    """批改三行日记。prompt 是提示问题，diary 是用户三行回答。"""
     lang = LANG_NAMES.get(language_code, language_code)
+    feedback_lang = _feedback_name(feedback_language_code)
     messages = [
-        {"role": "system", "content": _DIARY_SYSTEM_TMPL.format(lang=lang)},
+        {"role": "system",
+         "content": _DIARY_SYSTEM_TMPL.format(
+             lang=lang, feedback_lang=feedback_lang)},
         {"role": "user", "content": f"提示问题：{prompt}\n学生三行日记：\n{diary}"},
     ]
     try:

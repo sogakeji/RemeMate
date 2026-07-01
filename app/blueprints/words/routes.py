@@ -93,7 +93,11 @@ def ai_fill():
     if lang not in words_svc._LANGUAGE_NAMES:
         return jsonify({"error": "请选择语言"}), 400
     info = llm_svc.generate_full_word_info(
-        word, language=words_svc._language_name(lang))
+        word,
+        language=words_svc._language_name(lang),
+        feedback_language=words_svc._feedback_language_name(
+            words_svc.get_feedback_language(_uid())),
+    )
     return jsonify(info)        # 成功带 definitions；失败带 error
 
 
@@ -111,7 +115,9 @@ def generate_example():
     if lang not in words_svc._LANGUAGE_NAMES:
         return jsonify({"error": "请选择语言"}), 400
     out = llm_svc.generate_example(word, pos, meaning,
-                                   language=words_svc._language_name(lang))
+                                   language=words_svc._language_name(lang),
+                                   feedback_language=words_svc._feedback_language_name(
+                                       words_svc.get_feedback_language(_uid())))
     if out is None:
         return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
     return jsonify({"example": out})
@@ -131,7 +137,9 @@ def generate_note():
     if lang not in words_svc._LANGUAGE_NAMES:
         return jsonify({"error": "请选择语言"}), 400
     out = llm_svc.generate_note(word, pos, meaning,
-                                language=words_svc._language_name(lang))
+                                language=words_svc._language_name(lang),
+                                feedback_language=words_svc._feedback_language_name(
+                                    words_svc.get_feedback_language(_uid())))
     if out is None:
         return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
     return jsonify({"note": out})

@@ -73,3 +73,11 @@ def test_correct_diary_parses_structured_fields():
     assert r.translation == "一\n二\n三"
     assert r.target_word_used is True
     assert r.is_nsfw is False
+
+
+def test_correction_prompt_uses_feedback_language():
+    messages = correction._build_messages(
+        "我喜欢学习中文。", "学习", "zh", feedback_language_code="fr")
+    assert "中文写作批改老师" in messages[0]["content"]
+    assert "法语翻译" in messages[0]["content"]
+    assert "errors.detail 都用法语" in messages[0]["content"]

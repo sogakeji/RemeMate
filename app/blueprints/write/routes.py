@@ -25,6 +25,7 @@ def compose():
     from app.services import words as words_svc
     mode = request.args.get("mode") if request.args.get("mode") in {"diary"} else "sentence"
     lang = words_svc.get_current_language(_uid())
+    feedback_lang = words_svc.get_feedback_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
     return render_template(
@@ -34,7 +35,7 @@ def compose():
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
         diary_line_count=writing_svc.DIARY_LINE_COUNT,
         diary_line_chars=writing_svc.MAX_DIARY_LINE_CHARS,
-        diary_prompt=writing_svc.random_diary_prompt(),
+        diary_prompt=writing_svc.random_diary_prompt(feedback_lang),
         mode=mode,
         current_language=lang,
         lang_name=words_svc._language_name(lang) if lang else None,
@@ -53,15 +54,18 @@ def submit():
     lang = words_svc.get_current_language(_uid())
     if lang is None:
         abort(400)
+    feedback_lang = words_svc.get_feedback_language(_uid())
     try:
         if mode == "diary":
             result = writing_svc.submit_diary(
                 _uid(), request.form.get("diary", ""),
                 prompt=request.form.get("prompt", ""), language_code=lang,
+                feedback_language_code=feedback_lang,
             )
         else:
             result = writing_svc.submit_correction(
                 _uid(), word_id, sentence, language_code=lang,
+                feedback_language_code=feedback_lang,
             )
     except quota_svc.SentenceQuotaExceeded as e:
         return render_template("write/_quota_exceeded.html", used=e.used, limit=e.limit)

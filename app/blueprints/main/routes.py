@@ -51,13 +51,21 @@ def settings():
     """
     return render_template("main/settings.html",
                            learning=words_svc.get_learning_languages(current_user.id),
-                           lang_choices=words_svc._LANGUAGE_NAMES)
+                           lang_choices=words_svc._LANGUAGE_NAMES,
+                           feedback_language=words_svc.get_feedback_language(current_user.id),
+                           feedback_choices=words_svc._FEEDBACK_LANGUAGE_NAMES)
 
 
 @bp.post("/settings")
 @login_required
 def save_settings():
     codes = request.form.getlist("languages")
+    feedback_language = request.form.get("feedback_language", "zh").strip()
+    try:
+        words_svc.set_feedback_language(current_user.id, feedback_language)
+    except ValueError:
+        flash("未知反馈语言")
+        return redirect(url_for("main.settings"))
     words_svc.set_learning_languages(current_user.id, codes)
-    flash("已保存正在学的语言")
+    flash("已保存语言设置")
     return redirect(url_for("main.settings"))

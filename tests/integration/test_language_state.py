@@ -76,6 +76,21 @@ def test_switch_current_language(app, bypass_engine):
     assert langs == ["en", "fr"]                     # 两个语言各一张隐式词表
 
 
+def test_set_current_language_supports_chinese(app, bypass_engine):
+    from app.services import words
+    uid = provision_user(app, "cl4b@t.com")
+    with app.app_context():
+        _set_rls_uid(app, uid)
+        words.set_current_language(uid, "zh")
+        assert words.get_current_language(uid) == "zh"
+        assert words.get_current_language_list(uid).language_code == "zh"
+    with bypass_engine.connect() as c:
+        name = c.execute(text(
+            "SELECT name FROM word_lists WHERE user_id=:u AND language_code='zh'"),
+            {"u": uid}).scalar()
+    assert name == "中文"
+
+
 def test_get_word_lists_filtered_by_language(app, bypass_engine):
     """get_word_lists(language_code=fr) 只返回该语言的词库。"""
     from app.services import words

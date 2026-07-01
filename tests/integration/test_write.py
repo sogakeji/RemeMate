@@ -194,6 +194,38 @@ def test_diary_requires_three_lines(app, client, bypass_engine, fake_llm):
     assert resp.status_code == 400
 
 
+def test_chinese_write_uses_french_feedback_language(app, client, bypass_engine, fake_llm):
+    uid = provision_user(app, "wr-zh-fr@t.com", PW)
+    login(client, "wr-zh-fr@t.com", PW)
+    client.post("/settings", data={"languages": ["zh"], "feedback_language": "fr"})
+    client.post("/words/add", json={"language_code": "zh", "word": "学习",
+                                    "definitions": [{"meaning": "apprendre"}]})
+    with bypass_engine.connect() as c:
+        wid = c.execute(text(
+            "SELECT w.id FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u AND wl.language_code='zh' AND w.word='学习'"),
+            {"u": uid}).scalar()
+
+    fake_llm["content"] = (
+        '{"corrected":"我喜欢学习中文。","translation":"J’aime apprendre le chinois.",'
+        '"target_word_used":true,"incomplete":false,"errors":[],'
+        '"is_nsfw":false,"feedback":"Phrase correcte."}'
+    )
+    fake_llm["reinstall"]()
+
+    page = client.get("/write").get_data(as_text=True)
+    assert "学习" in page
+    resp = client.post("/write/submit", data={
+        "mode": "sentence",
+        "word_id": wid,
+        "sentence": "我喜欢学习中文。",
+    })
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "J’aime apprendre le chinois." in body
+    assert "Phrase correcte." in body
+
+
 def test_compose_uses_current_language_and_rejects_other_language_word(
         app, client, bypass_engine, fake_llm):
     uid, _ = _setup_user_with_word(app, client, bypass_engine)

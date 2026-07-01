@@ -15,6 +15,8 @@ def test_settings_page_shows_multi_checkboxes(app, client, bypass_engine):
     login(client, "se1@t.com", PW)
     page = client.get("/settings").get_data(as_text=True)
     assert "正在学的语言" in page
+    assert "中文" in page
+    assert "AI 解释和点评语言" in page
     # 多选 checkbox 表单字段名 languages（修1）
     assert 'name="languages"' in page
     assert 'type="checkbox"' in page
@@ -33,6 +35,25 @@ def test_settings_save_sets_learning_languages(app, client, bypass_engine):
     assert ll == "fr,en"
     assert cur == "fr"                      # 集合首个
     assert n == 2                            # fr + en 各一张隐式词表
+
+
+def test_settings_save_supports_chinese_target_and_french_feedback(app, client, bypass_engine):
+    uid = provision_user(app, "se2c@t.com", PW)
+    login(client, "se2c@t.com", PW)
+    client.post("/settings", data={"languages": ["zh"],
+                                   "feedback_language": "fr",
+                                   "csrf_token": _csrf(client, "/settings")})
+    with bypass_engine.connect() as c:
+        ll = c.execute(text("SELECT learning_languages FROM users WHERE id=:u"), {"u": uid}).scalar()
+        cur = c.execute(text("SELECT current_language FROM users WHERE id=:u"), {"u": uid}).scalar()
+        fb = c.execute(text("SELECT feedback_language FROM user_settings WHERE user_id=:u"), {"u": uid}).scalar()
+        n = c.execute(text(
+            "SELECT count(*) FROM word_lists WHERE user_id=:u AND language_code='zh'"),
+            {"u": uid}).scalar()
+    assert ll == "zh"
+    assert cur == "zh"
+    assert fb == "fr"
+    assert n == 1
 
 
 def test_settings_narrow_to_single_retracts_current(app, client, bypass_engine):

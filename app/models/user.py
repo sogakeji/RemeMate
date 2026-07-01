@@ -32,6 +32,7 @@ class UserSettings(db.Model):
     __tablename__ = "user_settings"
 
     user_id             = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    feedback_language   = db.Column(db.String(10), default="zh", nullable=False)
     deepseek_key_enc    = db.Column(db.Text, nullable=True)      # DATA_ENCRYPTION_KEY 加密
     bark_url            = db.Column(db.String(500), nullable=True)
     webhook_url         = db.Column(db.String(500), nullable=True)

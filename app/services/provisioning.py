@@ -64,6 +64,7 @@ def create_user_with_defaults(email, display_name, *, admin=False,
 
         session.add(UserSettings(
             user_id=user.id,
+            feedback_language="zh",
             notify_review_reminder=True,
             notify_daily_summary=True,
             notify_intake_done=True,

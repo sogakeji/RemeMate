@@ -123,13 +123,21 @@ def prepare_extract(user_id, language_code, text):
 
 # ---- LLM 辅助 ----
 
-_LANG = {"fr": "法语", "en": "英语", "ja": "日语", "de": "德语", "es": "西语", "ru": "俄语"}
+_LANG = {"fr": "法语", "en": "英语", "ja": "日语", "de": "德语",
+         "es": "西语", "ru": "俄语", "zh": "中文"}
+_FEEDBACK_LANG = {"zh": "中文", "fr": "法语", "en": "英语"}
 
 
-def _normalize_csv_batch(rows, language_code):
+def _feedback_lang_name(feedback_language_code):
+    return _FEEDBACK_LANG.get(feedback_language_code or "zh", "中文")
+
+
+def _normalize_csv_batch(rows, language_code, feedback_language_code="zh"):
     """归一化一批 CSV 词条：补全缺失、规范词性。返回候选 dict 列表 + usage。"""
     lang = _LANG.get(language_code, language_code)
+    feedback_lang = _feedback_lang_name(feedback_language_code)
     system = (f"你是{lang}词条整理助手。对每个词补全释义/词性/例句（已有则保留），"
+              f"meaning 字段必须使用{feedback_lang}解释。"
               "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\"}]}，"
               "数量与输入一致，不要新增或删除词。")
     user = json.dumps(rows, ensure_ascii=False)
@@ -139,19 +147,23 @@ def _normalize_csv_batch(rows, language_code):
     return items, res
 
 
-def _extract_from_text(text, language_code, max_words):
+def _extract_from_text(text, language_code, max_words, feedback_language_code="zh"):
     lang = _LANG.get(language_code, language_code)
+    feedback_lang = _feedback_lang_name(feedback_language_code)
     system = (f"你是{lang}抽词助手。从文本中抽出对学习者可能陌生的词（非极高频、"
               f"非专有名词/数字），最多 {max_words} 个。每词给词性、释义、从原文摘取的例句。"
+              f"meaning 字段必须使用{feedback_lang}解释。"
               "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\"}]}。")
     res = llm.chat([{"role": "system", "content": system},
                     {"role": "user", "content": text}], task="extract", json_mode=True)
     return _parse_items(res.content), res
 
 
-def _enrich_word(word, meaning, language_code):
+def _enrich_word(word, meaning, language_code, feedback_language_code="zh"):
     lang = _LANG.get(language_code, language_code)
+    feedback_lang = _feedback_lang_name(feedback_language_code)
     system = (f"你是{lang}词条助手。给出该词的词性、释义、一个例句。"
+              f"meaning 字段必须使用{feedback_lang}解释。"
               "只输出 JSON：{\"part_of_speech\",\"meaning\",\"example\"}。")
     user = f"词：{word}" + (f"\n已有释义：{meaning}" if meaning else "")
     res = llm.chat([{"role": "system", "content": system},
@@ -201,12 +213,14 @@ def process_source(user_id, source_id):
         return
 
     own = quota_svc.import_quota_status(user_id)["own_key"]
+    feedback_lang = words_svc.get_feedback_language(user_id)
     created = 0
 
     if source.source_type == "text_extract":
         seg = SourceSegment.query.filter_by(source_id=source.id).first()
         cap = min(INTAKE_MAX_EXTRACT_WORDS, remaining)
-        items, res = _extract_from_text(seg.raw_text, source.language_code, cap)
+        items, res = _extract_from_text(
+            seg.raw_text, source.language_code, cap, feedback_lang)
         items = _dedupe(items)[:cap]
         created = _write_candidates(user_id, source, items)
         quota_svc.record_import(user_id, count=created,
@@ -224,7 +238,8 @@ def process_source(user_id, source_id):
         for start in range(0, len(segs), INTAKE_BATCH_SIZE):
             batch = segs[start:start + INTAKE_BATCH_SIZE]
             rows = [json.loads(s.raw_text) for s in batch]
-            items, res = _normalize_csv_batch(rows, source.language_code)
+            items, res = _normalize_csv_batch(
+                rows, source.language_code, feedback_lang)
             if not items:                      # LLM 失败 → 用原始列值兜底
                 items = rows
             n = _write_candidates(user_id, source, items)
@@ -260,7 +275,8 @@ def quick_add(user_id, language_code, word, meaning=None):
     db.session.add(source)
     db.session.flush()
 
-    enriched, res = _enrich_word(word, meaning, language_code)
+    feedback_lang = words_svc.get_feedback_language(user_id)
+    enriched, res = _enrich_word(word, meaning, language_code, feedback_lang)
     own = quota_svc.import_quota_status(user_id)["own_key"]
     cand = _write_candidates(user_id, source, [{
         "word": word,

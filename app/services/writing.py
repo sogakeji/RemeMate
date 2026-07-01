@@ -29,6 +29,25 @@ DIARY_PROMPTS = [
     "你喜欢独自旅行，还是和朋友一起旅行？",
     "今天你想感谢谁，为什么？",
 ]
+DIARY_PROMPTS_BY_FEEDBACK = {
+    "zh": DIARY_PROMPTS,
+    "fr": [
+        "Tu préfères les chats ou les chiens ? Pourquoi ?",
+        "Quelle petite chose t'a mis de bonne humeur aujourd'hui ?",
+        "Si tu avais une heure de plus demain, qu'en ferais-tu ?",
+        "Quelle habitude aimerais-tu garder en ce moment ?",
+        "Tu préfères voyager seul ou avec des amis ?",
+        "Qui aimerais-tu remercier aujourd'hui, et pourquoi ?",
+    ],
+    "en": [
+        "Do you prefer cats or dogs? Why?",
+        "What small thing made you feel better today?",
+        "If you had one extra hour tomorrow, how would you use it?",
+        "What habit would you like to keep right now?",
+        "Do you prefer traveling alone or with friends?",
+        "Who would you like to thank today, and why?",
+    ],
+}
 
 
 class SentenceTooLong(Exception):
@@ -50,6 +69,8 @@ def _validate_sentence_language(sentence: str, language_code: str):
     """Cheap script-level guard; AI still handles real grammar/language judgment."""
     if language_code in {"fr", "en", "de", "es", "ru"} and _CJK_OR_KANA_RE.search(sentence):
         raise SentenceLanguageMismatch()
+    if language_code == "zh" and not _CJK_OR_KANA_RE.search(sentence):
+        raise SentenceLanguageMismatch()
 
 
 def get_practice_words(user_id: int, limit: int = 50, *,
@@ -68,8 +89,9 @@ def get_practice_words(user_id: int, limit: int = 50, *,
             .limit(limit).all())
 
 
-def random_diary_prompt() -> str:
-    return random.choice(DIARY_PROMPTS)
+def random_diary_prompt(feedback_language_code: str = "zh") -> str:
+    prompts = DIARY_PROMPTS_BY_FEEDBACK.get(feedback_language_code, DIARY_PROMPTS)
+    return random.choice(prompts)
 
 
 def _clean_diary(text: str) -> str:
@@ -82,7 +104,8 @@ def _clean_diary(text: str) -> str:
 
 
 def submit_correction(user_id: int, word_id: int, sentence: str, *,
-                      language_code: str | None = None):
+                      language_code: str | None = None,
+                      feedback_language_code: str = "zh"):
     """批改一句（不入库）。返回 CorrectionResult；词不属于用户返回 None。
 
     language_code 给定时，词还必须属于该语言；这是页面过滤之外的后端兜底。
@@ -105,6 +128,7 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
 
     result = correction_svc.correct_sentence(
         sentence=sentence, target_word=word.word, language_code=wl.language_code,
+        feedback_language_code=feedback_language_code,
     )
 
     # 仅在真正调用了 AI（非兜底）时记账 +1
@@ -119,7 +143,7 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
 
 
 def submit_diary(user_id: int, diary: str, *, prompt: str,
-                 language_code: str):
+                 language_code: str, feedback_language_code: str = "zh"):
     """批改三行日记（不入库）。不绑定目标词。"""
     diary = _clean_diary(diary)
     _validate_sentence_language(diary, language_code)
@@ -127,7 +151,8 @@ def submit_diary(user_id: int, diary: str, *, prompt: str,
     used_user_key = source == "user_key"
 
     result = correction_svc.correct_diary(
-        diary=diary, prompt=prompt, language_code=language_code)
+        diary=diary, prompt=prompt, language_code=language_code,
+        feedback_language_code=feedback_language_code)
     if not result.degraded:
         quota_svc.record_correction(
             user_id, prompt_tokens=result.prompt_tokens,

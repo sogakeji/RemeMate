@@ -22,6 +22,16 @@
         </label>
         {% endfor %}
       </div>
+      <div class="form-group">
+        <label for="feedback_language">AI 解释和点评语言</label>
+        <select id="feedback_language" name="feedback_language">
+          {% for code, name in feedback_choices.items() %}
+          <option value="{{ code }}" {% if code == feedback_language %}selected{% endif %}>
+            {{ name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
       <button type="submit" class="btn primary">保存</button>
     </form>
     {% if not learning %}

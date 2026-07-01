@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
-from app.models.user import User
+from app.models.user import User, UserSettings
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.services import srs
 from app.services.timeutil import today_local_start_utc, utc_now
@@ -25,11 +25,22 @@ from app.services.timeutil import today_local_start_utc, utc_now
 _LANGUAGE_NAMES = {
     "fr": "法语", "en": "英语", "ja": "日语",
     "de": "德语", "es": "西语", "ru": "俄语",
+    "zh": "中文",
+}
+
+_FEEDBACK_LANGUAGE_NAMES = {
+    "zh": "中文",
+    "fr": "法语",
+    "en": "英语",
 }
 
 
 def _language_name(language_code: str) -> str:
     return _LANGUAGE_NAMES.get(language_code, language_code)
+
+
+def _feedback_language_name(language_code: str | None) -> str:
+    return _FEEDBACK_LANGUAGE_NAMES.get(language_code or "zh", "中文")
 
 
 # ---- 词表（隐式：按语言派生） ----
@@ -139,6 +150,24 @@ def set_current_language(user_id: int, language_code: str) -> str:
         u.learning_languages = _serialize_learning(learning)
     get_or_create_language_list(user_id, language_code)   # 隐式词表存在
     u.current_language = language_code
+    db.session.commit()
+    return language_code
+
+
+def get_feedback_language(user_id: int) -> str:
+    settings = db.session.get(UserSettings, user_id)
+    code = (settings.feedback_language if settings else None) or "zh"
+    return code if code in _FEEDBACK_LANGUAGE_NAMES else "zh"
+
+
+def set_feedback_language(user_id: int, language_code: str) -> str:
+    if language_code not in _FEEDBACK_LANGUAGE_NAMES:
+        raise ValueError(f"未知反馈语言 code：{language_code!r}")
+    settings = db.session.get(UserSettings, user_id)
+    if settings is None:
+        settings = UserSettings(user_id=user_id)
+        db.session.add(settings)
+    settings.feedback_language = language_code
     db.session.commit()
     return language_code
 
