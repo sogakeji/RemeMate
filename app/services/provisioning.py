@@ -16,7 +16,9 @@ from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
 
 from app.models.user import User, UserSettings, UserQuota
+from app.models.word import WordList
 from app.services.timeutil import next_midnight_utc
+from app.services import words as words_svc
 
 DEFAULT_DAILY_LIMIT = 50_000
 
@@ -39,11 +41,28 @@ def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
+def _clean_language_codes(codes):
+    seen, cleaned = set(), []
+    for code in codes or []:
+        code = (code or "").strip()
+        if code not in words_svc._LANGUAGE_NAMES:
+            raise ValueError(f"未知语言 code：{code!r}")
+        if code not in seen:
+            seen.add(code)
+            cleaned.append(code)
+    return cleaned
+
+
 def create_user_with_defaults(email, display_name, *, admin=False,
-                              timezone="Asia/Shanghai", password=None):
+                              timezone="Asia/Shanghai", password=None,
+                              learning_languages=None,
+                              feedback_language="zh"):
     """一事务建 User + UserSettings + UserQuota，返回 (user_id, 明文初始密码)。"""
     email = normalize_email(email)        # 邮箱大小写无关（M5）
     password = password or secrets.token_urlsafe(12)
+    learning = _clean_language_codes(learning_languages)
+    if feedback_language not in words_svc._FEEDBACK_LANGUAGE_NAMES:
+        raise ValueError(f"未知反馈语言 code：{feedback_language!r}")
     session = _bypass_session()
     engine = session.bind
     try:
@@ -58,18 +77,26 @@ def create_user_with_defaults(email, display_name, *, admin=False,
             is_active=True,
             login_attempts=0,
             timezone=timezone,
+            current_language=learning[0] if learning else None,
+            learning_languages=",".join(learning) if learning else None,
         )
         session.add(user)
         session.flush()  # 拿 user.id
 
         session.add(UserSettings(
             user_id=user.id,
-            feedback_language="zh",
+            feedback_language=feedback_language,
             notify_review_reminder=True,
             notify_daily_summary=True,
             notify_intake_done=True,
             notify_partner_activity=False,
         ))
+        for code in learning:
+            session.add(WordList(
+                user_id=user.id,
+                name=words_svc._language_name(code),
+                language_code=code,
+            ))
         session.add(UserQuota(
             user_id=user.id,
             daily_base_limit=DEFAULT_DAILY_LIMIT,

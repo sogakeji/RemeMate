@@ -1,5 +1,6 @@
 """CLI create-user 后用户能登录（端到端）。"""
 import re
+from sqlalchemy import text
 
 
 def test_create_user_cli_then_login(app, client, runner):
@@ -19,3 +20,45 @@ def test_create_user_cli_duplicate_fails(runner):
     result = runner.invoke(args=["create-user", "--email", "dup@t.com", "--name", "B"])
     assert result.exit_code != 0
     assert "已存在" in result.output
+
+
+def test_create_user_cli_can_preset_chinese_and_french_feedback(
+        runner, bypass_engine):
+    result = runner.invoke(args=[
+        "create-user", "--email", "friend@t.com", "--name", "Friend",
+        "--language", "zh", "--feedback-language", "fr",
+        "--password", "pw12345678",
+    ])
+    assert result.exit_code == 0
+    assert "正在学：中文" in result.output
+    assert "母语：法语" in result.output
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT u.current_language, u.learning_languages, s.feedback_language "
+            "FROM users u JOIN user_settings s ON s.user_id=u.id "
+            "WHERE u.email='friend@t.com'"
+        )).one()
+        lists = c.execute(text(
+            "SELECT language_code FROM word_lists wl JOIN users u ON u.id=wl.user_id "
+            "WHERE u.email='friend@t.com'"
+        )).scalars().all()
+    assert row == ("zh", "zh", "fr")
+    assert lists == ["zh"]
+
+
+def test_create_user_cli_rejects_unknown_language(runner):
+    result = runner.invoke(args=[
+        "create-user", "--email", "badlang@t.com", "--name", "Bad",
+        "--language", "klingon",
+    ])
+    assert result.exit_code != 0
+    assert "未知语言" in result.output
+
+
+def test_doctor_reports_core_checks(runner):
+    result = runner.invoke(args=["doctor"])
+    assert result.exit_code == 0
+    assert "[OK] app database" in result.output
+    assert "[OK] dispatch database" in result.output
+    assert "[OK] migrations" in result.output
+    assert "LLM correction" in result.output

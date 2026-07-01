@@ -21,10 +21,33 @@ def test_create_user_builds_three_tables(app, bypass_engine):
         assert reset_at is not None
         # 四个通知开关默认值
         row = c.execute(text(
-            "SELECT notify_review_reminder, notify_daily_summary, "
+            "SELECT feedback_language, notify_review_reminder, notify_daily_summary, "
             "notify_intake_done, notify_partner_activity "
             "FROM user_settings WHERE user_id=:i"), {"i": uid}).fetchone()
-        assert row == (True, True, True, False)
+        assert row == ("zh", True, True, True, False)
+
+
+def test_create_user_can_preset_languages_and_feedback(app, bypass_engine):
+    with app.app_context():
+        uid, _ = provisioning.create_user_with_defaults(
+            "frfriend@t.com", "French Friend",
+            learning_languages=["zh"], feedback_language="fr",
+            password="pw12345678",
+        )
+
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT current_language, learning_languages FROM users WHERE id=:i"),
+            {"i": uid}).fetchone()
+        fb = c.execute(text(
+            "SELECT feedback_language FROM user_settings WHERE user_id=:i"),
+            {"i": uid}).scalar()
+        wl = c.execute(text(
+            "SELECT name, language_code FROM word_lists WHERE user_id=:i"),
+            {"i": uid}).fetchone()
+    assert row == ("zh", "zh")
+    assert fb == "fr"
+    assert wl == ("中文", "zh")
 
 
 def test_create_user_duplicate_email_rejected(app):

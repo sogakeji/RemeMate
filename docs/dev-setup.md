@@ -80,6 +80,11 @@ cd ~/rememate && . .venv/bin/activate
 # gunicorn -c gunicorn.conf.py wsgi:app  # 含 psycogreen 补丁；勿加 --preload
 ```
 
+## 闭测部署
+
+小范围邀请朋友试用时，继续保持无公开注册，通过 CLI 建账号。部署后的最小自检和账号命令见
+`docs/deploy-closed-beta.md`。
+
 ## 测试库（独立于 dev，pytest 会清空它）
 
 ```bash

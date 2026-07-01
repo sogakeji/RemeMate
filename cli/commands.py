@@ -3,8 +3,16 @@
 全部走 provisioning 的 BYPASSRLS 连接，不依赖请求上下文。
 """
 import click
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
+from flask import current_app
+from sqlalchemy import create_engine, text
 
+from app.extensions import db
 from app.services import provisioning
+from app.services import llm
+from app.services import words as words_svc
+from config import INSECURE_SECRET_DEFAULT
 
 
 def register_commands(app):
@@ -14,15 +22,28 @@ def register_commands(app):
     @click.option("--name", required=True)
     @click.option("--admin", is_flag=True, default=False)
     @click.option("--tz", default="Asia/Shanghai", help="用户时区，默认 Asia/Shanghai")
-    def create_user(email, name, admin, tz):
+    @click.option("--language", "languages", multiple=True,
+                  help="预设正在学的语言，可重复传，如 --language zh --language fr")
+    @click.option("--feedback-language", default="zh",
+                  help="AI 解释和点评语言，默认 zh；法国朋友可用 fr")
+    @click.option("--password", default=None, help="指定初始密码；不传则随机生成")
+    def create_user(email, name, admin, tz, languages, feedback_language, password):
         """建账号（一事务建 User + UserSettings + UserQuota）。"""
         try:
             uid, pw = provisioning.create_user_with_defaults(
-                email, name, admin=admin, timezone=tz
+                email, name, admin=admin, timezone=tz, password=password,
+                learning_languages=list(languages),
+                feedback_language=feedback_language,
             )
         except provisioning.UserExistsError:
             raise click.ClickException(f"邮箱已存在：{email}")
+        except ValueError as e:
+            raise click.ClickException(str(e))
         click.echo(f"用户已创建：{email} (id={uid})  初始密码：{pw}")
+        if languages:
+            names = "、".join(words_svc._language_name(c) for c in languages)
+            click.echo(f"正在学：{names}")
+        click.echo(f"母语：{words_svc._feedback_language_name(feedback_language)}")
 
     @app.cli.command("reset-password")
     @click.option("--email", required=True)
@@ -53,3 +74,83 @@ def register_commands(app):
         except provisioning.UserNotFoundError:
             raise click.ClickException(f"用户不存在：{email}")
         click.echo(f"已重置额度：{email}")
+
+    @app.cli.command("doctor")
+    @click.option("--strict", is_flag=True, default=False,
+                  help="把警告也视为失败，适合部署后检查")
+    def doctor(strict):
+        """闭测部署自检：数据库、迁移、LLM 配置、关键密钥。"""
+        checks = []
+
+        def ok(name, detail=""):
+            checks.append(("ok", name, detail))
+
+        def warn(name, detail=""):
+            checks.append(("warn", name, detail))
+
+        def fail(name, detail=""):
+            checks.append(("fail", name, detail))
+
+        try:
+            db.session.execute(text("SELECT 1")).scalar()
+            ok("app database", "connected")
+        except Exception as e:
+            fail("app database", str(e))
+
+        dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+        if dispatch_url:
+            engine = create_engine(dispatch_url, pool_pre_ping=True)
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1")).scalar()
+                ok("dispatch database", "connected")
+            except Exception as e:
+                fail("dispatch database", str(e))
+            finally:
+                engine.dispose()
+        else:
+            fail("dispatch database", "DISPATCH_DATABASE_URL missing")
+
+        try:
+            current_rev = db.session.execute(text(
+                "SELECT version_num FROM alembic_version"
+            )).scalar()
+            cfg = AlembicConfig("migrations/alembic.ini")
+            cfg.set_main_option("script_location", "migrations")
+            head_rev = ScriptDirectory.from_config(cfg).get_current_head()
+            if current_rev == head_rev:
+                ok("migrations", current_rev)
+            else:
+                fail("migrations", f"current={current_rev}, head={head_rev}")
+        except Exception as e:
+            fail("migrations", str(e))
+
+        secret = current_app.config.get("SECRET_KEY")
+        if secret and secret != INSECURE_SECRET_DEFAULT:
+            ok("SECRET_KEY", "configured")
+        else:
+            warn("SECRET_KEY", "using development default")
+
+        if current_app.config.get("DATA_ENCRYPTION_KEY"):
+            ok("DATA_ENCRYPTION_KEY", "configured")
+        else:
+            warn("DATA_ENCRYPTION_KEY", "missing")
+
+        if llm.get_chain("correction"):
+            ok("LLM correction", "provider configured")
+        else:
+            warn("LLM correction", "no provider configured")
+
+        if llm.get_chain("nsfw"):
+            ok("LLM nsfw", "provider configured")
+        else:
+            warn("LLM nsfw", "no provider configured")
+
+        for level, name, detail in checks:
+            marker = {"ok": "OK", "warn": "WARN", "fail": "FAIL"}[level]
+            click.echo(f"[{marker}] {name}: {detail}")
+
+        has_fail = any(level == "fail" for level, _, _ in checks)
+        has_warn = any(level == "warn" for level, _, _ in checks)
+        if has_fail or (strict and has_warn):
+            raise click.ClickException("doctor check failed")
