@@ -53,6 +53,40 @@ def test_save_persists_then_cleared(app, client, bypass_engine, fake_llm):
     assert _count_entries(bypass_engine, uid) == 1
 
 
+def test_history_can_publish_saved_non_nsfw_entry(app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
+    client.post("/write/save")
+    with bypass_engine.connect() as c:
+        eid = c.execute(text("SELECT id FROM output_entries WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+
+    page = client.get("/write/history").get_data(as_text=True)
+    assert "公开到广场" in page
+    resp = client.post(f"/write/{eid}/publish", follow_redirects=True)
+    assert resp.status_code == 200
+    page2 = resp.get_data(as_text=True)
+    assert "已公开" in page2
+    assert "去广场看看" in page2
+    with bypass_engine.connect() as c:
+        is_public = c.execute(text(
+            "SELECT is_public FROM output_entries WHERE id=:e"),
+            {"e": eid}).scalar()
+    assert is_public is True
+
+
+def test_history_hides_publish_for_nsfw_entry(app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    fake_llm["content"] = ('{"corrected":"x","translation":"t","target_word_used":true,'
+                           '"incomplete":false,"errors":[],"is_nsfw":true,"feedback":""}')
+    fake_llm["reinstall"]()
+    client.post("/write/submit", data={"word_id": wid, "sentence": "x"})
+    client.post("/write/save")
+
+    page = client.get("/write/history").get_data(as_text=True)
+    assert "公开到广场" not in page
+
+
 def test_degraded_correction_cannot_be_saved(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     fake_llm["empty"] = True

@@ -107,6 +107,9 @@ def publish(entry_id):
     ok = writing_svc.publish_entry(_uid(), entry_id)
     if not ok:
         abort(400)                       # 不存在 / NSFW 不可公开
+    if not request.headers.get("HX-Request"):
+        flash("已公开到句子广场")
+        return redirect(url_for("write.history"))
     return render_template("write/_published.html")
 
 
