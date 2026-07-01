@@ -61,3 +61,15 @@ def test_all_providers_down_degraded():
     assert r.corrected == "orig"             # 原样返回，不替写
     assert r.is_nsfw is True                 # fail-closed
     assert "暂时不可用" in r.feedback
+
+
+def test_correct_diary_parses_structured_fields():
+    _set('{"corrected":"L1\\nL2\\nL3","translation":"一\\n二\\n三",'
+         '"target_word_used":false,"incomplete":false,"errors":[],'
+         '"is_nsfw":false,"feedback":"ok"}')
+    r = correction.correct_diary(
+        diary="a\nb\nc", prompt="p", language_code="fr")
+    assert r.corrected == "L1\nL2\nL3"
+    assert r.translation == "一\n二\n三"
+    assert r.target_word_used is True
+    assert r.is_nsfw is False

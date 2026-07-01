@@ -23,6 +23,7 @@ def _uid():
 @login_required
 def compose():
     from app.services import words as words_svc
+    mode = request.args.get("mode") if request.args.get("mode") in {"diary"} else "sentence"
     lang = words_svc.get_current_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
@@ -31,6 +32,10 @@ def compose():
         words=words,
         quota=quota_svc.write_quota_status(_uid()),
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
+        diary_line_count=writing_svc.DIARY_LINE_COUNT,
+        diary_line_chars=writing_svc.MAX_DIARY_LINE_CHARS,
+        diary_prompt=writing_svc.random_diary_prompt(),
+        mode=mode,
         current_language=lang,
         lang_name=words_svc._language_name(lang) if lang else None,
     )
@@ -40,20 +45,29 @@ def compose():
 @login_required
 def submit():
     from app.services import words as words_svc
+    mode = request.form.get("mode", "sentence")
     word_id = request.form.get("word_id", type=int)
     sentence = request.form.get("sentence", "")
-    if not word_id:
+    if mode != "diary" and not word_id:
         abort(400)
     lang = words_svc.get_current_language(_uid())
     if lang is None:
         abort(400)
     try:
-        result = writing_svc.submit_correction(
-            _uid(), word_id, sentence, language_code=lang,
-        )
+        if mode == "diary":
+            result = writing_svc.submit_diary(
+                _uid(), request.form.get("diary", ""),
+                prompt=request.form.get("prompt", ""), language_code=lang,
+            )
+        else:
+            result = writing_svc.submit_correction(
+                _uid(), word_id, sentence, language_code=lang,
+            )
     except quota_svc.SentenceQuotaExceeded as e:
         return render_template("write/_quota_exceeded.html", used=e.used, limit=e.limit)
     except writing_svc.SentenceTooLong:
+        abort(400)
+    except writing_svc.DiaryFormatError:
         abort(400)
     except writing_svc.SentenceLanguageMismatch:
         return render_template("write/_language_mismatch.html")
@@ -70,13 +84,15 @@ def submit():
     has_error = (bool(result.errors) or not result.target_word_used
                  or result.incomplete)
     session["pending"] = {
+        "mode": mode,
         "word_id": word_id,
-        "original": sentence.strip(),
+        "original": (request.form.get("diary", "") if mode == "diary" else sentence).strip(),
         "corrected": result.corrected,
         "translation": result.translation,
         "feedback": result.feedback,
         "has_error": has_error,
         "is_nsfw": result.is_nsfw,
+        "language_code": lang,
     }
     return render_template("write/_result.html", r=result, degraded=result.degraded)
 
@@ -87,7 +103,10 @@ def save():
     pending = session.get("pending")
     if not pending:
         return render_template("write/_expired.html")
-    entry = writing_svc.save_entry(_uid(), pending["word_id"], pending)
+    if pending.get("mode") == "diary":
+        entry = writing_svc.save_diary_entry(_uid(), pending)
+    else:
+        entry = writing_svc.save_entry(_uid(), pending["word_id"], pending)
     session.pop("pending", None)        # 用后即清，刷新不重存
     if entry is None:
         abort(404)

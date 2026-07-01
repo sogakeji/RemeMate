@@ -10,7 +10,7 @@ class OutputEntry(db.Model):
     __tablename__ = "output_entries"
 
     id           = db.Column(db.Integer, primary_key=True)
-    word_id      = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="CASCADE"), nullable=False)
+    word_id      = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="CASCADE"), nullable=True)
     user_id      = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     original     = db.Column(db.Text)                 # 用户原句
     corrected    = db.Column(db.Text)                 # AI 修正句

@@ -49,12 +49,38 @@ _SYSTEM_TMPL = """你是严格的{lang}写作批改老师。学生在练习目�
 incomplete(bool), errors(array), is_nsfw(bool), feedback。不要输出任何额外文字。"""
 
 
+_DIARY_SYSTEM_TMPL = """你是严格但温和的{lang}三行日记批改老师。
+学生会根据一个中文提示写三行{lang}微日记。
+规则（必须严格遵守）：
+1. 保持三行结构，corrected 必须也是三行，不要扩写成短文。
+2. 只修正真实错误；如果原句自然正确，尽量保留原表达。
+3. 判断是否完整回应了提示；严重跑题或少于三行时 incomplete=true。
+4. errors 数组写主要问题，每条 {{"type": "grammar"|"word_choice"|"idiom", "detail": "..."}}。
+5. translation 给出三行中文翻译；feedback 用中文简短点评（不超过两句）。
+6. is_nsfw 标记是否含成人/不适宜公开内容。
+
+只输出 JSON，字段：corrected, translation, target_word_used(bool),
+incomplete(bool), errors(array), is_nsfw(bool), feedback。target_word_used 固定输出 true。"""
+
+
 def _build_messages(sentence, target_word, language_code):
     lang = LANG_NAMES.get(language_code, language_code)
     system = _SYSTEM_TMPL.format(lang=lang, word=target_word)
     user = f"目标词：{target_word}\n学生造句：{sentence}"
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
+
+
+def _degraded_result(sentence, feedback, *, provider="", model="",
+                     prompt_tokens=0, completion_tokens=0):
+    return CorrectionResult(
+        corrected=sentence, translation="", target_word_used=False,
+        incomplete=False, errors=[], is_nsfw=True,
+        feedback=feedback,
+        degraded=True,
+        provider=provider, model=model,
+        prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+    )
 
 
 def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResult:
@@ -65,27 +91,47 @@ def correct_sentence(*, sentence, target_word, language_code) -> CorrectionResul
     except llm.AllProvidersDown:
         # AI 不可用：不批改、不判过；NSFW fail-closed（隐藏公开按钮）。
         # 调用方不会允许保存降级结果，避免把未批改原句混进造句历史。
-        return CorrectionResult(
-            corrected=sentence, translation="", target_word_used=False,
-            incomplete=False, errors=[], is_nsfw=True,
-            feedback="AI 批改暂时不可用，请稍后重试。",
-            degraded=True,
-        )
+        return _degraded_result(sentence, "AI 批改暂时不可用，请稍后重试。")
 
     data = _parse(res.content)
     if data is None:
         # 完全解析不出 JSON：当作降级（不是"真批改"），fail-closed，给用户清晰提示，
         # 而不是伪装成"没用到目标词"误导（review 阶段四 LOW）。
-        return CorrectionResult(
-            corrected=sentence, translation="", target_word_used=False,
-            incomplete=False, errors=[], is_nsfw=True,
-            feedback="批改结果解析异常，请稍后重试。",
-            degraded=True,
+        return _degraded_result(
+            sentence, "批改结果解析异常，请稍后重试。",
             provider=res.provider, model=res.model,
-            prompt_tokens=res.prompt_tokens, completion_tokens=res.completion_tokens,
+            prompt_tokens=res.prompt_tokens,
+            completion_tokens=res.completion_tokens,
         )
+    return _result_from_data(data, sentence, res)
+
+
+def correct_diary(*, diary, prompt, language_code) -> CorrectionResult:
+    """批改三行日记。prompt 是中文提示问题，diary 是用户三行回答。"""
+    lang = LANG_NAMES.get(language_code, language_code)
+    messages = [
+        {"role": "system", "content": _DIARY_SYSTEM_TMPL.format(lang=lang)},
+        {"role": "user", "content": f"提示问题：{prompt}\n学生三行日记：\n{diary}"},
+    ]
+    try:
+        res = llm.chat(messages, task="correction", json_mode=True)
+    except llm.AllProvidersDown:
+        return _degraded_result(diary, "AI 批改暂时不可用，请稍后重试。")
+    data = _parse(res.content)
+    if data is None:
+        return _degraded_result(
+            diary, "批改结果解析异常，请稍后重试。",
+            provider=res.provider, model=res.model,
+            prompt_tokens=res.prompt_tokens,
+            completion_tokens=res.completion_tokens,
+        )
+    data["target_word_used"] = True
+    return _result_from_data(data, diary, res)
+
+
+def _result_from_data(data, fallback_sentence, res):
     return CorrectionResult(
-        corrected=data.get("corrected") or sentence,
+        corrected=data.get("corrected") or fallback_sentence,
         translation=data.get("translation") or "",
         target_word_used=bool(data.get("target_word_used", False)),
         incomplete=bool(data.get("incomplete", False)),

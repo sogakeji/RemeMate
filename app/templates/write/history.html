@@ -13,6 +13,7 @@
     {% endif %}
     {% if e.feedback %}<p style="color:var(--text-secondary);">{{ e.feedback }}</p>{% endif %}
     <small style="color:var(--text-secondary);">
+      {{ e.word_text }} ·
       {{ e.created_at.strftime('%Y-%m-%d %H:%M') }}
       {% if e.is_public %}· 已公开{% endif %}
       {% if e.has_error %}· 有修正{% endif %}

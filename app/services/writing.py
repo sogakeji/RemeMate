@@ -6,6 +6,7 @@
 - is_nsfw 由批改结果决定，经签名 session 传递（路由层），不信客户端。
 """
 import re
+import random
 
 from sqlalchemy import case
 
@@ -18,6 +19,16 @@ from app.services.timeutil import utc_now
 from app.services.words import get_word
 
 MAX_SENTENCE_CHARS = 140
+DIARY_LINE_COUNT = 3
+MAX_DIARY_LINE_CHARS = 100
+DIARY_PROMPTS = [
+    "你更喜欢猫还是狗，为什么？",
+    "今天有什么小事让你心情变好了？",
+    "如果明天多出一个小时，你想怎么用？",
+    "最近有没有一个你想坚持的小习惯？",
+    "你喜欢独自旅行，还是和朋友一起旅行？",
+    "今天你想感谢谁，为什么？",
+]
 
 
 class SentenceTooLong(Exception):
@@ -25,6 +36,10 @@ class SentenceTooLong(Exception):
 
 
 class SentenceLanguageMismatch(Exception):
+    pass
+
+
+class DiaryFormatError(Exception):
     pass
 
 
@@ -51,6 +66,19 @@ def get_practice_words(user_id: int, limit: int = 50, *,
     due_bucket = case((Word.due_date <= now, 0), else_=1)
     return (q.order_by(due_bucket, Word.lapses.desc(), Word.due_date.asc())
             .limit(limit).all())
+
+
+def random_diary_prompt() -> str:
+    return random.choice(DIARY_PROMPTS)
+
+
+def _clean_diary(text: str) -> str:
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if len(lines) != DIARY_LINE_COUNT:
+        raise DiaryFormatError()
+    if any(len(line) > MAX_DIARY_LINE_CHARS for line in lines):
+        raise DiaryFormatError()
+    return "\n".join(lines)
 
 
 def submit_correction(user_id: int, word_id: int, sentence: str, *,
@@ -90,6 +118,27 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
     return result
 
 
+def submit_diary(user_id: int, diary: str, *, prompt: str,
+                 language_code: str):
+    """批改三行日记（不入库）。不绑定目标词。"""
+    diary = _clean_diary(diary)
+    _validate_sentence_language(diary, language_code)
+    source = quota_svc.check_write_quota(user_id)
+    used_user_key = source == "user_key"
+
+    result = correction_svc.correct_diary(
+        diary=diary, prompt=prompt, language_code=language_code)
+    if not result.degraded:
+        quota_svc.record_correction(
+            user_id, prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
+            provider=result.provider, model=result.model,
+            used_user_key=used_user_key,
+            feature="diary",
+        )
+    return result
+
+
 def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
     """用户确认后入库。pending 来自签名 session（is_nsfw 可信）。"""
     word = get_word(user_id, word_id)
@@ -105,6 +154,27 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
         translation=pending.get("translation", ""),
         word_text=word.word,
         language_code=wl.language_code,
+        has_error=has_error,
+        is_nsfw=bool(pending.get("is_nsfw", True)),
+        is_public=False,
+        created_at=utc_now(),
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return entry
+
+
+def save_diary_entry(user_id: int, pending: dict) -> OutputEntry:
+    """保存三行日记；word_id 留空，靠快照字段进入历史/广场。"""
+    has_error = bool(pending.get("has_error"))
+    entry = OutputEntry(
+        word_id=None, user_id=user_id,
+        original=pending.get("original", ""),
+        corrected=pending.get("corrected", ""),
+        feedback=pending.get("feedback", ""),
+        translation=pending.get("translation", ""),
+        word_text="三行日记",
+        language_code=pending.get("language_code"),
         has_error=has_error,
         is_nsfw=bool(pending.get("is_nsfw", True)),
         is_public=False,

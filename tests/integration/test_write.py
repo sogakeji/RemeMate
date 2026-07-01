@@ -131,6 +131,69 @@ def test_compose_requires_current_language(app, client, bypass_engine, fake_llm)
     }).status_code == 400
 
 
+def test_diary_mode_available_without_words(app, client, bypass_engine, fake_llm):
+    provision_user(app, "diaryempty@t.com", PW)
+    login(client, "diaryempty@t.com", PW)
+    _switch_lang(client, "fr")
+
+    page = client.get("/write?mode=diary").get_data(as_text=True)
+
+    assert "三行日记" in page
+    assert "提示问题" in page
+    assert "还没有词" not in page
+
+
+def test_diary_submit_save_publish_to_square(app, client, bypass_engine, fake_llm):
+    provision_user(app, "diary@t.com", PW)
+    login(client, "diary@t.com", PW)
+    _switch_lang(client, "fr")
+    fake_llm["content"] = (
+        '{"corrected":"Bonjour.\\nJe préfère les chats.\\nIls sont calmes.",'
+        '"translation":"你好。\\n我更喜欢猫。\\n它们很安静。",'
+        '"target_word_used":true,"incomplete":false,"errors":[],'
+        '"is_nsfw":false,"feedback":"三行结构清楚。"}'
+    )
+    fake_llm["reinstall"]()
+
+    resp = client.post("/write/submit", data={
+        "mode": "diary",
+        "prompt": "你更喜欢猫还是狗，为什么？",
+        "diary": "Bonjour.\nJe prefere les chats.\nIls sont calmes.",
+    })
+    assert resp.status_code == 200
+    assert "三行结构清楚" in resp.get_data(as_text=True)
+    client.post("/write/save")
+    with bypass_engine.connect() as c:
+        eid, word_id, word_text, lang = c.execute(text(
+            "SELECT id, word_id, word_text, language_code "
+            "FROM output_entries WHERE corrected LIKE 'Bonjour.%'"
+        )).one()
+    assert word_id is None
+    assert word_text == "三行日记"
+    assert lang == "fr"
+
+    history = client.get("/write/history").get_data(as_text=True)
+    assert "三行日记" in history
+    client.post(f"/write/{eid}/publish")
+    square = client.get("/square?lang=fr").get_data(as_text=True)
+    assert "Bonjour." in square
+    assert "三行日记" in square
+
+
+def test_diary_requires_three_lines(app, client, bypass_engine, fake_llm):
+    provision_user(app, "diarybad@t.com", PW)
+    login(client, "diarybad@t.com", PW)
+    _switch_lang(client, "fr")
+
+    resp = client.post("/write/submit", data={
+        "mode": "diary",
+        "prompt": "今天有什么小事让你心情变好了？",
+        "diary": "Bonjour.\nDeux lignes seulement.",
+    })
+
+    assert resp.status_code == 400
+
+
 def test_compose_uses_current_language_and_rejects_other_language_word(
         app, client, bypass_engine, fake_llm):
     uid, _ = _setup_user_with_word(app, client, bypass_engine)
