@@ -65,9 +65,11 @@ def test_history_renders_timeline_navigation(app, client, bypass_engine, fake_ll
     page = client.get("/write/history").get_data(as_text=True)
 
     assert 'aria-label="造句时间轴"' in page
+    assert 'class="timeline-select"' in page
     assert f'href="#entry-{eid}"' in page
+    assert f'value="entry-{eid}"' in page
     assert f'id="entry-{eid}"' in page
-    assert 'class="timeline-word"' in page
+    assert 'class="timeline-popover"' in page
     assert "décollage" in page
     assert "phrase corrigée" in page
 

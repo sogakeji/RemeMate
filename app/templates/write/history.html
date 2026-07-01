@@ -8,15 +8,24 @@
   <div class="history-shell">
     <aside class="history-timeline" aria-label="造句时间轴">
       <div class="timeline-rail" aria-hidden="true"></div>
+      <select class="timeline-select" aria-label="跳转到历史句子">
+        {% for e in entries %}
+        <option value="entry-{{ e.id }}">
+          {{ e.created_at.strftime('%m-%d %H:%M') }} · {{ e.word_text }} · {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(28, True) }}
+        </option>
+        {% endfor %}
+      </select>
       <div class="timeline-list">
         {% for e in entries %}
         <a class="timeline-item {% if loop.first %}active{% endif %}"
            href="#entry-{{ e.id }}" data-entry-id="entry-{{ e.id }}">
           <span class="timeline-tick" aria-hidden="true"></span>
           <span class="timeline-meta">{{ e.created_at.strftime('%m-%d %H:%M') }}</span>
-          <span class="timeline-word">{{ e.word_text }}</span>
-          <span class="timeline-snippet">
-            {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(30, True) }}
+          <span class="timeline-popover">
+            <span class="timeline-word">{{ e.word_text }}</span>
+            <span class="timeline-snippet">
+              {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(42, True) }}
+            </span>
           </span>
         </a>
         {% endfor %}
@@ -73,6 +82,13 @@
     links.forEach(function (link) {
       byId[link.getAttribute('data-entry-id')] = link;
     });
+    var select = document.querySelector('.timeline-select');
+    if (select) {
+      select.addEventListener('change', function () {
+        var entry = document.getElementById(select.value);
+        if (entry) entry.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
     var observer = new IntersectionObserver(function (items) {
       var visible = items.filter(function (item) { return item.isIntersecting; });
       if (!visible.length) return;
@@ -82,6 +98,7 @@
       links.forEach(function (link) { link.classList.remove('active'); });
       var active = byId[visible[0].target.id];
       if (active) active.classList.add('active');
+      if (select) select.value = visible[0].target.id;
     }, { rootMargin: '-18% 0px -70% 0px', threshold: 0.01 });
     entries.forEach(function (entry) { observer.observe(entry); });
   })();
