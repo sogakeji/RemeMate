@@ -21,11 +21,13 @@ def index():
         content_type = "all"
     entries = square_svc.list_public_entries(
         current_user.id, language_code=selected, content_type=content_type)
+    all_language_count = square_svc.count_public_entries(content_type=content_type)
     return render_template(
         "square/index.html",
         entries=entries,
         selected_language=selected,
         selected_type=content_type,
+        all_language_count=all_language_count,
         lang_choices=words_svc._LANGUAGE_NAMES,
     )
 

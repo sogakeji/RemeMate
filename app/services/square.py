@@ -40,6 +40,21 @@ def list_public_entries(user_id: int, *, language_code: str | None = None,
             .limit(limit).all())
 
 
+def count_public_entries(*, language_code: str | None = None,
+                         content_type: str = "all") -> int:
+    q = db.session.query(func.count(OutputEntry.id)).filter(
+        OutputEntry.is_public.is_(True),
+        OutputEntry.is_nsfw.is_(False),
+    )
+    if language_code:
+        q = q.filter(OutputEntry.language_code == language_code)
+    if content_type == "sentence":
+        q = q.filter(OutputEntry.word_id.isnot(None))
+    elif content_type == "diary":
+        q = q.filter(OutputEntry.word_id.is_(None))
+    return q.scalar() or 0
+
+
 def upvote_entry(user_id: int, entry_id: int) -> bool:
     """Add one upvote if allowed. Returns True only when a new vote is created."""
     entry = (OutputEntry.query

@@ -751,6 +751,31 @@ h1 {
     box-shadow: 0 6px 16px rgba(74,108,247,0.22);
 }
 
+.square-scope-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -4px 0 18px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(74,108,247,0.05);
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.square-scope-bar strong {
+    color: var(--text-color);
+}
+
+.square-empty-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .square-entry {
     padding: 24px;
 }

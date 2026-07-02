@@ -100,6 +100,24 @@ def test_square_language_filter(app, client, bypass_engine):
     assert "The apple is red." not in page
 
 
+def test_square_empty_language_suggests_all_languages(app, client, bypass_engine):
+    author = provision_user(app, "author-empty-lang@t.com", PW, name="Author")
+    provision_user(app, "viewer-empty-lang@t.com", PW, name="Viewer")
+    en_word = _make_word(bypass_engine, author, "en", "apple")
+    _make_entry(bypass_engine, author, en_word, "The apple is red.")
+
+    login(client, "viewer-empty-lang@t.com", PW)
+    page = client.get("/square?lang=fr&kind=sentence").get_data(as_text=True)
+
+    assert "正在看" in page
+    assert "法语还没有公开的造句" in page
+    assert "看全部语言" in page
+    assert "The apple is red." not in page
+
+    all_page = client.get("/square?lang=all&kind=sentence").get_data(as_text=True)
+    assert "The apple is red." in all_page
+
+
 def test_square_filters_sentence_and_diary_entries(app, client, bypass_engine):
     author = provision_user(app, "author-type@t.com", PW, name="Author")
     provision_user(app, "viewer-type@t.com", PW, name="Viewer")
