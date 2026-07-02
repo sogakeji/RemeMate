@@ -1,7 +1,25 @@
 <div id="review-card">
 {% if word %}
-  <div class="word-card">
-    <div class="word-actions">
+  <div class="word-card review-word-card">
+    <div class="review-card-toolbar">
+      <div class="review-card-left-actions">
+        {% if is_previous %}
+        <button type="button" class="action-icon-btn" title="回到当前词" aria-label="回到当前词"
+                hx-get="{{ url_for('words.current_review_card') }}"
+                hx-target="#review-card" hx-swap="outerHTML">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        {% elif previous_available %}
+        <button type="button" class="action-icon-btn" title="回到上一个词" aria-label="回到上一个词"
+                hx-get="{{ url_for('words.previous_review_card') }}"
+                hx-target="#review-card" hx-swap="outerHTML">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        {% endif %}
+      </div>
+      <div class="word-actions">
       <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
               data-speak="{{ word.word }}" data-lang="{{ word.word_list.language_code }}">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -28,6 +46,7 @@
           {% endif %}
         </button>
       </form>
+      </div>
     </div>
     <p class="card-word">{{ word.word }}</p>
     {% for d in word.definitions %}
@@ -44,6 +63,7 @@
       <p style="text-align:center;color:var(--text-secondary);">无释义</p>
     {% endif %}
   </div>
+  {% if not is_previous %}
   <div class="srs-grade-group">
     {% set grade_url = url_for('words.grade', word_id=word.id) %}
     <button class="srs-btn srs-forgot" hx-post="{{ grade_url }}" hx-vals='{"button":"forgot"}'
@@ -53,8 +73,21 @@
     <button class="srs-btn srs-known" hx-post="{{ grade_url }}" hx-vals='{"button":"easy"}'
             hx-target="#review-card" hx-swap="outerHTML">秒记起</button>
   </div>
+  {% endif %}
 {% else %}
-  <div class="word-card">
+  <div class="word-card review-word-card">
+    {% if previous_available %}
+    <div class="review-card-toolbar">
+      <div class="review-card-left-actions">
+        <button type="button" class="action-icon-btn" title="回到上一个词" aria-label="回到上一个词"
+                hx-get="{{ url_for('words.previous_review_card') }}"
+                hx-target="#review-card" hx-swap="outerHTML">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+      </div>
+    </div>
+    {% endif %}
     <p class="card-word">🎉</p>
     <p style="text-align:center;color:var(--text-secondary);">今日复习完成，没有到期的词了。</p>
     <p style="text-align:center;color:var(--text-secondary);font-size:13px;margin-top:8px;">

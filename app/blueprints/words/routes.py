@@ -5,7 +5,7 @@
 import json
 
 from flask import (Blueprint, render_template, request, abort, jsonify,
-                   redirect, url_for, flash)
+                   redirect, url_for, flash, session)
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
@@ -43,6 +43,28 @@ def _clean_definitions_from_form():
         if any(item.values()):
             cleaned.append(item)
     return cleaned
+
+
+def _previous_review_word():
+    prev_id = session.get("review_previous_word_id")
+    if not prev_id:
+        return None
+    prev = words_svc.get_word(_uid(), prev_id)
+    lang = words_svc.get_current_language(_uid())
+    if prev is None or prev.word_list.language_code != lang:
+        return None
+    return prev
+
+
+def _previous_available(current_word=None):
+    prev = _previous_review_word()
+    return bool(prev and (current_word is None or prev.id != current_word.id))
+
+
+def _current_review_word():
+    lang = words_svc.get_current_language(_uid())
+    due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
+    return due[0] if due else None
 
 
 @bp.get("/words/add")
@@ -236,7 +258,26 @@ def detail(list_id):
 def review():
     lang = words_svc.get_current_language(_uid())
     due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
-    return render_template("review/review.html", word=due[0] if due else None)
+    word = due[0] if due else None
+    return render_template("review/review.html", word=word,
+                           previous_available=_previous_available(word))
+
+
+@bp.get("/review/current")
+@login_required
+def current_review_card():
+    word = _current_review_word()
+    return render_template("review/_card.html", word=word,
+                           previous_available=_previous_available(word))
+
+
+@bp.get("/review/previous")
+@login_required
+def previous_review_card():
+    word = _previous_review_word()
+    if word is None:
+        abort(404)
+    return render_template("review/_card.html", word=word, is_previous=True)
 
 
 @bp.route("/review/<int:word_id>/grade", methods=["POST"])
@@ -249,10 +290,13 @@ def grade(word_id):
         abort(400)                      # 非法/缺失 button（M1）
     if result is None:
         abort(404)
+    session["review_previous_word_id"] = result.id
     lang = words_svc.get_current_language(_uid()) or result.word_list.language_code
     nxt = words_svc.get_due_words(_uid(), limit=1, language_code=lang)
     # HTMX：返回下一张卡片片段（无则完成提示）
-    return render_template("review/_card.html", word=nxt[0] if nxt else None)
+    word = nxt[0] if nxt else None
+    return render_template("review/_card.html", word=word,
+                           previous_available=_previous_available(word))
 
 
 @bp.route("/stats")

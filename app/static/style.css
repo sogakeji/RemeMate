@@ -556,6 +556,8 @@ h1 {
 .word-title-line,
 .row-actions,
 .word-actions,
+.review-card-toolbar,
+.review-card-left-actions,
 .definition-head {
     display: flex;
     align-items: center;
@@ -566,9 +568,15 @@ h1 {
     flex-wrap: wrap;
 }
 
+.review-card-toolbar {
+    justify-content: space-between;
+    min-height: 38px;
+    margin-bottom: 8px;
+}
+
+.review-card-left-actions,
 .word-actions {
     justify-content: flex-end;
-    margin-bottom: 8px;
 }
 
 .row-actions {

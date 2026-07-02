@@ -6,12 +6,22 @@
   Bark/播客/per-user key 等阶段八再补。
 """
 from flask import (Blueprint, render_template, redirect, url_for, flash,
-                   request)
+                   request, session)
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
 
 bp = Blueprint("main", __name__)
+
+
+def _has_previous_review_word(user_id, language_code, current_word=None):
+    prev_id = session.get("review_previous_word_id")
+    if not prev_id or not language_code:
+        return False
+    prev = words_svc.get_word(user_id, prev_id)
+    if prev is None or prev.word_list.language_code != language_code:
+        return False
+    return current_word is None or prev.id != current_word.id
 
 
 @bp.route("/")
@@ -25,6 +35,8 @@ def index():
     return render_template("main/index.html", user=current_user, word=word,
                            current_language=lang,
                            lang_choices=words_svc._LANGUAGE_NAMES,
+                           previous_available=_has_previous_review_word(
+                               current_user.id, lang, word),
                            stats=words_svc.get_stats(current_user.id))
 
 

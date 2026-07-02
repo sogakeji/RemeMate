@@ -84,6 +84,39 @@ def test_home_grade_button_hits_words_grade(app, client, bypass_engine):
     assert reps == 1                            # 评分生效
 
 
+def test_home_can_preview_previous_word_after_grading(app, client, bypass_engine):
+    provision_user(app, "h3prev@t.com", PW)
+    login(client, "h3prev@t.com", PW)
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "avant", "before")
+    _add_word(client, "fr", "apres", "after")
+    with bypass_engine.connect() as c:
+        first_id = c.execute(text("SELECT id FROM words WHERE word='avant'")).scalar()
+
+    next_card = client.post(f"/review/{first_id}/grade", data={"button": "easy"})
+    assert next_card.status_code == 200
+    next_body = next_card.get_data(as_text=True)
+    assert "apres" in next_body
+    assert "回到上一个词" in next_body
+
+    previous = client.get("/review/previous", headers={"HX-Request": "true"})
+    prev_body = previous.get_data(as_text=True)
+    assert previous.status_code == 200
+    assert "avant" in prev_body
+    assert "回到当前词" in prev_body
+    assert "没记住" not in prev_body             # 回看不允许重复评分
+    with bypass_engine.connect() as c:
+        logs = c.execute(text(
+            "SELECT count(*) FROM review_logs WHERE word_id=:i"),
+            {"i": first_id}).scalar()
+    assert logs == 1
+
+    current = client.get("/review/current", headers={"HX-Request": "true"})
+    current_body = current.get_data(as_text=True)
+    assert "apres" in current_body
+    assert "没记住" in current_body
+
+
 def test_home_grade_next_card_stays_current_language(app, client, bypass_engine):
     """评分后下一张仍按当前语言取，不跳到其它语言的到期词。"""
     provision_user(app, "h3b@t.com", PW)
