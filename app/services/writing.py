@@ -69,7 +69,7 @@ def _validate_sentence_language(sentence: str, language_code: str):
     """Cheap script-level guard; AI still handles real grammar/language judgment."""
     if language_code in {"fr", "en", "de", "es", "ru"} and _CJK_OR_KANA_RE.search(sentence):
         raise SentenceLanguageMismatch()
-    if language_code == "zh" and not _CJK_OR_KANA_RE.search(sentence):
+    if language_code in {"zh", "ja"} and not _CJK_OR_KANA_RE.search(sentence):
         raise SentenceLanguageMismatch()
 
 

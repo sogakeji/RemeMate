@@ -127,6 +127,49 @@ def test_quick_add_creates_candidate(app, client, bypass_engine, fake_extract):
     assert _count(bypass_engine, "word_candidates", uid) == 1
 
 
+def test_quick_add_ai_down_shows_error_without_source(
+        app, client, bypass_engine, fake_extract):
+    from app.services import llm
+
+    uid, lid = _setup(app, client, bypass_engine)
+    llm.set_registry({"extract": []})
+
+    resp = client.post("/intake/quick-add",
+                       data={"language_code": "fr", "word": "bonjour"},
+                       follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert "AI 暂不可用，请稍后重试" in resp.get_data(as_text=True)
+    assert _count(bypass_engine, "intake_sources", uid) == 0
+    assert _count(bypass_engine, "word_candidates", uid) == 0
+
+
+def test_extract_ai_down_marks_source_error_without_quota(
+        app, client, bypass_engine, fake_extract):
+    from app.services import llm
+
+    uid, lid = _setup(app, client, bypass_engine)
+    client.post("/intake/extract",
+                data={"language_code": "fr", "text": "Le décollage."})
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+
+    llm.set_registry({"extract": []})
+    body = client.get(f"/intake/{sid}/process").get_data(as_text=True)
+
+    assert "AI 暂不可用，请稍后重试" in body
+    with bypass_engine.connect() as c:
+        status, imports_today = c.execute(text(
+            "SELECT s.status, q.imports_today "
+            "FROM intake_sources s JOIN user_quota q ON q.user_id=s.user_id "
+            "WHERE s.id=:s"
+        ), {"s": sid}).one()
+    assert status == "error"
+    assert imports_today == 0
+    assert _count(bypass_engine, "word_candidates", uid) == 0
+
+
 # ---- 跨用户隔离 ----
 
 def test_cross_user_candidate_isolation(app, client, bypass_engine, fake_extract):

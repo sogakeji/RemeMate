@@ -310,6 +310,33 @@ def test_rejects_obvious_non_target_script_before_correction(
     assert used == 0
 
 
+def test_japanese_rejects_latin_only_sentence_before_correction(
+        app, client, bypass_engine, fake_llm):
+    uid = provision_user(app, "ja-guard@t.com", PW)
+    login(client, "ja-guard@t.com", PW)
+    client.post("/settings", data={"languages": ["ja"]})
+    client.post("/words/add", json={"language_code": "ja", "word": "猫",
+                                    "definitions": [{"meaning": "chat"}]})
+    with bypass_engine.connect() as c:
+        wid = c.execute(text(
+            "SELECT w.id FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u AND wl.language_code='ja' AND w.word='猫'"
+        ), {"u": uid}).scalar()
+
+    resp = client.post("/write/submit", data={
+        "word_id": wid,
+        "sentence": "watashi wa neko desu",
+    })
+
+    assert resp.status_code == 200
+    assert "不是当前目标语言" in resp.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        used = c.execute(text(
+            "SELECT corrections_today FROM user_quota WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert used == 0
+
+
 def test_compose_prioritizes_due_lapses(app, client, bypass_engine, fake_llm):
     _setup_user_with_word(app, client, bypass_engine)
     client.post("/words/add", json={"language_code": "fr", "word": "fragile",

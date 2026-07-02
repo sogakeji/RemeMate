@@ -67,3 +67,21 @@ def test_admin_create_duplicate_shows_error(app, client):
     }, follow_redirects=True)
     assert resp.status_code == 200
     assert "邮箱已存在" in resp.get_data(as_text=True)
+
+
+def test_admin_create_invalid_email_shows_error(app, client, bypass_engine):
+    provision_user(app, "owner3@t.com", PW, admin=True)
+    login(client, "owner3@t.com", PW)
+
+    resp = client.post("/admin/", data={
+        "email": "not-an-email",
+        "name": "Bad",
+    }, follow_redirects=True)
+    page = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "邮箱格式不正确" in page
+    with bypass_engine.connect() as c:
+        count = c.execute(text(
+            "SELECT count(*) FROM users WHERE email='not-an-email'"
+        )).scalar()
+    assert count == 0

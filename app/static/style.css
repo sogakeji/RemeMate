@@ -330,6 +330,7 @@ h1 {
 .button-group {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 15px;
 }
 
@@ -742,6 +743,11 @@ textarea.form-control {
 
     .card-word {
         font-size: 36px;
+    }
+
+    .word-card,
+    .form-card {
+        padding: 18px;
     }
 }
 

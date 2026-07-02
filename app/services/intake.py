@@ -141,8 +141,11 @@ def _normalize_csv_batch(rows, language_code, feedback_language_code="zh"):
               "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\"}]}，"
               "数量与输入一致，不要新增或删除词。")
     user = json.dumps(rows, ensure_ascii=False)
-    res = llm.chat([{"role": "system", "content": system},
-                    {"role": "user", "content": user}], task="extract", json_mode=True)
+    try:
+        res = llm.chat([{"role": "system", "content": system},
+                        {"role": "user", "content": user}], task="extract", json_mode=True)
+    except llm.AllProvidersDown:
+        return [], None
     items = _parse_items(res.content)
     return items, res
 
@@ -154,8 +157,11 @@ def _extract_from_text(text, language_code, max_words, feedback_language_code="z
               f"非专有名词/数字），最多 {max_words} 个。每词给词性、释义、从原文摘取的例句。"
               f"meaning 字段必须使用{feedback_lang}解释。"
               "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\"}]}。")
-    res = llm.chat([{"role": "system", "content": system},
-                    {"role": "user", "content": text}], task="extract", json_mode=True)
+    try:
+        res = llm.chat([{"role": "system", "content": system},
+                        {"role": "user", "content": text}], task="extract", json_mode=True)
+    except llm.AllProvidersDown:
+        return [], None
     return _parse_items(res.content), res
 
 
@@ -166,8 +172,11 @@ def _enrich_word(word, meaning, language_code, feedback_language_code="zh"):
               f"meaning 字段必须使用{feedback_lang}解释。"
               "只输出 JSON：{\"part_of_speech\",\"meaning\",\"example\"}。")
     user = f"词：{word}" + (f"\n已有释义：{meaning}" if meaning else "")
-    res = llm.chat([{"role": "system", "content": system},
-                    {"role": "user", "content": user}], task="extract", json_mode=True)
+    try:
+        res = llm.chat([{"role": "system", "content": system},
+                        {"role": "user", "content": user}], task="extract", json_mode=True)
+    except llm.AllProvidersDown:
+        return {}, None
     try:
         return json.loads(res.content), res
     except (json.JSONDecodeError, TypeError):
@@ -221,6 +230,11 @@ def process_source(user_id, source_id):
         cap = min(INTAKE_MAX_EXTRACT_WORDS, remaining)
         items, res = _extract_from_text(
             seg.raw_text, source.language_code, cap, feedback_lang)
+        if res is None:  # AI 不可用
+            source.status = "error"
+            db.session.commit()
+            yield {"type": "error", "message": "AI 暂不可用，请稍后重试"}
+            return
         items = _dedupe(items)[:cap]
         created = _write_candidates(user_id, source, items)
         quota_svc.record_import(user_id, count=created,
@@ -240,6 +254,11 @@ def process_source(user_id, source_id):
             rows = [json.loads(s.raw_text) for s in batch]
             items, res = _normalize_csv_batch(
                 rows, source.language_code, feedback_lang)
+            if res is None:  # AI 不可用
+                source.status = "error"
+                db.session.commit()
+                yield {"type": "error", "message": "AI 暂不可用，请稍后重试"}
+                return
             if not items:                      # LLM 失败 → 用原始列值兜底
                 items = rows
             n = _write_candidates(user_id, source, items)
@@ -277,6 +296,9 @@ def quick_add(user_id, language_code, word, meaning=None):
 
     feedback_lang = words_svc.get_feedback_language(user_id)
     enriched, res = _enrich_word(word, meaning, language_code, feedback_lang)
+    if res is None:  # AI 不可用
+        db.session.rollback()
+        raise CsvFormatError("AI 暂不可用，请稍后重试")
     own = quota_svc.import_quota_status(user_id)["own_key"]
     cand = _write_candidates(user_id, source, [{
         "word": word,

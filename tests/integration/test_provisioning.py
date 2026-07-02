@@ -57,17 +57,32 @@ def test_create_user_duplicate_email_rejected(app):
             provisioning.create_user_with_defaults("dup@t.com", "B")
 
 
+def test_create_user_rejects_invalid_email(app):
+    with app.app_context():
+        with pytest.raises(ValueError, match="邮箱格式不正确"):
+            provisioning.create_user_with_defaults("not-an-email", "Bad")
+
+
 def test_reset_quota_and_password(app, bypass_engine):
     with app.app_context():
         uid, _ = provisioning.create_user_with_defaults("r@t.com", "R")
+    with bypass_engine.begin() as c:
+        c.execute(text(
+            "UPDATE user_quota SET tokens_used_today=10, bonus_tokens_today=5, "
+            "corrections_today=3, imports_today=7 WHERE user_id=:i"
+        ), {"i": uid})
+
+    with app.app_context():
         newpw = provisioning.reset_password("r@t.com")
         assert newpw
         provisioning.reset_quota("r@t.com")
 
     with bypass_engine.connect() as c:
-        used = c.execute(text("SELECT tokens_used_today FROM user_quota WHERE user_id=:i"),
-                         {"i": uid}).scalar()
-        assert used == 0
+        row = c.execute(text(
+            "SELECT tokens_used_today, bonus_tokens_today, corrections_today, imports_today "
+            "FROM user_quota WHERE user_id=:i"
+        ), {"i": uid}).one()
+        assert row == (0, 0, 0, 0)
 
 
 def test_deactivate_user(app, bypass_engine):

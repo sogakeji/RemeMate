@@ -9,7 +9,7 @@
       · <a class="nav-link" href="{{ url_for('intake.quick_add_page') }}" style="display:inline;padding:2px 6px;">快速加词</a></small></p>
   </div>
 
-  {% if not lang_choices %}
+  {% if not available_languages %}
   <div class="word-card" style="text-align:center;">
     <p style="margin-bottom:16px;color:var(--text-secondary);">先在设置里选择正在学的语言。</p>
     <a class="btn success" href="{{ url_for('main.settings') }}">去设置选语言</a>
@@ -22,7 +22,7 @@
       <div class="form-group">
         <label class="form-label">语言
           <select name="language_code" class="form-control" required>
-            {% for code, name in lang_choices %}
+            {% for code, name in available_languages %}
             <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
             {% endfor %}
           </select>

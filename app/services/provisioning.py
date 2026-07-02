@@ -7,6 +7,7 @@ dispatch（BYPASSRLS）角色的独立连接。见 docs/design/data-isolation-se
 
 CLI 与未来的注册路由都复用本模块（auth-flow.md 的「三表一事务」要求）。
 """
+import re
 import secrets
 
 from flask import current_app
@@ -37,6 +38,9 @@ class UserNotFoundError(Exception):
     pass
 
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
 
@@ -59,6 +63,8 @@ def create_user_with_defaults(email, display_name, *, admin=False,
                               feedback_language="zh"):
     """一事务建 User + UserSettings + UserQuota，返回 (user_id, 明文初始密码)。"""
     email = normalize_email(email)        # 邮箱大小写无关（M5）
+    if not _EMAIL_RE.match(email):
+        raise ValueError("邮箱格式不正确")
     password = password or secrets.token_urlsafe(12)
     learning = _clean_language_codes(learning_languages)
     if feedback_language not in words_svc._FEEDBACK_LANGUAGE_NAMES:
@@ -164,6 +170,8 @@ def reset_quota(email):
             session.add(quota)
         quota.tokens_used_today = 0
         quota.bonus_tokens_today = 0
+        quota.corrections_today = 0
+        quota.imports_today = 0
         quota.quota_reset_at = next_midnight_utc(user.timezone)
         session.commit()
     finally:

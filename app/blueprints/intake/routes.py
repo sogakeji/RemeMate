@@ -35,7 +35,7 @@ def _current_language():
 @login_required
 def import_page():
     return render_template("intake/import.html",
-                           lang_choices=_language_choices(),
+                           available_languages=_language_choices(),
                            current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()))
 
@@ -65,7 +65,7 @@ def import_csv():
 @login_required
 def extract_page():
     return render_template("intake/extract.html",
-                           lang_choices=_language_choices(),
+                           available_languages=_language_choices(),
                            current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()),
                            max_chars=intake_svc.INTAKE_MAX_EXTRACT_CHARS)
@@ -122,7 +122,7 @@ def process_stream(source_id):
 @login_required
 def quick_add_page():
     return render_template("intake/quick_add.html",
-                           lang_choices=_language_choices(),
+                           available_languages=_language_choices(),
                            current_language=_current_language(),
                            quota=quota_svc.import_quota_status(_uid()))
 
