@@ -98,6 +98,8 @@ def test_square_language_filter(app, client, bypass_engine):
 
     assert "Bonjour tout le monde." in page
     assert "The apple is red." not in page
+    assert 'href="/square?lang=en&amp;kind=all"' not in page
+    assert 'href="/square?lang=ja&amp;kind=all"' not in page
 
 
 def test_square_empty_language_suggests_all_languages(app, client, bypass_engine):

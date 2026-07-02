@@ -81,6 +81,7 @@
         <form id="langSwitchForm" method="post" action="{{ url_for('main.switch_language') }}" style="display:none;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="language_code" id="langCodeInput" value="{{ current_language or '' }}">
+          <input type="hidden" name="next" id="langNextInput" value="">
         </form>
         <div class="lang-menu" id="langMenu">
           {% for code in learning_languages %}
@@ -139,6 +140,7 @@
         var menu = document.getElementById('langMenu');
         var form = document.getElementById('langSwitchForm');
         var codeInput = document.getElementById('langCodeInput');
+        var nextInput = document.getElementById('langNextInput');
         cur.addEventListener('click', function (e) {
           e.stopPropagation();
           sw.classList.toggle('open');
@@ -152,6 +154,9 @@
           var code = item.getAttribute('data-code');
           if (!code) return;
           codeInput.value = code;
+          if (nextInput) {
+            nextInput.value = window.location.pathname + window.location.search;
+          }
           form.submit();
         });
       }

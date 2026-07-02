@@ -23,15 +23,6 @@
        href="{{ url_for('square.index', lang=lang_param, kind='diary') }}">三行日记</a>
   </div>
 
-  <div class="button-group" style="margin-bottom:18px;">
-    <a class="btn {% if not selected_language %}primary{% else %}default{% endif %}"
-       href="{{ url_for('square.index', lang='all', kind=selected_type) }}">全部语言</a>
-    {% for code, name in lang_choices.items() %}
-      <a class="btn {% if selected_language == code %}primary{% else %}default{% endif %}"
-         href="{{ url_for('square.index', lang=code, kind=selected_type) }}">{{ name }}</a>
-    {% endfor %}
-  </div>
-
   <div class="square-scope-bar">
     <div>
       <span>正在看</span>

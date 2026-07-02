@@ -69,6 +69,38 @@ def test_write_compose_filtered_by_current_language(app, client, bypass_engine):
     assert "fronly" not in page_en
 
 
+def test_language_switch_redirects_back_to_current_page(app, client, bypass_engine):
+    provision_user(app, "lc5@t.com", PW)
+    login(client, "lc5@t.com", PW)
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/square?kind=diary").get_data(as_text=True)).group(1)
+
+    resp = client.post("/language/switch", data={
+        "language_code": "ja",
+        "csrf_token": csrf,
+        "next": "/square?kind=diary",
+    })
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/square?kind=diary")
+
+
+def test_language_switch_rejects_external_next(app, client, bypass_engine):
+    provision_user(app, "lc6@t.com", PW)
+    login(client, "lc6@t.com", PW)
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/").get_data(as_text=True)).group(1)
+
+    resp = client.post("/language/switch", data={
+        "language_code": "ja",
+        "csrf_token": csrf,
+        "next": "//evil.example",
+    })
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+
+
 def test_stats_review_cta_points_home(app, client, bypass_engine):
     """stats「开始复习」CTA 指首页 /（按当前语言刷），不再指 /review。"""
     provision_user(app, "lc4@t.com", PW)

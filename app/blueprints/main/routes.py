@@ -5,6 +5,8 @@
 - /settings 最小版只做「正在学哪种语言」选择（= set_current_language 闭环建词表）。
   Bark/播客/per-user key 等阶段八再补。
 """
+from urllib.parse import urlsplit
+
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, session)
 from flask_login import login_required, current_user
@@ -12,6 +14,16 @@ from flask_login import login_required, current_user
 from app.services import words as words_svc
 
 bp = Blueprint("main", __name__)
+
+
+def _is_safe_next(target: str) -> bool:
+    if not target:
+        return False
+    normalized = target.replace("\\", "/")
+    if not normalized.startswith("/") or normalized.startswith("//"):
+        return False
+    parts = urlsplit(normalized)
+    return not parts.scheme and not parts.netloc
 
 
 def _has_previous_review_word(user_id, language_code, current_word=None):
@@ -43,13 +55,14 @@ def index():
 @bp.post("/language/switch")
 @login_required
 def switch_language():
-    """首页语言切换器：切当前语言（set_current_language 闭环建词表）。"""
+    """全局语言切换器：切当前语言后留在当前页面。"""
     code = request.form.get("language_code", "").strip()
+    nxt = request.form.get("next")
     if code not in words_svc._LANGUAGE_NAMES:
         flash("未知语言")
-        return redirect(url_for("main.index"))
+        return redirect(nxt if _is_safe_next(nxt) else url_for("main.index"))
     words_svc.set_current_language(current_user.id, code)
-    return redirect(url_for("main.index"))
+    return redirect(nxt if _is_safe_next(nxt) else url_for("main.index"))
 
 
 @bp.get("/settings")
