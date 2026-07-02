@@ -1312,12 +1312,13 @@ textarea.form-control {
 
 .settings-panel {
     position: absolute;
-    top: calc(100% - 8px);
-    right: 20px;
+    top: calc(100% - 1px);
+    left: 0;
+    right: 0;
     z-index: 20;
     display: none;
-    width: min(320px, calc(100vw - 48px));
-    padding: 8px;
+    width: auto;
+    padding: 12px 20px 14px;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
@@ -1327,10 +1328,6 @@ textarea.form-control {
 .settings-panel.open {
     display: block;
     animation: fadeIn 0.12s ease-out;
-}
-
-.settings-panel-wide {
-    width: min(380px, calc(100vw - 48px));
 }
 
 .settings-options {
@@ -1368,9 +1365,7 @@ textarea.form-control {
     }
 
     .settings-panel {
-        left: 16px;
-        right: 16px;
-        width: auto;
+        padding: 12px 16px 14px;
     }
 }
 

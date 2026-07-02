@@ -92,7 +92,7 @@
                 data-settings-toggle="bark-panel">
           {% if notification_settings.bark_url %}修改{% else %}设置{% endif %}
         </button>
-        <div class="settings-panel settings-panel-wide" id="bark-panel">
+        <div class="settings-panel" id="bark-panel">
           <div class="settings-options">
             <div class="form-group">
               <label class="form-label" for="bark_url">Bark 地址</label>
@@ -119,6 +119,10 @@
           </div>
           <div class="settings-actions">
             <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="submit" class="btn default"
+                    formaction="{{ url_for('main.test_bark_settings') }}">
+              发送测试
+            </button>
             <button type="submit" class="btn primary">确定</button>
           </div>
         </div>

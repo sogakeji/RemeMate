@@ -5,6 +5,7 @@
 """
 from sqlalchemy import text
 
+from app.services import words as words_svc
 from tests.helpers import provision_user, login
 
 PW = "pw12345678"
@@ -23,7 +24,8 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert 'data-settings-toggle="bark-panel"' in page
     assert 'class="settings-panel" id="learning-panel"' in page
     assert 'class="settings-panel" id="feedback-panel"' in page
-    assert 'class="settings-panel settings-panel-wide" id="bark-panel"' in page
+    assert 'class="settings-panel" id="bark-panel"' in page
+    assert 'formaction="/settings/bark/test"' in page
     assert 'name="languages"' in page
     assert 'name="feedback_language"' in page
     assert 'name="bark_url"' in page
@@ -97,6 +99,80 @@ def test_settings_rejects_private_bark_url(app, client, bypass_engine):
     }, follow_redirects=True)
     assert r.status_code == 200
     assert "设置内容不正确" in r.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        bark_url = c.execute(text(
+            "SELECT bark_url FROM user_settings WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert bark_url is None
+
+
+def test_settings_bark_test_saves_and_sends(app, client, bypass_engine, monkeypatch):
+    uid = provision_user(app, "bark-test@t.com", PW)
+    login(client, "bark-test@t.com", PW)
+    calls = []
+
+    class Resp:
+        status_code = 200
+
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(None, None, None, None, ("43.155.109.24", 443))],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append({
+            "url": url,
+            "json": json,
+            "timeout": timeout,
+            "allow_redirects": allow_redirects,
+        })
+        return Resp()
+
+    monkeypatch.setattr(words_svc.requests, "post", fake_post)
+    r = client.post("/settings/bark/test", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "bark_url": "https://api.day.app/test-key",
+        "notify_review_reminder": "on",
+        "notify_daily_summary": "on",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "Bark 测试推送已发送" in r.get_data(as_text=True)
+    assert calls == [{
+        "url": "https://api.day.app/test-key",
+        "json": {
+            "title": "记搭 RemeMate",
+            "body": "测试推送发送成功。",
+            "group": "RemeMate",
+        },
+        "timeout": 5,
+        "allow_redirects": False,
+    }]
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT bark_url, notify_review_reminder, notify_daily_summary, "
+            "notify_intake_done FROM user_settings WHERE user_id=:u"),
+            {"u": uid}).fetchone()
+    assert row == ("https://api.day.app/test-key", True, True, False)
+
+
+def test_settings_bark_test_rejects_private_url(app, client, bypass_engine, monkeypatch):
+    uid = provision_user(app, "bark-private@t.com", PW)
+    login(client, "bark-private@t.com", PW)
+
+    def fail_post(*args, **kwargs):
+        raise AssertionError("Bark request should not be sent")
+
+    monkeypatch.setattr(words_svc.requests, "post", fail_post)
+    r = client.post("/settings/bark/test", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "bark_url": "https://127.0.0.1/test-key",
+        "notify_review_reminder": "on",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "Bark 地址不能指向本机或内网" in r.get_data(as_text=True)
     with bypass_engine.connect() as c:
         bark_url = c.execute(text(
             "SELECT bark_url FROM user_settings WHERE user_id=:u"),

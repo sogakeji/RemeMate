@@ -13,6 +13,7 @@ import socket
 from datetime import timedelta
 from urllib.parse import urlsplit
 
+import requests
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -257,6 +258,29 @@ def set_notification_settings(user_id: int, bark_url: str | None, **flags) -> di
             setattr(settings, field, bool(flags[field]))
     db.session.commit()
     return get_notification_settings(user_id)
+
+
+def send_bark_test_notification(user_id: int) -> None:
+    settings = db.session.get(UserSettings, user_id)
+    bark_url = _validate_push_url(settings.bark_url if settings else None)
+    if not bark_url:
+        raise ValueError("请先保存 Bark 地址")
+    payload = {
+        "title": "记搭 RemeMate",
+        "body": "测试推送发送成功。",
+        "group": "RemeMate",
+    }
+    try:
+        resp = requests.post(
+            bark_url,
+            json=payload,
+            timeout=5,
+            allow_redirects=False,
+        )
+    except requests.RequestException as exc:
+        raise ValueError("Bark 测试推送发送失败") from exc
+    if not 200 <= resp.status_code < 300:
+        raise ValueError("Bark 测试推送发送失败")
 
 
 def get_current_language_list(user_id: int) -> WordList | None:

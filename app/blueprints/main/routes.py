@@ -92,28 +92,45 @@ def settings():
                                current_user.id))
 
 
-@bp.post("/settings")
-@login_required
-def save_settings():
+def _save_settings_from_form():
     codes = request.form.getlist("languages")
     feedback_language = request.form.get("feedback_language", "zh").strip()
     notification_form_present = "bark_url" in request.form
+    words_svc.set_feedback_language(current_user.id, feedback_language)
+    if notification_form_present:
+        words_svc.set_notification_settings(
+            current_user.id,
+            request.form.get("bark_url", ""),
+            notify_review_reminder=(
+                request.form.get("notify_review_reminder") == "on"),
+            notify_daily_summary=(
+                request.form.get("notify_daily_summary") == "on"),
+            notify_intake_done=(
+                request.form.get("notify_intake_done") == "on"),
+        )
+    words_svc.set_learning_languages(current_user.id, codes)
+
+
+@bp.post("/settings")
+@login_required
+def save_settings():
     try:
-        words_svc.set_feedback_language(current_user.id, feedback_language)
-        if notification_form_present:
-            words_svc.set_notification_settings(
-                current_user.id,
-                request.form.get("bark_url", ""),
-                notify_review_reminder=(
-                    request.form.get("notify_review_reminder") == "on"),
-                notify_daily_summary=(
-                    request.form.get("notify_daily_summary") == "on"),
-                notify_intake_done=(
-                    request.form.get("notify_intake_done") == "on"),
-            )
+        _save_settings_from_form()
     except ValueError:
         flash("设置内容不正确，请检查后再保存")
         return redirect(url_for("main.settings"))
-    words_svc.set_learning_languages(current_user.id, codes)
     flash("已保存设置")
+    return redirect(url_for("main.settings"))
+
+
+@bp.post("/settings/bark/test")
+@login_required
+def test_bark_settings():
+    try:
+        _save_settings_from_form()
+        words_svc.send_bark_test_notification(current_user.id)
+    except ValueError as exc:
+        flash(str(exc) or "Bark 测试推送发送失败")
+        return redirect(url_for("main.settings"))
+    flash("Bark 测试推送已发送")
     return redirect(url_for("main.settings"))
