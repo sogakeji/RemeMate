@@ -37,6 +37,24 @@ def _make_entry(bypass_engine, user_id, word_id, corrected, *,
         }).scalar()
 
 
+def _make_diary_entry(bypass_engine, user_id, corrected, *,
+                      language_code="fr", language_text="译",
+                      is_public=True, is_nsfw=False):
+    with bypass_engine.begin() as c:
+        return c.execute(text(
+            "INSERT INTO output_entries("
+            "word_id,user_id,original,corrected,translation,feedback,has_error,"
+            "word_text,language_code,"
+            "is_public,upvote_count,is_nsfw,created_at) "
+            "VALUES (NULL,:u,'original hidden',:c,:t,'',false,"
+            "'三行日记',:lang,:p,0,:n,now()) "
+            "RETURNING id"
+        ), {
+            "u": user_id, "c": corrected, "t": language_text,
+            "lang": language_code, "p": is_public, "n": is_nsfw,
+        }).scalar()
+
+
 def _count_votes(bypass_engine, entry_id):
     with bypass_engine.connect() as c:
         return c.execute(text(
@@ -82,6 +100,25 @@ def test_square_language_filter(app, client, bypass_engine):
     assert "The apple is red." not in page
 
 
+def test_square_filters_sentence_and_diary_entries(app, client, bypass_engine):
+    author = provision_user(app, "author-type@t.com", PW, name="Author")
+    provision_user(app, "viewer-type@t.com", PW, name="Viewer")
+    word_id = _make_word(bypass_engine, author, "fr", "livre")
+    _make_entry(bypass_engine, author, word_id, "Je lis un livre.")
+    _make_diary_entry(bypass_engine, author, "Bonjour.\nJe lis.\nJe souris.")
+
+    login(client, "viewer-type@t.com", PW)
+    diary = client.get("/square?lang=fr&type=diary").get_data(as_text=True)
+    sentence = client.get("/square?lang=fr&type=sentence").get_data(as_text=True)
+
+    assert "三行日记" in diary
+    assert "Bonjour." in diary
+    assert "Je lis un livre." not in diary
+    assert "造句" in sentence
+    assert "Je lis un livre." in sentence
+    assert "Bonjour." not in sentence
+
+
 def test_square_upvote_is_idempotent(app, client, bypass_engine):
     author = provision_user(app, "author3@t.com", PW, name="Author")
     provision_user(app, "viewer3@t.com", PW, name="Viewer")
@@ -96,6 +133,19 @@ def test_square_upvote_is_idempotent(app, client, bypass_engine):
     page = client.get("/square?lang=all").get_data(as_text=True)
     assert "1 夯" in page
     assert "已夯" in page
+
+
+def test_square_upvote_preserves_type_filter(app, client, bypass_engine):
+    author = provision_user(app, "author-type-vote@t.com", PW, name="Author")
+    provision_user(app, "viewer-type-vote@t.com", PW, name="Viewer")
+    entry_id = _make_diary_entry(bypass_engine, author, "Salut.\nJe marche.\nJe respire.")
+
+    login(client, "viewer-type-vote@t.com", PW)
+    resp = client.post(f"/square/{entry_id}/upvote",
+                       data={"lang": "fr", "type": "diary"})
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/square?lang=fr&type=diary")
 
 
 def test_square_author_cannot_upvote_own_entry(app, client, bypass_engine):

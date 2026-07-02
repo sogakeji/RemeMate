@@ -4,27 +4,43 @@
 <div class="container">
   <div class="header-section">
     <h1>句子广场</h1>
-    <p><small>公开的造句修正句，只展示用户主动发布的内容。</small></p>
+    <p><small>公开的造句和三行日记，只展示用户主动发布的内容。</small></p>
+  </div>
+
+  {% set lang_param = selected_language or 'all' %}
+
+  <div class="square-type-tabs" aria-label="内容类型">
+    <a class="square-type-tab {% if selected_type == 'all' %}active{% endif %}"
+       href="{{ url_for('square.index', lang=lang_param, type='all') }}">全部</a>
+    <a class="square-type-tab {% if selected_type == 'sentence' %}active{% endif %}"
+       href="{{ url_for('square.index', lang=lang_param, type='sentence') }}">造句</a>
+    <a class="square-type-tab {% if selected_type == 'diary' %}active{% endif %}"
+       href="{{ url_for('square.index', lang=lang_param, type='diary') }}">三行日记</a>
   </div>
 
   <div class="button-group" style="margin-bottom:18px;">
     <a class="btn {% if not selected_language %}primary{% else %}default{% endif %}"
-       href="{{ url_for('square.index', lang='all') }}">全部</a>
+       href="{{ url_for('square.index', lang='all', type=selected_type) }}">全部语言</a>
     {% for code, name in lang_choices.items() %}
       <a class="btn {% if selected_language == code %}primary{% else %}default{% endif %}"
-         href="{{ url_for('square.index', lang=code) }}">{{ name }}</a>
+         href="{{ url_for('square.index', lang=code, type=selected_type) }}">{{ name }}</a>
     {% endfor %}
   </div>
 
   {% if entries %}
     {% for entry, author, vote_count, upvoted in entries %}
-    <div class="word-card">
-      <p style="font-size:1.12rem;line-height:1.7;">{{ entry.corrected }}</p>
+    {% set is_diary = entry.word_id is none %}
+    <div class="word-card square-entry {% if is_diary %}square-entry-diary{% endif %}">
+      <div class="square-entry-head">
+        <span class="square-entry-type">{{ '三行日记' if is_diary else '造句' }}</span>
+        <span>{{ lang_choices.get(entry.language_code, entry.language_code) }}</span>
+      </div>
+      <p class="square-entry-text">{{ entry.corrected }}</p>
       {% if entry.translation %}
-        <p style="color:var(--text-secondary);">{{ entry.translation }}</p>
+        <p class="square-entry-translation">{{ entry.translation }}</p>
       {% endif %}
-      <small style="color:var(--text-secondary);">
-        词：{{ entry.word_text }} · {{ lang_choices.get(entry.language_code, entry.language_code) }}
+      <small class="square-entry-meta">
+        {{ '主题' if is_diary else '词' }}：{{ entry.word_text }}
         · @{{ author.display_name }} · {{ vote_count }} 夯
       </small>
       <div class="button-group" style="margin-top:14px;">
@@ -33,7 +49,8 @@
           <form method="post" action="{{ url_for('write.unpublish', entry_id=entry.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="square">
-            <input type="hidden" name="lang" value="{{ selected_language or 'all' }}">
+            <input type="hidden" name="lang" value="{{ lang_param }}">
+            <input type="hidden" name="type" value="{{ selected_type }}">
             <button type="submit" class="btn default">取消公开</button>
           </form>
         {% elif upvoted %}
@@ -41,7 +58,8 @@
         {% else %}
           <form method="post" action="{{ url_for('square.upvote', entry_id=entry.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="lang" value="{{ selected_language or 'all' }}">
+            <input type="hidden" name="lang" value="{{ lang_param }}">
+            <input type="hidden" name="type" value="{{ selected_type }}">
             <button type="submit" class="btn primary">夯一下</button>
           </form>
         {% endif %}
@@ -50,7 +68,7 @@
     {% endfor %}
   {% else %}
     <div class="word-card" style="text-align:center;">
-      <p style="color:var(--text-secondary);margin-bottom:14px;">这里还没有公开句子。</p>
+      <p style="color:var(--text-secondary);margin-bottom:14px;">这里还没有公开内容。</p>
       <a class="btn success" href="{{ url_for('write.compose') }}">去写一句</a>
     </div>
   {% endif %}

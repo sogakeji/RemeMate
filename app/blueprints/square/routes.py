@@ -16,11 +16,16 @@ def index():
         selected = None
     if selected is not None and selected not in words_svc._LANGUAGE_NAMES:
         selected = None
-    entries = square_svc.list_public_entries(current_user.id, language_code=selected)
+    content_type = request.args.get("type") or "all"
+    if content_type not in {"all", "sentence", "diary"}:
+        content_type = "all"
+    entries = square_svc.list_public_entries(
+        current_user.id, language_code=selected, content_type=content_type)
     return render_template(
         "square/index.html",
         entries=entries,
         selected_language=selected,
+        selected_type=content_type,
         lang_choices=words_svc._LANGUAGE_NAMES,
     )
 
@@ -30,5 +35,11 @@ def index():
 def upvote(entry_id):
     square_svc.upvote_entry(current_user.id, entry_id)
     lang = request.form.get("lang") or request.args.get("lang") or ""
-    target = url_for("square.index", lang=lang) if lang else url_for("square.index")
+    content_type = request.form.get("type") or request.args.get("type") or ""
+    params = {}
+    if lang:
+        params["lang"] = lang
+    if content_type:
+        params["type"] = content_type
+    target = url_for("square.index", **params) if params else url_for("square.index")
     return redirect(target)

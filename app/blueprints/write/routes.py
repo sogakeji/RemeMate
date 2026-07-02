@@ -147,7 +147,8 @@ def unpublish(entry_id):
     flash("已取消公开")
     if request.form.get("next") == "square":
         lang = request.form.get("lang") or "all"
-        return redirect(url_for("square.index", lang=lang))
+        content_type = request.form.get("type") or "all"
+        return redirect(url_for("square.index", lang=lang, type=content_type))
     return redirect(url_for("write.history"))
 
 

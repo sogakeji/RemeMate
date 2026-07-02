@@ -718,6 +718,74 @@ h1 {
     min-width: 132px;
 }
 
+.square-type-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.square-type-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-color);
+    background: var(--card-bg);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.square-type-tab.active {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: rgba(74,108,247,0.08);
+}
+
+.square-entry {
+    padding: 24px;
+}
+
+.square-entry-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.square-entry-type {
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.square-entry-diary .square-entry-type {
+    color: var(--success-color);
+}
+
+.square-entry-text {
+    margin-bottom: 10px;
+    font-size: 1.12rem;
+    line-height: 1.75;
+    white-space: pre-line;
+}
+
+.square-entry-translation {
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    white-space: pre-line;
+}
+
+.square-entry-meta {
+    color: var(--text-secondary);
+}
+
 .marked-star {
     color: var(--warning-color);
     font-size: 16px;
