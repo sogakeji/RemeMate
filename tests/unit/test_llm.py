@@ -61,6 +61,37 @@ def test_placeholder_keys_are_not_configured():
     assert llm._configured_key("sk-real") == "sk-real"
 
 
+def test_openai_compatible_deepseek_model_can_be_primary(app):
+    app.config["DEEPSEEK_API_KEY"] = None
+    app.config["OPENAI_API_KEY"] = "sk-opencode"
+    app.config["OPENAI_BASE_URL"] = "http://127.0.0.1:11434/v1"
+    app.config["OPENAI_MODEL"] = "deepseek-chat"
+
+    with app.app_context():
+        correction_chain = llm.get_chain("correction")
+        nsfw_chain = llm.get_chain("nsfw")
+
+    assert len(correction_chain) == 1
+    assert correction_chain[0].name == "openai"
+    assert correction_chain[0].api_key == "sk-opencode"
+    assert correction_chain[0].base_url == "http://127.0.0.1:11434/v1"
+    assert correction_chain[0].model == "deepseek-chat"
+    assert len(nsfw_chain) == 1
+    assert nsfw_chain[0].name == "openai"
+    assert nsfw_chain[0].model == "deepseek-chat"
+
+
+def test_openai_default_model_is_not_used_for_nsfw(app):
+    app.config["DEEPSEEK_API_KEY"] = None
+    app.config["OPENAI_API_KEY"] = "sk-openai"
+    app.config["OPENAI_BASE_URL"] = "https://api.openai.com/v1"
+    app.config["OPENAI_MODEL"] = "gpt-4o-mini"
+
+    with app.app_context():
+        assert llm.get_chain("correction")
+        assert llm.get_chain("nsfw") == []
+
+
 def test_breaker_opens_after_threshold():
     p1 = FakeProvider("deepseek", "fail")
     p2 = FakeProvider("openai")

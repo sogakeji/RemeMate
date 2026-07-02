@@ -17,8 +17,16 @@ DISPATCH_DATABASE_URL=postgresql://rememate_dispatch:...@127.0.0.1:5432/rememate
 SECRET_KEY=...
 DATA_ENCRYPTION_KEY=...
 
+# LLM 二选一：
+# 方案 A：DeepSeek 直连
 DEEPSEEK_API_KEY=...
 DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+
+# 方案 B：OpenAI-compatible 网关，例如 opencode go 跑 DeepSeek 模型
+# OPENAI_API_KEY=...
+# OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+# OPENAI_MODEL=deepseek-chat
 ```
 
 生成密钥：
@@ -28,7 +36,7 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 .venv/bin/python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"
 ```
 
-生产启动会 fail fast：`SECRET_KEY`、`DATA_ENCRYPTION_KEY`、三条数据库连接、`DEEPSEEK_API_KEY` 缺失或仍是 `CHANGE_ME` 时不会启动。`DATA_ENCRYPTION_KEY` 必须是 Fernet key。
+生产启动会 fail fast：`SECRET_KEY`、`DATA_ENCRYPTION_KEY`、三条数据库连接缺失时不会启动；LLM 需要 `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY` 至少配置一个，且不能仍是 `CHANGE_ME`。`DATA_ENCRYPTION_KEY` 必须是 Fernet key。
 
 ## 部署后自检
 

@@ -26,6 +26,11 @@ def require_configured(name: str) -> str:
     return value.strip()
 
 
+def optional_configured(name: str) -> str | None:
+    value = os.environ.get(name)
+    return value.strip() if is_configured(value) else None
+
+
 def validate_fernet_key(value: str | None) -> bool:
     if not is_configured(value):
         return False
@@ -51,8 +56,10 @@ class BaseConfig:
     # LLM
     DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")        # GPT-4o-mini failover（可选）
+    DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")        # OpenAI-compatible failover/primary（可选）
     OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
     WTF_CSRF_ENABLED = True
 
@@ -98,7 +105,14 @@ class ProductionConfig(BaseConfig):
         self.SQLALCHEMY_DATABASE_URI = require_configured("DATABASE_URL")
         self.MIGRATE_DATABASE_URL = require_configured("MIGRATE_DATABASE_URL")
         self.DISPATCH_DATABASE_URL = require_configured("DISPATCH_DATABASE_URL")
-        self.DEEPSEEK_API_KEY = require_configured("DEEPSEEK_API_KEY")
+        self.DEEPSEEK_API_KEY = optional_configured("DEEPSEEK_API_KEY")
+        self.DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+        self.DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+        self.OPENAI_API_KEY = optional_configured("OPENAI_API_KEY")
+        self.OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        self.OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        if not (self.DEEPSEEK_API_KEY or self.OPENAI_API_KEY):
+            raise RuntimeError("生产环境必须设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY，且不能使用占位值。")
 
 
 _CONFIGS = {

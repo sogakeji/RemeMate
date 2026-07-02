@@ -99,5 +99,5 @@ python -m pytest -q
 ## 仍缺 / 待补
 
 - `ffmpeg`：阶段九播客音频后处理可能需要，届时 `apt install ffmpeg`
-- `DEEPSEEK_API_KEY`：填进 `.env` 后 AI 功能才可用（阶段四起）
+- LLM key：填 `DEEPSEEK_API_KEY`，或填 `OPENAI_API_KEY` + `OPENAI_BASE_URL` + `OPENAI_MODEL` 使用 OpenAI-compatible 网关后，AI 功能才可用。
 - WSL 当前默认 root 用户；如需贴近生产可另建普通用户（非必须）

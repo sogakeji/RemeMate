@@ -33,13 +33,36 @@ def test_production_config_accepts_complete_env(monkeypatch):
     "DATABASE_URL",
     "MIGRATE_DATABASE_URL",
     "DISPATCH_DATABASE_URL",
-    "DEEPSEEK_API_KEY",
 ])
 def test_production_config_rejects_missing_required_env(monkeypatch, name):
     _set_production_env(monkeypatch)
     monkeypatch.delenv(name)
 
     with pytest.raises(RuntimeError, match=name):
+        get_config("production")
+
+
+def test_production_config_accepts_openai_compatible_llm(monkeypatch):
+    _set_production_env(monkeypatch)
+    monkeypatch.delenv("DEEPSEEK_API_KEY")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-opencode")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
+    monkeypatch.setenv("OPENAI_MODEL", "deepseek-chat")
+
+    cfg = get_config("production")
+
+    assert cfg.DEEPSEEK_API_KEY is None
+    assert cfg.OPENAI_API_KEY == "sk-opencode"
+    assert cfg.OPENAI_BASE_URL == "http://127.0.0.1:11434/v1"
+    assert cfg.OPENAI_MODEL == "deepseek-chat"
+
+
+def test_production_config_rejects_missing_all_llm_keys(monkeypatch):
+    _set_production_env(monkeypatch)
+    monkeypatch.delenv("DEEPSEEK_API_KEY")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY 或 OPENAI_API_KEY"):
         get_config("production")
 
 

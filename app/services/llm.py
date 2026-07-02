@@ -115,26 +115,32 @@ def _build_registry() -> dict:
     if deepseek_key:
         deepseek = OpenAICompatProvider(
             "deepseek", deepseek_key,
-            cfg.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"), "deepseek-chat")
+            cfg.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+            cfg.get("DEEPSEEK_MODEL", "deepseek-chat"))
     gpt = None
     openai_key = _configured_key(cfg.get("OPENAI_API_KEY"))
     if openai_key:
         gpt = OpenAICompatProvider(
             "openai", openai_key,
-            cfg.get("OPENAI_BASE_URL", "https://api.openai.com/v1"), "gpt-4o-mini")
+            cfg.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            cfg.get("OPENAI_MODEL", "gpt-4o-mini"))
 
     def chain(*providers):
         return [p for p in providers if p is not None]
 
     return {
-        # NSFW 仅 DeepSeek（GPT/Groq 审核 prompt 未验证）
-        "nsfw":       chain(deepseek),
+        # NSFW 仅 DeepSeek 系列；OpenAI-compatible 网关跑 deepseek-* 时可复用。
+        "nsfw":       chain(deepseek, gpt if _is_deepseek_model(gpt) else None),
         "correction": chain(deepseek, gpt),
         "translate":  chain(deepseek, gpt),
         "extract":    chain(deepseek, gpt),
         "tutor":      chain(deepseek, gpt),
         "general":    chain(deepseek, gpt),
     }
+
+
+def _is_deepseek_model(provider) -> bool:
+    return bool(provider and "deepseek" in (provider.model or "").lower())
 
 
 # 测试可通过 set_registry 注入假 provider 链
