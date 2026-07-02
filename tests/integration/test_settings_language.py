@@ -17,12 +17,19 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert "正在学" in page
     assert "中文" in page
     assert "母语" in page
+    assert "Bark 推送" in page
     assert 'data-settings-toggle="learning-panel"' in page
     assert 'data-settings-toggle="feedback-panel"' in page
+    assert 'data-settings-toggle="bark-panel"' in page
     assert 'class="settings-panel" id="learning-panel"' in page
     assert 'class="settings-panel" id="feedback-panel"' in page
+    assert 'class="settings-panel settings-panel-wide" id="bark-panel"' in page
     assert 'name="languages"' in page
     assert 'name="feedback_language"' in page
+    assert 'name="bark_url"' in page
+    assert 'name="notify_review_reminder"' in page
+    assert 'name="notify_daily_summary"' in page
+    assert 'name="notify_intake_done"' in page
 
 
 def test_settings_save_sets_learning_languages(app, client, bypass_engine):
@@ -57,6 +64,44 @@ def test_settings_save_supports_chinese_target_and_french_feedback(app, client, 
     assert cur == "zh"
     assert fb == "fr"
     assert n == 1
+
+
+def test_settings_save_bark_notification_preferences(app, client, bypass_engine):
+    uid = provision_user(app, "bark@t.com", PW)
+    login(client, "bark@t.com", PW)
+    client.post("/settings", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "bark_url": "https://api.day.app/test-key",
+        "notify_review_reminder": "on",
+        "notify_intake_done": "on",
+        "csrf_token": _csrf(client, "/settings"),
+    })
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT bark_url, notify_review_reminder, notify_daily_summary, "
+            "notify_intake_done FROM user_settings WHERE user_id=:u"),
+            {"u": uid}).fetchone()
+    assert row == ("https://api.day.app/test-key", True, False, True)
+
+
+def test_settings_rejects_private_bark_url(app, client, bypass_engine):
+    uid = provision_user(app, "bad-bark@t.com", PW)
+    login(client, "bad-bark@t.com", PW)
+    r = client.post("/settings", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "bark_url": "https://127.0.0.1/test-key",
+        "notify_review_reminder": "on",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert r.status_code == 200
+    assert "设置内容不正确" in r.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        bark_url = c.execute(text(
+            "SELECT bark_url FROM user_settings WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert bark_url is None
 
 
 def test_settings_narrow_to_single_retracts_current(app, client, bypass_engine):

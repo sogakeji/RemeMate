@@ -87,7 +87,9 @@ def settings():
                            learning=words_svc.get_learning_languages(current_user.id),
                            lang_choices=words_svc._LANGUAGE_NAMES,
                            feedback_language=words_svc.get_feedback_language(current_user.id),
-                           feedback_choices=words_svc._FEEDBACK_LANGUAGE_NAMES)
+                           feedback_choices=words_svc._FEEDBACK_LANGUAGE_NAMES,
+                           notification_settings=words_svc.get_notification_settings(
+                               current_user.id))
 
 
 @bp.post("/settings")
@@ -95,11 +97,23 @@ def settings():
 def save_settings():
     codes = request.form.getlist("languages")
     feedback_language = request.form.get("feedback_language", "zh").strip()
+    notification_form_present = "bark_url" in request.form
     try:
         words_svc.set_feedback_language(current_user.id, feedback_language)
+        if notification_form_present:
+            words_svc.set_notification_settings(
+                current_user.id,
+                request.form.get("bark_url", ""),
+                notify_review_reminder=(
+                    request.form.get("notify_review_reminder") == "on"),
+                notify_daily_summary=(
+                    request.form.get("notify_daily_summary") == "on"),
+                notify_intake_done=(
+                    request.form.get("notify_intake_done") == "on"),
+            )
     except ValueError:
-        flash("未知反馈语言")
+        flash("设置内容不正确，请检查后再保存")
         return redirect(url_for("main.settings"))
     words_svc.set_learning_languages(current_user.id, codes)
-    flash("已保存语言设置")
+    flash("已保存设置")
     return redirect(url_for("main.settings"))

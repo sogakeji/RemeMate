@@ -8,7 +8,10 @@
 get_or_create_language_list 集中创建，避免多入口分叉。
 见 docs/arch/ui-rescope-plan.md §1.3 + HANDOFF 踩坑 #10。
 """
+import ipaddress
+import socket
 from datetime import timedelta
+from urllib.parse import urlsplit
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -32,6 +35,12 @@ _FEEDBACK_LANGUAGE_NAMES = {
     "zh": "中文",
     "fr": "法语",
     "en": "英语",
+}
+
+_PUSH_NOTIFY_FIELDS = {
+    "notify_review_reminder",
+    "notify_daily_summary",
+    "notify_intake_done",
 }
 
 
@@ -170,6 +179,84 @@ def set_feedback_language(user_id: int, language_code: str) -> str:
     settings.feedback_language = language_code
     db.session.commit()
     return language_code
+
+
+def _unsafe_push_ip(ip: str) -> bool:
+    parsed = ipaddress.ip_address(ip)
+    return (
+        parsed.is_private
+        or parsed.is_loopback
+        or parsed.is_link_local
+        or parsed.is_reserved
+        or parsed.is_multicast
+        or parsed.is_unspecified
+    )
+
+
+def _validate_push_url(url: str | None) -> str | None:
+    """保存推送 URL 前做第一层 SSRF 防护；发送前仍需二次校验。"""
+    normalized = (url or "").strip()
+    if not normalized:
+        return None
+    if len(normalized) > 500:
+        raise ValueError("Bark 地址过长")
+    try:
+        parts = urlsplit(normalized)
+    except ValueError as exc:
+        raise ValueError("Bark 地址格式不正确") from exc
+    if parts.scheme != "https" or not parts.hostname:
+        raise ValueError("Bark 地址必须是 https 公网地址")
+    if parts.username or parts.password:
+        raise ValueError("Bark 地址不能包含用户名或密码")
+
+    host = parts.hostname
+    if host.lower() == "localhost":
+        raise ValueError("Bark 地址不能指向本机或内网")
+    try:
+        literal_ip = ipaddress.ip_address(host)
+    except ValueError:
+        literal_ip = None
+    if literal_ip is not None and _unsafe_push_ip(str(literal_ip)):
+        raise ValueError("Bark 地址不能指向本机或内网")
+
+    try:
+        infos = socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise ValueError("Bark 地址无法解析") from exc
+    for *_, sockaddr in infos:
+        if _unsafe_push_ip(sockaddr[0]):
+            raise ValueError("Bark 地址不能指向本机或内网")
+    return normalized
+
+
+def get_notification_settings(user_id: int) -> dict:
+    settings = db.session.get(UserSettings, user_id)
+    if settings is None:
+        return {
+            "bark_url": "",
+            "notify_review_reminder": True,
+            "notify_daily_summary": True,
+            "notify_intake_done": True,
+        }
+    return {
+        "bark_url": settings.bark_url or "",
+        "notify_review_reminder": bool(settings.notify_review_reminder),
+        "notify_daily_summary": bool(settings.notify_daily_summary),
+        "notify_intake_done": bool(settings.notify_intake_done),
+    }
+
+
+def set_notification_settings(user_id: int, bark_url: str | None, **flags) -> dict:
+    settings = db.session.get(UserSettings, user_id)
+    if settings is None:
+        settings = UserSettings(user_id=user_id)
+        db.session.add(settings)
+    settings.bark_url = _validate_push_url(bark_url)
+    for field in _PUSH_NOTIFY_FIELDS:
+        if field in flags:
+            setattr(settings, field, bool(flags[field]))
+    db.session.commit()
+    return get_notification_settings(user_id)
 
 
 def get_current_language_list(user_id: int) -> WordList | None:

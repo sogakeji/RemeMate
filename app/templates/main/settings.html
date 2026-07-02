@@ -67,6 +67,62 @@
           </div>
         </div>
       </div>
+
+      <div class="settings-row">
+        <div class="settings-copy">
+          <div class="settings-title">Bark 推送</div>
+          <div class="settings-value">
+            {% if notification_settings.bark_url %}
+              <span class="settings-chip">已配置</span>
+              {% if notification_settings.notify_review_reminder %}
+                <span class="settings-chip">复习提醒</span>
+              {% endif %}
+              {% if notification_settings.notify_daily_summary %}
+                <span class="settings-chip">每日摘要</span>
+              {% endif %}
+              {% if notification_settings.notify_intake_done %}
+                <span class="settings-chip">导入完成</span>
+              {% endif %}
+            {% else %}
+              <span class="settings-empty">未配置</span>
+            {% endif %}
+          </div>
+        </div>
+        <button type="button" class="btn default settings-edit"
+                data-settings-toggle="bark-panel">
+          {% if notification_settings.bark_url %}修改{% else %}设置{% endif %}
+        </button>
+        <div class="settings-panel settings-panel-wide" id="bark-panel">
+          <div class="settings-options">
+            <div class="form-group">
+              <label class="form-label" for="bark_url">Bark 地址</label>
+              <input id="bark_url" class="form-control" type="url" name="bark_url"
+                     value="{{ notification_settings.bark_url }}"
+                     placeholder="https://api.day.app/你的Key">
+              <small class="form-text">留空即可关闭推送。</small>
+            </div>
+            <label class="lang-check">
+              <input type="checkbox" name="notify_review_reminder"
+                     {% if notification_settings.notify_review_reminder %}checked{% endif %}>
+              <span>复习提醒</span>
+            </label>
+            <label class="lang-check">
+              <input type="checkbox" name="notify_daily_summary"
+                     {% if notification_settings.notify_daily_summary %}checked{% endif %}>
+              <span>每日摘要</span>
+            </label>
+            <label class="lang-check">
+              <input type="checkbox" name="notify_intake_done"
+                     {% if notification_settings.notify_intake_done %}checked{% endif %}>
+              <span>导入完成</span>
+            </label>
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="submit" class="btn primary">确定</button>
+          </div>
+        </div>
+      </div>
     </form>
     {% if not learning %}
     <p class="settings-footnote">
@@ -74,10 +130,6 @@
     </p>
     {% endif %}
   </div>
-
-  <p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:20px;">
-    推送（Bark）/ 播客 / 自带 API key 等设置将在后续阶段补。
-  </p>
 </div>
 {% endblock %}
 
