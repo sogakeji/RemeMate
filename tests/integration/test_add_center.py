@@ -138,9 +138,26 @@ def test_add_center_implicit_list_reuses_existing(app, client, bypass_engine):
     assert cur == "en"
 
 
-def test_nav_points_to_add_center(app, client, bypass_engine):
-    """nav「加词」指向加词中心而非 intake quick-add。"""
+def test_nav_groups_word_tools_under_library_menu(app, client, bypass_engine):
+    """顶栏收敛：加词/导入归入词库菜单，不再作为普通用户顶层按钮。"""
     _auth(client, app)
     page = client.get("/").get_data(as_text=True)
-    assert 'href="/words/add"' in page
-    assert "/intake/quick-add" not in page.split("nav-link")[1] if "nav-link" in page else True
+    assert 'data-nav-menu="library"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/words/add"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/intake/import"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/intake/extract"' in page
+    assert '<a class="nav-link" href="/words/add"' not in page
+    assert '<a class="nav-link" href="/intake/quick-add"' not in page
+
+
+def test_nav_groups_account_tools_under_my_menu(app, client, bypass_engine):
+    """统计/设置/退出属于「我的」，避免普通用户顶栏变成后台工具条。"""
+    _auth(client, app)
+    page = client.get("/").get_data(as_text=True)
+    assert 'data-nav-menu="account"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/stats"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/settings"' in page
+    assert 'class="nav-menu-link" role="menuitem" href="/logout"' in page
+    assert '<a class="nav-link" href="/stats"' not in page
+    assert '<a class="nav-link" href="/settings"' not in page
+    assert '<a class="nav-link" href="/logout"' not in page

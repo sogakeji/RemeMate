@@ -872,6 +872,62 @@ textarea.form-control {
     align-items: center;
 }
 
+.nav-dropdown {
+    position: relative;
+}
+
+.nav-menu-trigger {
+    border: 1px solid transparent;
+    font-family: inherit;
+}
+
+.nav-menu-chevron {
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+    opacity: 0.6;
+    transition: transform 0.2s;
+}
+
+.nav-dropdown.open .nav-menu-chevron,
+.nav-dropdown:focus-within .nav-menu-chevron {
+    transform: rotate(180deg);
+}
+
+.nav-menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 150px;
+    display: none;
+    padding: 6px;
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+    z-index: 1000;
+}
+
+.nav-dropdown.open .nav-menu-panel,
+.nav-dropdown:hover .nav-menu-panel,
+.nav-dropdown:focus-within .nav-menu-panel {
+    display: block;
+}
+
+.nav-menu-link {
+    display: block;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.nav-menu-link:hover {
+    background: rgba(74, 108, 247, 0.10);
+    color: var(--primary-color);
+}
+
 /* 右上主题切换器固定位（多用户版：与 nav 同行右侧，而非 WordNest 的左上独立浮层） */
 .theme-slot {
     display: flex;
@@ -955,6 +1011,12 @@ textarea.form-control {
         justify-content: center;
     }
 
+    .nav-menu-panel {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+    }
+
     .card-word {
         font-size: 36px;
     }
@@ -1001,6 +1063,8 @@ textarea.form-control {
 .lang-empty { display: block; padding: 9px 12px; font-size: 13px; color: var(--text-secondary); }
 .dark-mode .lang-current, .dark-mode .lang-menu { background: #2b3240; color: #e2e8f0; }
 .dark-mode .lang-item { color: #e2e8f0; }
+.dark-mode .nav-menu-panel { background: #2b3240; color: #e2e8f0; }
+.dark-mode .nav-menu-link { color: #e2e8f0; }
 
 /* ===== 设置页：摘要式偏好项 ===== */
 .settings-card {

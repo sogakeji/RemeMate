@@ -32,16 +32,40 @@
       {% if current_user.is_authenticated %}
       <nav class="app-nav">
         <a class="nav-link" href="{{ url_for('main.index') }}">首页</a>
-        <a class="nav-link" href="{{ url_for('words.lists') }}">词库</a>
-        <a class="nav-link" href="{{ url_for('words.add_center') }}">加词</a>
         <a class="nav-link" href="{{ url_for('write.compose') }}">造句</a>
         <a class="nav-link" href="{{ url_for('square.index') }}">广场</a>
-        <a class="nav-link" href="{{ url_for('words.stats') }}">统计</a>
-        <a class="nav-link" href="{{ url_for('main.settings') }}">设置</a>
-        {% if current_user.role == 'admin' %}
-        <a class="nav-link" href="{{ url_for('admin.index') }}">管理</a>
-        {% endif %}
-        <a class="nav-link" href="{{ url_for('auth.logout') }}">登出</a>
+        <div class="nav-dropdown" data-nav-dropdown>
+          <button type="button" class="nav-link nav-menu-trigger"
+                  data-nav-menu="library" aria-haspopup="true" aria-expanded="false">
+            词库
+            <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="nav-menu-panel" role="menu" aria-label="词库菜单">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.lists') }}">词库首页</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.add_center') }}">加词中心</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.extract_page') }}">文本抽词</a>
+          </div>
+        </div>
+        <div class="nav-dropdown" data-nav-dropdown>
+          <button type="button" class="nav-link nav-menu-trigger"
+                  data-nav-menu="account" aria-haspopup="true" aria-expanded="false">
+            我的
+            <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="nav-menu-panel" role="menu" aria-label="我的菜单">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.stats') }}">统计</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('main.settings') }}">设置</a>
+            {% if current_user.role == 'admin' %}
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('admin.index') }}">管理</a>
+            {% endif %}
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('auth.logout') }}">退出登录</a>
+          </div>
+        </div>
       </nav>
       {% endif %}
       {% if current_user.is_authenticated %}
@@ -131,6 +155,32 @@
           form.submit();
         });
       }
+
+      // 顶部导航菜单：普通用户只看主入口，二级功能按归属收进菜单。
+      document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-nav-menu]');
+        document.querySelectorAll('[data-nav-dropdown]').forEach(function (drop) {
+          if (!trigger || !drop.contains(trigger)) {
+            drop.classList.remove('open');
+            var btn = drop.querySelector('[data-nav-menu]');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+          }
+        });
+        if (!trigger) return;
+        e.stopPropagation();
+        var wrap = trigger.closest('[data-nav-dropdown]');
+        var open = !wrap.classList.contains('open');
+        wrap.classList.toggle('open', open);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('[data-nav-dropdown]').forEach(function (drop) {
+          drop.classList.remove('open');
+          var btn = drop.querySelector('[data-nav-menu]');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        });
+      });
 
       // 词条发音：使用浏览器 speechSynthesis，失败时静默降级。
       document.addEventListener('click', function (e) {
