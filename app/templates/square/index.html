@@ -11,10 +11,13 @@
 
   <div class="square-type-tabs" aria-label="内容类型">
     <a class="square-type-tab {% if selected_type == 'all' %}active{% endif %}"
+       {% if selected_type == 'all' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
        href="{{ url_for('square.index', lang=lang_param, kind='all') }}">全部</a>
     <a class="square-type-tab {% if selected_type == 'sentence' %}active{% endif %}"
+       {% if selected_type == 'sentence' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
        href="{{ url_for('square.index', lang=lang_param, kind='sentence') }}">造句</a>
     <a class="square-type-tab {% if selected_type == 'diary' %}active{% endif %}"
+       {% if selected_type == 'diary' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
        href="{{ url_for('square.index', lang=lang_param, kind='diary') }}">三行日记</a>
   </div>
 

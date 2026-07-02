@@ -113,6 +113,7 @@ def test_square_filters_sentence_and_diary_entries(app, client, bypass_engine):
 
     assert 'href="/square?lang=fr&amp;kind=diary"' in diary
     assert 'square-type-tab active' in diary
+    assert 'background:var(--primary-color)' in diary
     assert "三行日记" in diary
     assert "Bonjour." in diary
     assert "Je lis un livre." not in diary
