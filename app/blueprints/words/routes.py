@@ -4,7 +4,8 @@
 """
 import json
 
-from flask import Blueprint, render_template, request, abort, jsonify
+from flask import (Blueprint, render_template, request, abort, jsonify,
+                   redirect, url_for, flash)
 from flask_login import login_required, current_user
 
 from app.services import words as words_svc
@@ -22,6 +23,26 @@ def _uid():
 
 _POS_CHOICES = ["", "n.", "v.", "adj.", "adv.", "prep.", "conj.",
                 "pron.", "interj.", "num.", "art.", "phr."]
+
+
+def _clean_definitions_from_form():
+    rows = zip(
+        request.form.getlist("part_of_speech"),
+        request.form.getlist("meaning"),
+        request.form.getlist("example"),
+        request.form.getlist("note"),
+    )
+    cleaned = []
+    for pos, meaning, example, note in rows:
+        item = {
+            "part_of_speech": (pos or "").strip(),
+            "meaning": (meaning or "").strip(),
+            "example": (example or "").strip(),
+            "note": (note or "").strip(),
+        }
+        if any(item.values()):
+            cleaned.append(item)
+    return cleaned
 
 
 @bp.get("/words/add")
@@ -143,6 +164,51 @@ def generate_note():
     if out is None:
         return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
     return jsonify({"note": out})
+
+
+@bp.get("/words/<int:word_id>/edit")
+@login_required
+def edit_word(word_id):
+    word = words_svc.get_word(_uid(), word_id)
+    if word is None:
+        abort(404)
+    return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES)
+
+
+@bp.post("/words/<int:word_id>/edit")
+@login_required
+def update_word(word_id):
+    word = words_svc.get_word(_uid(), word_id)
+    if word is None:
+        abort(404)
+    new_word = (request.form.get("word") or "").strip()
+    definitions = _clean_definitions_from_form()
+    if not new_word:
+        flash("词不能为空")
+        return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
+    if not definitions:
+        flash("至少保留一条词义、例句或笔记")
+        return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
+    try:
+        updated = words_svc.update_word(_uid(), word_id, new_word, definitions)
+    except ValueError as e:
+        flash(str(e))
+        return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
+    if updated is None:
+        abort(404)
+    flash("词条已更新")
+    return redirect(url_for("words.lists"))
+
+
+@bp.post("/words/<int:word_id>/toggle-marked")
+@login_required
+def toggle_marked(word_id):
+    word = words_svc.toggle_marked(_uid(), word_id)
+    if word is None:
+        abort(404)
+    if request.headers.get("HX-Request"):
+        return render_template("review/_card.html", word=word)
+    return redirect(url_for("words.lists"))
 
 
 # ---- 词库 / 词表 / 复习 / 统计（既有） ----

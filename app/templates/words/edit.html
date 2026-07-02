@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}修改词条 · 记搭{% endblock %}
+{% block content %}
+<div class="container">
+  <p><a class="nav-link" href="{{ url_for('words.lists') }}">← 词库</a></p>
+  <div class="header-section">
+    <h1>修改词条</h1>
+  </div>
+
+  <div class="form-card">
+    <form method="post" action="{{ url_for('words.update_word', word_id=word.id) }}" id="edit-word-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">词</label>
+        <input name="word" class="form-control" maxlength="200" required value="{{ word.word }}">
+      </div>
+
+      <div id="definitions-container">
+        {% for d in word.definitions %}
+        <div class="definition-form">
+          <div class="definition-head">
+            <h3>词义 #{{ loop.index }}</h3>
+            <button type="button" class="btn danger remove-def" {% if loop.length == 1 %}style="display:none;"{% endif %}>移除</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">词性</label>
+            <select name="part_of_speech" class="form-control">
+              {% for p in pos_choices %}
+              <option value="{{ p }}" {% if p == (d.part_of_speech or '') %}selected{% endif %}>{{ p or '-- 词性 --' }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">释义</label>
+            <input name="meaning" class="form-control" value="{{ d.meaning or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">例句</label>
+            <textarea name="example" class="form-control">{{ d.example or '' }}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">笔记</label>
+            <textarea name="note" class="form-control">{{ d.note or '' }}</textarea>
+          </div>
+        </div>
+        {% else %}
+        <div class="definition-form">
+          <div class="definition-head">
+            <h3>词义 #1</h3>
+            <button type="button" class="btn danger remove-def" style="display:none;">移除</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">词性</label>
+            <select name="part_of_speech" class="form-control">
+              {% for p in pos_choices %}
+              <option value="{{ p }}">{{ p or '-- 词性 --' }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">释义</label><input name="meaning" class="form-control"></div>
+          <div class="form-group"><label class="form-label">例句</label><textarea name="example" class="form-control"></textarea></div>
+          <div class="form-group"><label class="form-label">笔记</label><textarea name="note" class="form-control"></textarea></div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <button type="button" class="btn default" id="add-def-btn">+ 加一条词义</button>
+      <div class="button-group" style="margin-top:18px;">
+        <button type="submit" class="btn primary">保存修改</button>
+        <a class="btn default" href="{{ url_for('words.lists') }}">取消</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var posChoices = {{ pos_choices|tojson }};
+  var wrap = document.getElementById('definitions-container');
+  var add = document.getElementById('add-def-btn');
+
+  function options() {
+    return posChoices.map(function (p) {
+      return '<option value="' + p + '">' + (p || '-- 词性 --') + '</option>';
+    }).join('');
+  }
+
+  function row() {
+    var div = document.createElement('div');
+    div.className = 'definition-form';
+    div.innerHTML =
+      '<div class="definition-head"><h3>词义 #1</h3>' +
+      '<button type="button" class="btn danger remove-def">移除</button></div>' +
+      '<div class="form-group"><label class="form-label">词性</label>' +
+      '<select name="part_of_speech" class="form-control">' + options() + '</select></div>' +
+      '<div class="form-group"><label class="form-label">释义</label><input name="meaning" class="form-control"></div>' +
+      '<div class="form-group"><label class="form-label">例句</label><textarea name="example" class="form-control"></textarea></div>' +
+      '<div class="form-group"><label class="form-label">笔记</label><textarea name="note" class="form-control"></textarea></div>';
+    return div;
+  }
+
+  function renumber() {
+    [].forEach.call(wrap.children, function (item, i) {
+      item.querySelector('h3').textContent = '词义 #' + (i + 1);
+      var remove = item.querySelector('.remove-def');
+      if (remove) remove.style.display = wrap.children.length > 1 ? '' : 'none';
+    });
+  }
+
+  if (add) {
+    add.addEventListener('click', function () {
+      wrap.appendChild(row());
+      renumber();
+    });
+  }
+  wrap.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('remove-def')) return;
+    if (wrap.children.length <= 1) return;
+    e.target.closest('.definition-form').remove();
+    renumber();
+  });
+  renumber();
+})();
+</script>
+{% endblock %}

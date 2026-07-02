@@ -131,6 +131,22 @@
           form.submit();
         });
       }
+
+      // 词条发音：使用浏览器 speechSynthesis，失败时静默降级。
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-speak]');
+        if (!btn || !window.speechSynthesis) return;
+        var text = btn.getAttribute('data-speak') || '';
+        if (!text.trim()) return;
+        var langMap = {
+          fr: 'fr-FR', en: 'en-US', ja: 'ja-JP',
+          de: 'de-DE', es: 'es-ES', ru: 'ru-RU', zh: 'zh-CN'
+        };
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = langMap[btn.getAttribute('data-lang')] || 'en-US';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      });
     })();
   </script>
   {% block scripts %}{% endblock %}

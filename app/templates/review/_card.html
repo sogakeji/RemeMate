@@ -1,6 +1,22 @@
 <div id="review-card">
 {% if word %}
   <div class="word-card">
+    <div class="word-actions">
+      <form method="post" action="{{ url_for('words.toggle_marked', word_id=word.id) }}"
+            hx-post="{{ url_for('words.toggle_marked', word_id=word.id) }}"
+            hx-target="#review-card" hx-swap="outerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="icon-btn {% if word.marked %}active{% endif %}"
+                title="{% if word.marked %}取消星标{% else %}星标{% endif %}"
+                aria-label="{% if word.marked %}取消星标{% else %}星标{% endif %}">
+          {% if word.marked %}★{% else %}☆{% endif %}
+        </button>
+      </form>
+      <button type="button" class="icon-btn" title="发音" aria-label="发音"
+              data-speak="{{ word.word }}" data-lang="{{ word.word_list.language_code }}">♪</button>
+      <a class="icon-btn" href="{{ url_for('words.edit_word', word_id=word.id) }}"
+         title="修改" aria-label="修改">✎</a>
+    </div>
     <p class="card-word">{{ word.word }}</p>
     {% for d in word.definitions %}
       <details class="definition-item"><summary>显示释义</summary>
@@ -8,6 +24,7 @@
           <span class="part-of-speech">{{ d.part_of_speech }}</span>
           <span class="meaning">{{ d.meaning }}</span>
           {% if d.example %}<br><span class="example">{{ d.example }}</span>{% endif %}
+          {% if d.note %}<br><span class="note">{{ d.note }}</span>{% endif %}
         </p>
       </details>
     {% endfor %}

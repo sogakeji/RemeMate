@@ -9,18 +9,48 @@
   </div>
 
   {% if wl.words %}
-  <div class="table-container">
-    <table class="word-table">
-      <thead><tr><th>词</th><th>释义</th><th>状态</th></tr></thead>
+  <div class="table-container word-library">
+    <table class="word-table word-rich-table">
+      <thead><tr><th>词</th><th>词条内容</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
         {% for w in wl.words %}
         <tr class="word-row">
-          <td class="word-cell">{{ w.word }}</td>
-          <td>{% for d in w.definitions %}<span class="part-of-speech">{{ d.part_of_speech }}</span> <span class="meaning">{{ d.meaning }}</span>{% if not loop.last %}；{% endif %}{% endfor %}</td>
+          <td class="word-cell">
+            <div class="word-title-line">
+              {% if w.marked %}<span class="marked-star">★</span>{% endif %}
+              <span>{{ w.word }}</span>
+              <button type="button" class="icon-btn compact" title="发音" aria-label="发音"
+                      data-speak="{{ w.word }}" data-lang="{{ wl.language_code }}">♪</button>
+            </div>
+          </td>
+          <td class="word-definitions">
+            {% for d in w.definitions %}
+            <div class="definition-line">
+              {% if d.part_of_speech %}<span class="part-of-speech">{{ d.part_of_speech }}</span>{% endif %}
+              {% if d.meaning %}<span class="meaning">{{ d.meaning }}</span>{% endif %}
+              {% if d.example %}<div class="example">{{ d.example }}</div>{% endif %}
+              {% if d.note %}<div class="note">{{ d.note }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </td>
           <td><small style="color:var(--text-secondary);">
             due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}
             {% if w.lapses %} · 忘 {{ w.lapses }}{% endif %}
           </small></td>
+          <td>
+            <div class="row-actions">
+              <form method="post" action="{{ url_for('words.toggle_marked', word_id=w.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="icon-btn compact {% if w.marked %}active{% endif %}"
+                        title="{% if w.marked %}取消星标{% else %}星标{% endif %}"
+                        aria-label="{% if w.marked %}取消星标{% else %}星标{% endif %}">
+                  {% if w.marked %}★{% else %}☆{% endif %}
+                </button>
+              </form>
+              <a class="icon-btn compact" href="{{ url_for('words.edit_word', word_id=w.id) }}"
+                 title="修改" aria-label="修改">✎</a>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

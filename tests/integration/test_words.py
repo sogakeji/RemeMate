@@ -15,11 +15,11 @@ def _switch_lang(client, code):
     client.post("/language/switch", data={"language_code": code, "csrf_token": csrf})
 
 
-def _add_word(client, language_code, word, meaning="m"):
+def _add_word(client, language_code, word, meaning="m", example=None, note=None):
     return client.post("/words/add", json={
         "language_code": language_code,
         "word": word,
-        "definitions": [{"meaning": meaning}],
+        "definitions": [{"meaning": meaning, "example": example, "note": note}],
     })
 
 
@@ -33,6 +33,77 @@ def test_language_list_and_add_word(app, client, bypass_engine):
         list_id = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
     detail = client.get(f"/words/{list_id}").get_data(as_text=True)
     assert "décollage" in detail and "起飞" in detail
+
+
+def test_words_list_shows_example_note_actions(app, client, bypass_engine):
+    provision_user(app, "rich@t.com", PW)
+    login(client, "rich@t.com", PW)
+
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "conquis", "征服", "Ils ont conquis la France.", "漫画征服法国读者")
+
+    page = client.get("/words").get_data(as_text=True)
+
+    assert "Ils ont conquis la France." in page
+    assert "漫画征服法国读者" in page
+    assert "data-speak=\"conquis\"" in page
+    assert "/toggle-marked" in page
+    assert "/edit" in page
+
+
+def test_toggle_marked_from_review_card(app, client, bypass_engine):
+    provision_user(app, "mark@t.com", PW)
+    login(client, "mark@t.com", PW)
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "etoile", "星星")
+    with bypass_engine.connect() as c:
+        wid = c.execute(text("SELECT id FROM words WHERE word='etoile'")).scalar()
+
+    resp = client.post(
+        f"/words/{wid}/toggle-marked",
+        headers={"HX-Request": "true"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "etoile" in body
+    assert "取消星标" in body
+    with bypass_engine.connect() as c:
+        marked = c.execute(text("SELECT marked FROM words WHERE id=:i"), {"i": wid}).scalar()
+    assert marked is True
+
+
+def test_edit_word_updates_definitions(app, client, bypass_engine):
+    provision_user(app, "edit@t.com", PW)
+    login(client, "edit@t.com", PW)
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "ancien", "旧的")
+    with bypass_engine.connect() as c:
+        wid = c.execute(text("SELECT id FROM words WHERE word='ancien'")).scalar()
+
+    page = client.get(f"/words/{wid}/edit").get_data(as_text=True)
+    assert "修改词条" in page
+    resp = client.post(f"/words/{wid}/edit", data={
+        "word": "nouveau",
+        "part_of_speech": ["adj."],
+        "meaning": ["新的"],
+        "example": ["Un nouveau livre."],
+        "note": ["注意阴阳性配合"],
+    }, follow_redirects=True)
+
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "nouveau" in body
+    assert "Un nouveau livre." in body
+    assert "注意阴阳性配合" in body
+    with bypass_engine.connect() as c:
+        old_count = c.execute(text("SELECT count(*) FROM words WHERE word='ancien'")).scalar()
+        row = c.execute(text(
+            "SELECT w.word, d.part_of_speech, d.meaning, d.example, d.note "
+            "FROM words w JOIN definitions d ON d.word_id=w.id WHERE w.id=:i"
+        ), {"i": wid}).one()
+    assert old_count == 0
+    assert row == ("nouveau", "adj.", "新的", "Un nouveau livre.", "注意阴阳性配合")
 
 
 def test_cross_user_list_isolation(app, client, bypass_engine):
@@ -92,6 +163,8 @@ def test_review_grade_other_users_word_404(app, client, bypass_engine):
     provision_user(app, "a@t.com", PW)
     login(client, "a@t.com", PW)
     assert client.post(f"/review/{b_word}/grade", data={"button": "easy"}).status_code == 404
+    assert client.get(f"/words/{b_word}/edit").status_code == 404
+    assert client.post(f"/words/{b_word}/toggle-marked").status_code == 404
 
 
 def test_stats_counts(app, client, bypass_engine):

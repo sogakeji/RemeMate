@@ -526,6 +526,120 @@ h1 {
     padding-left: 12px;
 }
 
+.word-rich-table th:nth-child(1),
+.word-rich-table td:nth-child(1) {
+    width: 20%;
+}
+
+.word-rich-table th:nth-child(2),
+.word-rich-table td:nth-child(2) {
+    width: 48%;
+}
+
+.word-rich-table th:nth-child(3),
+.word-rich-table td:nth-child(3) {
+    width: 20%;
+}
+
+.word-rich-table th:nth-child(4),
+.word-rich-table td:nth-child(4) {
+    width: 12%;
+}
+
+.word-rich-table td {
+    height: auto;
+    vertical-align: top;
+    overflow: visible;
+    text-overflow: initial;
+}
+
+.word-title-line,
+.row-actions,
+.word-actions,
+.definition-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.word-title-line {
+    flex-wrap: wrap;
+}
+
+.word-actions {
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
+.row-actions {
+    flex-wrap: wrap;
+}
+
+.definition-head {
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.definition-head h3 {
+    font-size: 15px;
+    margin: 0;
+}
+
+.definition-form {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+}
+
+.definition-line {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.definition-line:last-child {
+    border-bottom: none;
+}
+
+.marked-star {
+    color: var(--warning-color);
+    font-size: 16px;
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.icon-btn.active {
+    color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+
+.icon-btn.compact {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+}
+
 /* 表单 */
 .form-group {
     margin-bottom: 15px;
@@ -715,6 +829,29 @@ textarea.form-control {
     .word-table th,
     .word-table td {
         padding: 10px;
+    }
+
+    .word-rich-table,
+    .word-rich-table thead,
+    .word-rich-table tbody,
+    .word-rich-table tr,
+    .word-rich-table th,
+    .word-rich-table td {
+        display: block;
+        width: 100% !important;
+    }
+
+    .word-rich-table thead {
+        display: none;
+    }
+
+    .word-rich-table tr {
+        border-bottom: 1px solid var(--border-color);
+        padding: 10px 0;
+    }
+
+    .word-rich-table td {
+        border-bottom: none;
     }
 
     .search-input {

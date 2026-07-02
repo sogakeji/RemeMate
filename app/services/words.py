@@ -265,9 +265,42 @@ def add_word(user_id, list_id, word, *, meaning=None,
     return w
 
 
+def update_word(user_id: int, word_id: int, word: str, definitions: list[dict]) -> Word | None:
+    """更新词条本体与多条释义；不属于该用户返回 None。"""
+    w = get_word(user_id, word_id)
+    if w is None:
+        return None
+    word = (word or "").strip()
+    if not word:
+        raise ValueError("词不能为空")
+    w.word = word
+    Definition.query.filter_by(word_id=w.id).delete()
+    for d in definitions:
+        db.session.add(Definition(
+            word_id=w.id,
+            part_of_speech=(d or {}).get("part_of_speech") or None,
+            meaning=(d or {}).get("meaning") or None,
+            example=(d or {}).get("example") or None,
+            note=(d or {}).get("note") or None,
+        ))
+    db.session.commit()
+    return w
+
+
+def toggle_marked(user_id: int, word_id: int) -> Word | None:
+    """切换星标；不属于该用户返回 None。"""
+    w = get_word(user_id, word_id)
+    if w is None:
+        return None
+    w.marked = not w.marked
+    db.session.commit()
+    return w
+
+
 def get_word(user_id: int, word_id: int) -> Word | None:
     return (Word.query
             .join(WordList)
+            .options(selectinload(Word.definitions), selectinload(Word.word_list))
             .filter(Word.id == word_id, WordList.user_id == user_id)
             .first())
 
