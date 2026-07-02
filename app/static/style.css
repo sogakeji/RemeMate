@@ -609,6 +609,37 @@ h1 {
     border-bottom: none;
 }
 
+.write-target-word {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: rgba(74,108,247,0.08);
+}
+
+.write-target-main {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.write-target-main strong {
+    color: var(--primary-color);
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.write-target-label {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.write-target-meaning {
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
 .marked-star {
     color: var(--warning-color);
     font-size: 16px;

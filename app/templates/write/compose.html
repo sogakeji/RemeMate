@@ -55,18 +55,30 @@
     <form hx-post="{{ url_for('write.submit') }}" hx-target="#write-result"
           hx-swap="innerHTML" hx-disabled-elt="find button">
       <input type="hidden" name="mode" value="sentence">
+      <input type="hidden" name="word_id" value="{{ target_word.id }}">
       <div class="form-group">
-        <label class="form-label">目标词
-          <select name="word_id" class="form-control" required>
-            {% for w in words %}<option value="{{ w.id }}">{{ w.word }}</option>{% endfor %}
-          </select>
-        </label>
+        <label class="form-label">目标词</label>
+        <div class="write-target-word">
+          <div class="write-target-main">
+            <span class="write-target-label">今日推荐</span>
+            <strong>{{ target_word.word }}</strong>
+          </div>
+          {% if target_word.definitions %}
+          <div class="write-target-meaning">
+            {% for d in target_word.definitions[:2] %}
+              {% if d.part_of_speech %}<span class="part-of-speech">{{ d.part_of_speech }}</span>{% endif %}
+              {% if d.meaning %}<span>{{ d.meaning }}</span>{% endif %}
+              {% if not loop.last %}<span> · </span>{% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
       </div>
       <div class="form-group">
         <textarea name="sentence" rows="3" maxlength="{{ max_chars }}" required
                   class="form-control"
                   oninput="document.getElementById('cc').textContent = this.value.length"
-                  placeholder="用目标词造一个句子（≤ {{ max_chars }} 字符）"></textarea>
+                  placeholder="用“{{ target_word.word }}”造一个句子（≤ {{ max_chars }} 字符）"></textarea>
         <span class="form-text"><span id="cc">0</span>/{{ max_chars }}</span>
       </div>
       <button type="submit" class="btn primary">提交批改</button>

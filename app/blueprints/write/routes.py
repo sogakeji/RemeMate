@@ -28,9 +28,11 @@ def compose():
     feedback_lang = words_svc.get_feedback_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
+    target_word = words[0] if words else None
     return render_template(
         "write/compose.html",
         words=words,
+        target_word=target_word,
         quota=quota_svc.write_quota_status(_uid()),
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
         diary_line_count=writing_svc.DIARY_LINE_COUNT,

@@ -284,6 +284,8 @@ def test_compose_uses_current_language_and_rejects_other_language_word(
     page = client.get("/write").get_data(as_text=True)
     assert "décollage" in page
     assert "apple" not in page
+    assert 'type="hidden" name="word_id"' in page
+    assert '<select name="word_id"' not in page
 
     resp = client.post("/write/submit", data={"word_id": en_wid, "sentence": "Apple."})
     assert resp.status_code == 404
@@ -353,7 +355,10 @@ def test_compose_prioritizes_due_lapses(app, client, bypass_engine, fake_llm):
         c.commit()
 
     page = client.get("/write").get_data(as_text=True)
-    assert page.index("fragile") < page.index("steady")
+    assert "今日推荐" in page
+    assert "fragile" in page
+    assert "steady" not in page
+    assert '<select name="word_id"' not in page
 
 
 def test_target_word_not_used_flagged(app, client, bypass_engine, fake_llm):
