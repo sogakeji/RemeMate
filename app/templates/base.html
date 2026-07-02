@@ -144,6 +144,9 @@
         };
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = langMap[btn.getAttribute('data-lang')] || 'en-US';
+        btn.classList.add('playing');
+        utterance.onend = function () { btn.classList.remove('playing'); };
+        utterance.onerror = function () { btn.classList.remove('playing'); };
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
       });

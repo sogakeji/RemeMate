@@ -42,8 +42,6 @@
               <div class="word-title-line">
                 {% if w.marked %}<span class="marked-star">★</span>{% endif %}
                 <span>{{ w.word }}</span>
-                <button type="button" class="icon-btn compact" title="发音" aria-label="发音"
-                        data-speak="{{ w.word }}" data-lang="{{ current_language }}">♪</button>
               </div>
             </td>
             <td class="word-definitions">
@@ -62,16 +60,30 @@
             </small></td>
             <td>
               <div class="row-actions">
+                <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+                        data-speak="{{ w.word }}" data-lang="{{ current_language }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                </button>
+                <a class="action-icon-btn" href="{{ url_for('words.edit_word', word_id=w.id) }}"
+                   title="编辑单词" aria-label="编辑单词">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </a>
                 <form method="post" action="{{ url_for('words.toggle_marked', word_id=w.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="icon-btn compact {% if w.marked %}active{% endif %}"
-                          title="{% if w.marked %}取消星标{% else %}星标{% endif %}"
-                          aria-label="{% if w.marked %}取消星标{% else %}星标{% endif %}">
-                    {% if w.marked %}★{% else %}☆{% endif %}
+                  <button type="submit" class="action-icon-btn {% if w.marked %}marked{% endif %}"
+                          title="{% if w.marked %}取消标记{% else %}标记单词{% endif %}"
+                          aria-label="{% if w.marked %}取消标记{% else %}标记单词{% endif %}">
+                    {% if w.marked %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    {% else %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    {% endif %}
                   </button>
                 </form>
-                <a class="icon-btn compact" href="{{ url_for('words.edit_word', word_id=w.id) }}"
-                   title="修改" aria-label="修改">✎</a>
               </div>
             </td>
           </tr>

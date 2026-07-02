@@ -606,38 +606,76 @@ h1 {
     font-size: 16px;
 }
 
-.icon-btn {
+.action-icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--border-color);
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: none;
     border-radius: 50%;
-    background: var(--card-bg);
-    color: var(--text-color);
-    font-size: 18px;
-    line-height: 1;
+    background-color: #f8f9fa;
+    color: var(--text-secondary);
     cursor: pointer;
     text-decoration: none;
-    transition: all 0.15s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-.icon-btn:hover {
-    border-color: var(--primary-color);
+.action-icon-btn:hover {
     color: var(--primary-color);
-    transform: translateY(-1px);
+    background-color: #e9ecef;
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
-.icon-btn.active {
-    color: var(--warning-color);
-    border-color: var(--warning-color);
+.action-icon-btn:active {
+    transform: scale(0.95);
 }
 
-.icon-btn.compact {
-    width: 30px;
-    height: 30px;
-    font-size: 15px;
+.action-icon-btn.speak-action {
+    background-color: var(--primary-color);
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.action-icon-btn.speak-action:hover {
+    background-color: var(--primary-hover);
+    color: #fff;
+}
+
+.action-icon-btn.marked {
+    color: var(--danger-color);
+}
+
+.action-icon-btn.marked svg {
+    fill: var(--danger-color);
+}
+
+.action-icon-btn.playing {
+    animation: pulse 1.5s infinite;
+}
+
+.dark-mode .action-icon-btn {
+    background-color: #333333;
+    color: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .action-icon-btn:hover {
+    background-color: #444444;
+    color: var(--primary-color);
+}
+
+.dark-mode .action-icon-btn.speak-action {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+.dark-mode .action-icon-btn.speak-action:hover {
+    background-color: var(--primary-hover);
+    color: #fff;
 }
 
 /* 表单 */

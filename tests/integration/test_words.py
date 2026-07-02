@@ -67,7 +67,7 @@ def test_toggle_marked_from_review_card(app, client, bypass_engine):
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "etoile" in body
-    assert "取消星标" in body
+    assert "取消标记" in body
     with bypass_engine.connect() as c:
         marked = c.execute(text("SELECT marked FROM words WHERE id=:i"), {"i": wid}).scalar()
     assert marked is True

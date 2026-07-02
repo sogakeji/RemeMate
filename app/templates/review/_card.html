@@ -2,20 +2,32 @@
 {% if word %}
   <div class="word-card">
     <div class="word-actions">
+      <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+              data-speak="{{ word.word }}" data-lang="{{ word.word_list.language_code }}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      </button>
+      <a class="action-icon-btn" href="{{ url_for('words.edit_word', word_id=word.id) }}"
+         title="编辑单词" aria-label="编辑单词">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      </a>
       <form method="post" action="{{ url_for('words.toggle_marked', word_id=word.id) }}"
             hx-post="{{ url_for('words.toggle_marked', word_id=word.id) }}"
             hx-target="#review-card" hx-swap="outerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="icon-btn {% if word.marked %}active{% endif %}"
-                title="{% if word.marked %}取消星标{% else %}星标{% endif %}"
-                aria-label="{% if word.marked %}取消星标{% else %}星标{% endif %}">
-          {% if word.marked %}★{% else %}☆{% endif %}
+        <button type="submit" class="action-icon-btn {% if word.marked %}marked{% endif %}"
+                title="{% if word.marked %}取消标记{% else %}标记单词{% endif %}"
+                aria-label="{% if word.marked %}取消标记{% else %}标记单词{% endif %}">
+          {% if word.marked %}
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          {% else %}
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          {% endif %}
         </button>
       </form>
-      <button type="button" class="icon-btn" title="发音" aria-label="发音"
-              data-speak="{{ word.word }}" data-lang="{{ word.word_list.language_code }}">♪</button>
-      <a class="icon-btn" href="{{ url_for('words.edit_word', word_id=word.id) }}"
-         title="修改" aria-label="修改">✎</a>
     </div>
     <p class="card-word">{{ word.word }}</p>
     {% for d in word.definitions %}
