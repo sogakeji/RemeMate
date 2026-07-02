@@ -609,11 +609,85 @@ h1 {
     border-bottom: none;
 }
 
+.write-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.write-header h1 {
+    text-align: left;
+    margin-bottom: 4px;
+}
+
+.write-quota {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.write-mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.write-mode-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.write-mode-tab span {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.write-mode-tab strong {
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.write-mode-tab.active {
+    border-color: var(--primary-color);
+    background: rgba(74,108,247,0.08);
+    color: var(--primary-color);
+}
+
+.write-card {
+    padding: 24px;
+}
+
 .write-target-word {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px 18px;
     background: rgba(74,108,247,0.08);
+}
+
+.write-prompt-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: rgba(40,167,69,0.08);
+}
+
+.write-prompt-card strong {
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--text-color);
 }
 
 .write-target-main {
@@ -638,6 +712,10 @@ h1 {
     margin-top: 8px;
     color: var(--text-secondary);
     font-size: 14px;
+}
+
+.write-submit {
+    min-width: 132px;
 }
 
 .marked-star {

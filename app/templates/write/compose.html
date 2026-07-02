@@ -2,17 +2,25 @@
 {% block title %}造句 · 记搭{% endblock %}
 {% block content %}
 <div class="container">
-  <div class="header-section">
-    <h1>造句练习</h1>
-    <p><small>今日已用 {{ quota.used }}/{{ quota.limit }} 句{% if quota.own_key %}（自带 key）{% endif %}
-      · <a class="nav-link" href="{{ url_for('write.history') }}" style="display:inline;padding:2px 6px;">历史</a></small></p>
+  <div class="write-header">
+    <div>
+      <h1>{% if mode == 'diary' %}写三行日记{% else %}今天写一句{% endif %}</h1>
+      <p class="write-quota">今日 {{ quota.used }}/{{ quota.limit }}{% if quota.own_key %} · 自带 key{% endif %}</p>
+    </div>
+    <a class="btn default" href="{{ url_for('write.history') }}">历史</a>
   </div>
 
-  <div class="button-group" style="margin-bottom:18px;">
-    <a class="btn {% if mode == 'sentence' %}primary{% else %}default{% endif %}"
-       href="{{ url_for('write.compose') }}">单句造句</a>
-    <a class="btn {% if mode == 'diary' %}primary{% else %}default{% endif %}"
-       href="{{ url_for('write.compose', mode='diary') }}">三行日记</a>
+  <div class="write-mode-tabs" aria-label="造句模式">
+    <a class="write-mode-tab {% if mode == 'sentence' %}active{% endif %}"
+       href="{{ url_for('write.compose') }}" {% if mode == 'sentence' %}aria-current="page"{% endif %}>
+      <span>推荐词</span>
+      <strong>单句造句</strong>
+    </a>
+    <a class="write-mode-tab {% if mode == 'diary' %}active{% endif %}"
+       href="{{ url_for('write.compose', mode='diary') }}" {% if mode == 'diary' %}aria-current="page"{% endif %}>
+      <span>随机问题</span>
+      <strong>三行日记</strong>
+    </a>
   </div>
 
   {% if not current_language %}
@@ -26,22 +34,25 @@
       {% if not quota.own_key %}可在设置页配置自己的 key 解除限制。{% endif %}</p>
   </div>
   {% elif mode == 'diary' %}
-  <div class="form-card">
+  <div class="form-card write-card">
     <form hx-post="{{ url_for('write.submit') }}" hx-target="#write-result"
           hx-swap="innerHTML" hx-disabled-elt="find button">
       <input type="hidden" name="mode" value="diary">
       <input type="hidden" name="prompt" value="{{ diary_prompt }}">
       <div class="form-group">
         <label class="form-label">提示问题</label>
-        <p style="margin:4px 0 0;color:var(--text-secondary);">{{ diary_prompt }}</p>
+        <div class="write-prompt-card">
+          <span class="write-target-label">今日问题</span>
+          <strong>{{ diary_prompt }}</strong>
+        </div>
       </div>
       <div class="form-group">
         <textarea name="diary" rows="5" maxlength="{{ diary_line_count * diary_line_chars + 6 }}"
                   required class="form-control"
-                  placeholder="用{{ lang_name }}写三行，每行不超过 {{ diary_line_chars }} 字符"></textarea>
+                  placeholder="第一行&#10;第二行&#10;第三行"></textarea>
         <span class="form-text">写满 {{ diary_line_count }} 行后提交</span>
       </div>
-      <button type="submit" class="btn primary">提交批改</button>
+      <button type="submit" class="btn primary write-submit">批改日记</button>
       <span class="htmx-indicator loading" style="margin-left:10px;">批改中…</span>
     </form>
   </div>
@@ -51,7 +62,7 @@
     <a class="btn success" href="{{ url_for('words.add_center') }}">去加词</a>
   </div>
   {% else %}
-  <div class="form-card">
+  <div class="form-card write-card">
     <form hx-post="{{ url_for('write.submit') }}" hx-target="#write-result"
           hx-swap="innerHTML" hx-disabled-elt="find button">
       <input type="hidden" name="mode" value="sentence">
@@ -81,7 +92,7 @@
                   placeholder="用“{{ target_word.word }}”造一个句子（≤ {{ max_chars }} 字符）"></textarea>
         <span class="form-text"><span id="cc">0</span>/{{ max_chars }}</span>
       </div>
-      <button type="submit" class="btn primary">提交批改</button>
+      <button type="submit" class="btn primary write-submit">批改这句</button>
       <span class="htmx-indicator loading" style="margin-left:10px;">批改中…</span>
     </form>
   </div>
