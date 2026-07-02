@@ -7,10 +7,33 @@
 """
 import os
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
 
 load_dotenv()
 
 INSECURE_SECRET_DEFAULT = "dev-insecure-change-me"
+PLACEHOLDER_VALUES = {"", "CHANGE_ME", "changeme", "your-api-key", "your-secret-key"}
+
+
+def is_configured(value: str | None) -> bool:
+    return (value or "").strip() not in PLACEHOLDER_VALUES
+
+
+def require_configured(name: str) -> str:
+    value = os.environ.get(name)
+    if not is_configured(value):
+        raise RuntimeError(f"生产环境必须设置 {name}，且不能使用占位值。")
+    return value.strip()
+
+
+def validate_fernet_key(value: str | None) -> bool:
+    if not is_configured(value):
+        return False
+    try:
+        Fernet(value.encode("utf-8"))
+    except Exception:
+        return False
+    return True
 
 
 class BaseConfig:
@@ -52,15 +75,30 @@ class ProductionConfig(BaseConfig):
     DEBUG = False
 
     def __init__(self):
-        # 启动期断言：生产绝不允许用不安全默认密钥或空密钥（H1）
-        secret = os.environ.get("SECRET_KEY")
-        if not secret or secret == INSECURE_SECRET_DEFAULT:
+        # 启动期断言：生产绝不允许用不安全默认密钥或空密钥（H1）。
+        secret = require_configured("SECRET_KEY")
+        if secret == INSECURE_SECRET_DEFAULT:
             raise RuntimeError(
                 "生产环境必须设置强随机 SECRET_KEY（不能为空或用 dev 默认值）。"
                 "生成：python -c \"import secrets;print(secrets.token_hex(32))\""
             )
-        if not os.environ.get("DATABASE_URL"):
-            raise RuntimeError("生产环境必须设置 DATABASE_URL。")
+        if len(secret) < 32:
+            raise RuntimeError("生产环境 SECRET_KEY 至少 32 字符。")
+
+        data_key = require_configured("DATA_ENCRYPTION_KEY")
+        if not validate_fernet_key(data_key):
+            raise RuntimeError(
+                "生产环境 DATA_ENCRYPTION_KEY 必须是 Fernet key。"
+                "生成：python -c \"from cryptography.fernet import Fernet;"
+                "print(Fernet.generate_key().decode())\""
+            )
+
+        self.SECRET_KEY = secret
+        self.DATA_ENCRYPTION_KEY = data_key
+        self.SQLALCHEMY_DATABASE_URI = require_configured("DATABASE_URL")
+        self.MIGRATE_DATABASE_URL = require_configured("MIGRATE_DATABASE_URL")
+        self.DISPATCH_DATABASE_URL = require_configured("DISPATCH_DATABASE_URL")
+        self.DEEPSEEK_API_KEY = require_configured("DEEPSEEK_API_KEY")
 
 
 _CONFIGS = {

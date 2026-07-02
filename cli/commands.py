@@ -9,10 +9,11 @@ from flask import current_app
 from sqlalchemy import create_engine, text
 
 from app.extensions import db
+from app.models.user import User
 from app.services import provisioning
 from app.services import llm
 from app.services import words as words_svc
-from config import INSECURE_SECRET_DEFAULT
+from config import INSECURE_SECRET_DEFAULT, is_configured, validate_fernet_key
 
 
 def register_commands(app):
@@ -111,6 +112,20 @@ def register_commands(app):
         else:
             fail("dispatch database", "DISPATCH_DATABASE_URL missing")
 
+        migrate_url = current_app.config.get("MIGRATE_DATABASE_URL")
+        if migrate_url:
+            engine = create_engine(migrate_url, pool_pre_ping=True)
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1")).scalar()
+                ok("migrate database", "connected")
+            except Exception as e:
+                fail("migrate database", str(e))
+            finally:
+                engine.dispose()
+        else:
+            fail("migrate database", "MIGRATE_DATABASE_URL missing")
+
         try:
             current_rev = db.session.execute(text(
                 "SELECT version_num FROM alembic_version"
@@ -126,15 +141,25 @@ def register_commands(app):
             fail("migrations", str(e))
 
         secret = current_app.config.get("SECRET_KEY")
-        if secret and secret != INSECURE_SECRET_DEFAULT:
+        if is_configured(secret) and secret != INSECURE_SECRET_DEFAULT and len(secret) >= 32:
             ok("SECRET_KEY", "configured")
         else:
-            warn("SECRET_KEY", "using development default")
+            warn("SECRET_KEY", "missing, placeholder, or too short")
 
-        if current_app.config.get("DATA_ENCRYPTION_KEY"):
+        data_key = current_app.config.get("DATA_ENCRYPTION_KEY")
+        if validate_fernet_key(data_key):
             ok("DATA_ENCRYPTION_KEY", "configured")
         else:
-            warn("DATA_ENCRYPTION_KEY", "missing")
+            warn("DATA_ENCRYPTION_KEY", "missing, placeholder, or invalid Fernet key")
+
+        try:
+            active_admins = User.query.filter_by(role="admin", is_active=True).count()
+            if active_admins:
+                ok("admin account", f"{active_admins} active")
+            else:
+                warn("admin account", "no active admin user")
+        except Exception as e:
+            fail("admin account", str(e))
 
         if llm.get_chain("correction"):
             ok("LLM correction", "provider configured")

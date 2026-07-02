@@ -1,40 +1,69 @@
-"""H1/H2：生产配置启动期断言。"""
+"""生产配置启动护栏：闭测部署缺硬配置时必须 fail fast。"""
 import pytest
+from cryptography.fernet import Fernet
 
-import config
-
-
-def test_production_rejects_missing_secret(monkeypatch):
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
-    with pytest.raises(RuntimeError):
-        config.ProductionConfig()
+from config import get_config
 
 
-def test_production_rejects_default_secret(monkeypatch):
-    monkeypatch.setenv("SECRET_KEY", config.INSECURE_SECRET_DEFAULT)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
-    with pytest.raises(RuntimeError):
-        config.ProductionConfig()
+def _set_production_env(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "s" * 64)
+    monkeypatch.setenv("DATA_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("DATABASE_URL", "postgresql://app@example.com/db")
+    monkeypatch.setenv("MIGRATE_DATABASE_URL", "postgresql://owner@example.com/db")
+    monkeypatch.setenv("DISPATCH_DATABASE_URL", "postgresql://dispatch@example.com/db")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
 
 
-def test_production_requires_database_url(monkeypatch):
-    monkeypatch.setenv("SECRET_KEY", "a-real-strong-secret")
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    with pytest.raises(RuntimeError):
-        config.ProductionConfig()
+def test_production_config_accepts_complete_env(monkeypatch):
+    _set_production_env(monkeypatch)
+
+    cfg = get_config("production")
+
+    assert cfg.SECRET_KEY == "s" * 64
+    assert cfg.DATA_ENCRYPTION_KEY
+    assert cfg.SQLALCHEMY_DATABASE_URI == "postgresql://app@example.com/db"
+    assert cfg.MIGRATE_DATABASE_URL == "postgresql://owner@example.com/db"
+    assert cfg.DISPATCH_DATABASE_URL == "postgresql://dispatch@example.com/db"
+    assert cfg.DEEPSEEK_API_KEY == "sk-test"
 
 
-def test_production_ok_with_real_secret(monkeypatch):
-    monkeypatch.setenv("SECRET_KEY", "a-real-strong-secret")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
-    cfg = config.ProductionConfig()       # 不应抛
-    assert cfg.DEBUG is False
+@pytest.mark.parametrize("name", [
+    "SECRET_KEY",
+    "DATA_ENCRYPTION_KEY",
+    "DATABASE_URL",
+    "MIGRATE_DATABASE_URL",
+    "DISPATCH_DATABASE_URL",
+    "DEEPSEEK_API_KEY",
+])
+def test_production_config_rejects_missing_required_env(monkeypatch, name):
+    _set_production_env(monkeypatch)
+    monkeypatch.delenv(name)
+
+    with pytest.raises(RuntimeError, match=name):
+        get_config("production")
 
 
-def test_get_config_defaults_to_production(monkeypatch):
-    # 漏配 FLASK_ENV → 默认 production（fail-safe），且因缺密钥而 raise
-    monkeypatch.delenv("FLASK_ENV", raising=False)
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    with pytest.raises(RuntimeError):
-        config.get_config()
+def test_production_config_rejects_invalid_data_encryption_key(monkeypatch):
+    _set_production_env(monkeypatch)
+    monkeypatch.setenv("DATA_ENCRYPTION_KEY", "not-a-fernet-key")
+
+    with pytest.raises(RuntimeError, match="DATA_ENCRYPTION_KEY"):
+        get_config("production")
+
+
+def test_production_config_rejects_development_secret(monkeypatch):
+    from config import INSECURE_SECRET_DEFAULT
+
+    _set_production_env(monkeypatch)
+    monkeypatch.setenv("SECRET_KEY", INSECURE_SECRET_DEFAULT)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        get_config("production")
+
+
+def test_production_config_rejects_short_secret(monkeypatch):
+    _set_production_env(monkeypatch)
+    monkeypatch.setenv("SECRET_KEY", "too-short")
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        get_config("production")

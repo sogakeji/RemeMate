@@ -60,5 +60,28 @@ def test_doctor_reports_core_checks(runner):
     assert result.exit_code == 0
     assert "[OK] app database" in result.output
     assert "[OK] dispatch database" in result.output
+    assert "[OK] migrate database" in result.output
     assert "[OK] migrations" in result.output
+    assert "admin account" in result.output
     assert "LLM correction" in result.output
+
+
+def test_doctor_reports_active_admin(runner):
+    runner.invoke(args=[
+        "create-user", "--email", "admin@t.com", "--name", "Admin", "--admin",
+    ])
+
+    result = runner.invoke(args=["doctor"])
+
+    assert result.exit_code == 0
+    assert "[OK] admin account: 1 active" in result.output
+
+
+def test_doctor_warns_invalid_data_encryption_key(app, runner):
+    app.config["DATA_ENCRYPTION_KEY"] = "not-a-fernet-key"
+
+    result = runner.invoke(args=["doctor"])
+
+    assert result.exit_code == 0
+    assert "[WARN] DATA_ENCRYPTION_KEY" in result.output
+    assert "invalid Fernet key" in result.output
