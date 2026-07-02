@@ -11,19 +11,19 @@
 
   <div class="square-type-tabs" aria-label="内容类型">
     <a class="square-type-tab {% if selected_type == 'all' %}active{% endif %}"
-       href="{{ url_for('square.index', lang=lang_param, type='all') }}">全部</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='all') }}">全部</a>
     <a class="square-type-tab {% if selected_type == 'sentence' %}active{% endif %}"
-       href="{{ url_for('square.index', lang=lang_param, type='sentence') }}">造句</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='sentence') }}">造句</a>
     <a class="square-type-tab {% if selected_type == 'diary' %}active{% endif %}"
-       href="{{ url_for('square.index', lang=lang_param, type='diary') }}">三行日记</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='diary') }}">三行日记</a>
   </div>
 
   <div class="button-group" style="margin-bottom:18px;">
     <a class="btn {% if not selected_language %}primary{% else %}default{% endif %}"
-       href="{{ url_for('square.index', lang='all', type=selected_type) }}">全部语言</a>
+       href="{{ url_for('square.index', lang='all', kind=selected_type) }}">全部语言</a>
     {% for code, name in lang_choices.items() %}
       <a class="btn {% if selected_language == code %}primary{% else %}default{% endif %}"
-         href="{{ url_for('square.index', lang=code, type=selected_type) }}">{{ name }}</a>
+         href="{{ url_for('square.index', lang=code, kind=selected_type) }}">{{ name }}</a>
     {% endfor %}
   </div>
 
@@ -50,7 +50,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="square">
             <input type="hidden" name="lang" value="{{ lang_param }}">
-            <input type="hidden" name="type" value="{{ selected_type }}">
+            <input type="hidden" name="kind" value="{{ selected_type }}">
             <button type="submit" class="btn default">取消公开</button>
           </form>
         {% elif upvoted %}
@@ -59,7 +59,7 @@
           <form method="post" action="{{ url_for('square.upvote', entry_id=entry.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="lang" value="{{ lang_param }}">
-            <input type="hidden" name="type" value="{{ selected_type }}">
+            <input type="hidden" name="kind" value="{{ selected_type }}">
             <button type="submit" class="btn primary">夯一下</button>
           </form>
         {% endif %}

@@ -16,7 +16,7 @@ def index():
         selected = None
     if selected is not None and selected not in words_svc._LANGUAGE_NAMES:
         selected = None
-    content_type = request.args.get("type") or "all"
+    content_type = request.args.get("kind") or request.args.get("type") or "all"
     if content_type not in {"all", "sentence", "diary"}:
         content_type = "all"
     entries = square_svc.list_public_entries(
@@ -35,11 +35,12 @@ def index():
 def upvote(entry_id):
     square_svc.upvote_entry(current_user.id, entry_id)
     lang = request.form.get("lang") or request.args.get("lang") or ""
-    content_type = request.form.get("type") or request.args.get("type") or ""
+    content_type = (request.form.get("kind") or request.form.get("type")
+                    or request.args.get("kind") or request.args.get("type") or "")
     params = {}
     if lang:
         params["lang"] = lang
     if content_type:
-        params["type"] = content_type
+        params["kind"] = content_type
     target = url_for("square.index", **params) if params else url_for("square.index")
     return redirect(target)

@@ -659,8 +659,13 @@ h1 {
 
 .write-mode-tab.active {
     border-color: var(--primary-color);
-    background: rgba(74,108,247,0.08);
-    color: var(--primary-color);
+    background: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(74,108,247,0.22);
+}
+
+.write-mode-tab.active span {
+    color: rgba(255, 255, 255, 0.82);
 }
 
 .write-card {
@@ -741,8 +746,9 @@ h1 {
 
 .square-type-tab.active {
     border-color: var(--primary-color);
-    color: var(--primary-color);
-    background: rgba(74,108,247,0.08);
+    color: #ffffff;
+    background: var(--primary-color);
+    box-shadow: 0 6px 16px rgba(74,108,247,0.22);
 }
 
 .square-entry {

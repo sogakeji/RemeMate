@@ -108,9 +108,11 @@ def test_square_filters_sentence_and_diary_entries(app, client, bypass_engine):
     _make_diary_entry(bypass_engine, author, "Bonjour.\nJe lis.\nJe souris.")
 
     login(client, "viewer-type@t.com", PW)
-    diary = client.get("/square?lang=fr&type=diary").get_data(as_text=True)
-    sentence = client.get("/square?lang=fr&type=sentence").get_data(as_text=True)
+    diary = client.get("/square?lang=fr&kind=diary").get_data(as_text=True)
+    sentence = client.get("/square?lang=fr&kind=sentence").get_data(as_text=True)
 
+    assert 'href="/square?lang=fr&amp;kind=diary"' in diary
+    assert 'square-type-tab active' in diary
     assert "三行日记" in diary
     assert "Bonjour." in diary
     assert "Je lis un livre." not in diary
@@ -142,10 +144,24 @@ def test_square_upvote_preserves_type_filter(app, client, bypass_engine):
 
     login(client, "viewer-type-vote@t.com", PW)
     resp = client.post(f"/square/{entry_id}/upvote",
-                       data={"lang": "fr", "type": "diary"})
+                       data={"lang": "fr", "kind": "diary"})
 
     assert resp.status_code == 302
-    assert resp.headers["Location"].endswith("/square?lang=fr&type=diary")
+    assert resp.headers["Location"].endswith("/square?lang=fr&kind=diary")
+
+
+def test_square_keeps_legacy_type_filter_compatible(app, client, bypass_engine):
+    author = provision_user(app, "author-legacy-type@t.com", PW, name="Author")
+    provision_user(app, "viewer-legacy-type@t.com", PW, name="Viewer")
+    word_id = _make_word(bypass_engine, author, "fr", "livre")
+    _make_entry(bypass_engine, author, word_id, "Je lis un livre.")
+    _make_diary_entry(bypass_engine, author, "Bonjour.\nJe lis.\nJe souris.")
+
+    login(client, "viewer-legacy-type@t.com", PW)
+    page = client.get("/square?lang=fr&type=diary").get_data(as_text=True)
+
+    assert "Bonjour." in page
+    assert "Je lis un livre." not in page
 
 
 def test_square_author_cannot_upvote_own_entry(app, client, bypass_engine):
