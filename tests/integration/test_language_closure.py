@@ -85,6 +85,21 @@ def test_language_switch_redirects_back_to_current_page(app, client, bypass_engi
     assert resp.headers["Location"].endswith("/square?kind=diary")
 
 
+def test_language_switch_falls_back_to_same_origin_referrer(app, client, bypass_engine):
+    provision_user(app, "lc7@t.com", PW)
+    login(client, "lc7@t.com", PW)
+    csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"',
+                     client.get("/square?kind=sentence").get_data(as_text=True)).group(1)
+
+    resp = client.post("/language/switch", data={
+        "language_code": "ja",
+        "csrf_token": csrf,
+    }, headers={"Referer": "http://localhost/square?kind=sentence"})
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/square?kind=sentence")
+
+
 def test_language_switch_rejects_external_next(app, client, bypass_engine):
     provision_user(app, "lc6@t.com", PW)
     login(client, "lc6@t.com", PW)

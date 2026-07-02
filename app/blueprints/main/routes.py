@@ -16,14 +16,21 @@ from app.services import words as words_svc
 bp = Blueprint("main", __name__)
 
 
-def _is_safe_next(target: str) -> bool:
+def _safe_next_target(target: str) -> str | None:
     if not target:
-        return False
+        return None
     normalized = target.replace("\\", "/")
-    if not normalized.startswith("/") or normalized.startswith("//"):
-        return False
     parts = urlsplit(normalized)
-    return not parts.scheme and not parts.netloc
+    if parts.scheme or parts.netloc:
+        if parts.netloc != request.host:
+            return None
+        path = parts.path or "/"
+        if not path.startswith("/"):
+            return None
+        return path + (f"?{parts.query}" if parts.query else "")
+    if not normalized.startswith("/") or normalized.startswith("//"):
+        return None
+    return normalized
 
 
 def _has_previous_review_word(user_id, language_code, current_word=None):
@@ -57,12 +64,14 @@ def index():
 def switch_language():
     """全局语言切换器：切当前语言后留在当前页面。"""
     code = request.form.get("language_code", "").strip()
-    nxt = request.form.get("next")
+    nxt = (_safe_next_target(request.form.get("next"))
+           or _safe_next_target(request.referrer)
+           or url_for("main.index"))
     if code not in words_svc._LANGUAGE_NAMES:
         flash("未知语言")
-        return redirect(nxt if _is_safe_next(nxt) else url_for("main.index"))
+        return redirect(nxt)
     words_svc.set_current_language(current_user.id, code)
-    return redirect(nxt if _is_safe_next(nxt) else url_for("main.index"))
+    return redirect(nxt)
 
 
 @bp.get("/settings")
