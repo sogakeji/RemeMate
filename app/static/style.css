@@ -1354,6 +1354,11 @@ textarea.form-control {
 }
 .lang-check:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); transform: translateY(-1px); }
 .lang-check input { width: 18px; height: 18px; accent-color: var(--primary-color); cursor: pointer; }
+.settings-option-note {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
 .settings-options .form-group { margin-bottom: 4px; }
 .dark-mode .lang-check,
 .dark-mode .settings-panel { background: #2b3240; color: #e2e8f0; }

@@ -70,6 +70,33 @@
 
       <div class="settings-row">
         <div class="settings-copy">
+          <div class="settings-title">时区</div>
+          <div class="settings-value">
+            <span class="settings-chip">{{ timezone_choices.get(timezone, timezone) }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn default settings-edit"
+                data-settings-toggle="timezone-panel">修改</button>
+        <div class="settings-panel" id="timezone-panel">
+          <div class="settings-options">
+          {% for code, name in timezone_choices.items() %}
+            <label class="lang-check">
+              <input type="radio" name="timezone" value="{{ code }}"
+                     {% if code == timezone %}checked{% endif %}>
+              <span>{{ name }}</span>
+              <small class="settings-option-note">{{ code }}</small>
+            </label>
+          {% endfor %}
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="submit" class="btn primary">确定</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-copy">
           <div class="settings-title">Bark 推送</div>
           <div class="settings-value">
             {% if notification_settings.bark_url %}

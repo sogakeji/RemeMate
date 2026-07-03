@@ -12,6 +12,7 @@ import ipaddress
 import socket
 from datetime import timedelta
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from sqlalchemy import func
@@ -19,10 +20,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
-from app.models.user import User, UserSettings
+from app.models.user import User, UserSettings, UserQuota
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.services import srs
-from app.services.timeutil import today_local_start_utc, utc_now
+from app.services.timeutil import next_midnight_utc, today_local_start_utc, utc_now
 
 
 # language_code → 隐式词表的内部 name（用户不可见；不展示、不让改名）。
@@ -42,6 +43,15 @@ _PUSH_NOTIFY_FIELDS = {
     "notify_review_reminder",
     "notify_daily_summary",
     "notify_intake_done",
+}
+
+_TIMEZONE_CHOICES = {
+    "Asia/Shanghai": "中国时间",
+    "Europe/Paris": "法国时间",
+    "UTC": "UTC",
+    "Asia/Tokyo": "日本时间",
+    "America/New_York": "美国东部时间",
+    "America/Los_Angeles": "美国西部时间",
 }
 
 
@@ -180,6 +190,30 @@ def set_feedback_language(user_id: int, language_code: str) -> str:
     settings.feedback_language = language_code
     db.session.commit()
     return language_code
+
+
+def get_timezone(user_id: int) -> str:
+    user = db.session.get(User, user_id)
+    tz = (user.timezone if user else None) or "Asia/Shanghai"
+    return tz if tz in _TIMEZONE_CHOICES else "Asia/Shanghai"
+
+
+def set_timezone(user_id: int, timezone_name: str) -> str:
+    if timezone_name not in _TIMEZONE_CHOICES:
+        raise ValueError(f"未知时区：{timezone_name!r}")
+    try:
+        ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError(f"未知时区：{timezone_name!r}") from exc
+    user = db.session.get(User, user_id)
+    if user is None:
+        raise ValueError(f"用户不存在：{user_id}")
+    user.timezone = timezone_name
+    quota = db.session.get(UserQuota, user_id)
+    if quota is not None:
+        quota.quota_reset_at = next_midnight_utc(timezone_name)
+    db.session.commit()
+    return timezone_name
 
 
 def _unsafe_push_ip(ip: str) -> bool:

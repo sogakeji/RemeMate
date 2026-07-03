@@ -88,6 +88,8 @@ def settings():
                            lang_choices=words_svc._LANGUAGE_NAMES,
                            feedback_language=words_svc.get_feedback_language(current_user.id),
                            feedback_choices=words_svc._FEEDBACK_LANGUAGE_NAMES,
+                           timezone=words_svc.get_timezone(current_user.id),
+                           timezone_choices=words_svc._TIMEZONE_CHOICES,
                            notification_settings=words_svc.get_notification_settings(
                                current_user.id))
 
@@ -95,8 +97,12 @@ def settings():
 def _save_settings_from_form():
     codes = request.form.getlist("languages")
     feedback_language = request.form.get("feedback_language", "zh").strip()
+    timezone_form_present = "timezone" in request.form
     notification_form_present = "bark_url" in request.form
     words_svc.set_feedback_language(current_user.id, feedback_language)
+    if timezone_form_present:
+        words_svc.set_timezone(current_user.id,
+                               request.form.get("timezone", "").strip())
     if notification_form_present:
         words_svc.set_notification_settings(
             current_user.id,

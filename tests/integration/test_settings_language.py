@@ -18,16 +18,21 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert "正在学" in page
     assert "中文" in page
     assert "母语" in page
+    assert "时区" in page
     assert "Bark 推送" in page
     assert 'data-settings-toggle="learning-panel"' in page
     assert 'data-settings-toggle="feedback-panel"' in page
+    assert 'data-settings-toggle="timezone-panel"' in page
     assert 'data-settings-toggle="bark-panel"' in page
     assert 'class="settings-panel" id="learning-panel"' in page
     assert 'class="settings-panel" id="feedback-panel"' in page
+    assert 'class="settings-panel" id="timezone-panel"' in page
     assert 'class="settings-panel" id="bark-panel"' in page
     assert 'formaction="/settings/bark/test"' in page
     assert 'name="languages"' in page
     assert 'name="feedback_language"' in page
+    assert 'name="timezone"' in page
+    assert "Europe/Paris" in page
     assert 'name="bark_url"' in page
     assert 'name="notify_review_reminder"' in page
     assert 'name="notify_daily_summary"' in page
@@ -66,6 +71,48 @@ def test_settings_save_supports_chinese_target_and_french_feedback(app, client, 
     assert cur == "zh"
     assert fb == "fr"
     assert n == 1
+
+
+def test_settings_save_timezone_and_recomputes_quota_reset(app, client, bypass_engine):
+    uid = provision_user(app, "timezone@t.com", PW)
+    login(client, "timezone@t.com", PW)
+    with bypass_engine.connect() as c:
+        before = c.execute(text(
+            "SELECT quota_reset_at FROM user_quota WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    client.post("/settings", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "timezone": "Europe/Paris",
+        "csrf_token": _csrf(client, "/settings"),
+    })
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT timezone FROM users WHERE id=:u"),
+            {"u": uid}).fetchone()
+        after = c.execute(text(
+            "SELECT quota_reset_at FROM user_quota WHERE user_id=:u"),
+            {"u": uid}).scalar()
+    assert row == ("Europe/Paris",)
+    assert after is not None
+    assert after != before
+
+
+def test_settings_rejects_unknown_timezone(app, client, bypass_engine):
+    uid = provision_user(app, "badtimezone@t.com", PW)
+    login(client, "badtimezone@t.com", PW)
+    r = client.post("/settings", data={
+        "languages": ["fr"],
+        "feedback_language": "zh",
+        "timezone": "Mars/Olympus",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "设置内容不正确" in r.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        timezone = c.execute(text(
+            "SELECT timezone FROM users WHERE id=:u"),
+            {"u": uid}).scalar()
+    assert timezone == "Asia/Shanghai"
 
 
 def test_settings_save_bark_notification_preferences(app, client, bypass_engine):
