@@ -154,3 +154,55 @@ def test_reading_cleanup_handles_document_lookup_candidate_links(bypass_engine):
 
     with bypass_engine.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
+
+
+def test_deleting_intake_source_nulls_reading_document_reference(bypass_engine):
+    user_id = make_user(bypass_engine, "reader-source-null@example.com")
+
+    with bypass_engine.begin() as conn:
+        source_id, _ = _insert_source_and_candidate(conn, user_id)
+        document_id = _insert_document(conn, user_id, content_hash="source-null-hash")
+        conn.execute(text(
+            "UPDATE reading_documents SET intake_source_id=:source_id WHERE id=:document_id"
+        ), {"source_id": source_id, "document_id": document_id})
+        conn.execute(text("DELETE FROM reading_lookups"))
+        conn.execute(text("DELETE FROM word_candidates WHERE source_id=:source_id"), {"source_id": source_id})
+        conn.execute(text("DELETE FROM intake_sources WHERE id=:source_id"), {"source_id": source_id})
+        row = conn.execute(text(
+            "SELECT intake_source_id FROM reading_documents WHERE id=:document_id"
+        ), {"document_id": document_id}).one()
+
+    assert row[0] is None
+
+
+def test_deleting_candidate_nulls_reading_lookup_reference(bypass_engine):
+    user_id = make_user(bypass_engine, "reader-candidate-null@example.com")
+
+    with bypass_engine.begin() as conn:
+        source_id, candidate_id = _insert_source_and_candidate(conn, user_id)
+        document_id = _insert_document(conn, user_id, content_hash="candidate-null-hash")
+        lookup_id = conn.execute(text(
+            "INSERT INTO reading_lookups(document_id, user_id, term, normalized_term, language_code, candidate_id, created_at) "
+            "VALUES (:document_id, :user_id, 'Hello', 'hello', 'en', :candidate_id, now()) RETURNING id"
+        ), {"document_id": document_id, "user_id": user_id, "candidate_id": candidate_id}).scalar()
+        conn.execute(text("DELETE FROM word_candidates WHERE id=:candidate_id"), {"candidate_id": candidate_id})
+        row = conn.execute(text(
+            "SELECT candidate_id FROM reading_lookups WHERE id=:lookup_id"
+        ), {"lookup_id": lookup_id}).one()
+
+    assert row[0] is None
+
+
+def test_composite_reading_owner_fks_are_set_null(bypass_engine):
+    with bypass_engine.connect() as conn:
+        actions = dict(conn.execute(text(
+            "SELECT conname, confdeltype FROM pg_constraint "
+            "WHERE conname IN ("
+            "'fk_reading_documents_intake_source_owner', "
+            "'fk_reading_lookups_candidate_owner')"
+        )).all())
+
+    assert actions == {
+        "fk_reading_documents_intake_source_owner": "n",
+        "fk_reading_lookups_candidate_owner": "n",
+    }

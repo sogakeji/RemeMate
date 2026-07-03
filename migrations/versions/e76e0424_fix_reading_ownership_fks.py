@@ -29,13 +29,13 @@ def upgrade():
         'reading_documents',
         ['id', 'user_id'],
     )
-    op.create_foreign_key(
-        'fk_reading_documents_intake_source_owner',
-        'reading_documents',
-        'intake_sources',
-        ['intake_source_id', 'user_id'],
-        ['id', 'user_id'],
-    )
+    op.execute("""
+        ALTER TABLE reading_documents
+        ADD CONSTRAINT fk_reading_documents_intake_source_owner
+        FOREIGN KEY (intake_source_id, user_id)
+        REFERENCES intake_sources (id, user_id)
+        ON DELETE SET NULL (intake_source_id)
+    """)
     op.create_foreign_key(
         'fk_reading_lookups_document_owner',
         'reading_lookups',
@@ -43,13 +43,13 @@ def upgrade():
         ['document_id', 'user_id'],
         ['id', 'user_id'],
     )
-    op.create_foreign_key(
-        'fk_reading_lookups_candidate_owner',
-        'reading_lookups',
-        'word_candidates',
-        ['candidate_id', 'user_id'],
-        ['id', 'user_id'],
-    )
+    op.execute("""
+        ALTER TABLE reading_lookups
+        ADD CONSTRAINT fk_reading_lookups_candidate_owner
+        FOREIGN KEY (candidate_id, user_id)
+        REFERENCES word_candidates (id, user_id)
+        ON DELETE SET NULL (candidate_id)
+    """)
 
 
 def downgrade():
