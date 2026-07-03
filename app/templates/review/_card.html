@@ -1,6 +1,10 @@
 <div id="review-card">
+{% if delivery_notice %}
+  <div class="review-delivery-notice">{{ delivery_notice }}</div>
+{% endif %}
 {% if word %}
   <div class="word-card review-word-card">
+    <div class="review-letter-kicker">今日来信</div>
     <div class="review-card-toolbar">
       <div class="review-card-left-actions">
         {% if is_previous %}
@@ -50,7 +54,7 @@
     </div>
     <p class="card-word">{{ word.word }}</p>
     {% for d in word.definitions %}
-      <details class="definition-item"><summary>显示释义</summary>
+      <details class="definition-item"><summary>拆开看看</summary>
         <p>
           <span class="part-of-speech">{{ d.part_of_speech }}</span>
           <span class="meaning">{{ d.meaning }}</span>
@@ -67,11 +71,11 @@
   <div class="srs-grade-group">
     {% set grade_url = url_for('words.grade', word_id=word.id) %}
     <button class="srs-btn srs-forgot" hx-post="{{ grade_url }}" hx-vals='{"button":"forgot"}'
-            hx-target="#review-card" hx-swap="outerHTML">没记住</button>
+            hx-target="#review-card" hx-swap="outerHTML">退回重寄</button>
     <button class="srs-btn srs-fuzzy" hx-post="{{ grade_url }}" hx-vals='{"button":"fuzzy"}'
-            hx-target="#review-card" hx-swap="outerHTML">有点模糊</button>
+            hx-target="#review-card" hx-swap="outerHTML">收下但模糊</button>
     <button class="srs-btn srs-known" hx-post="{{ grade_url }}" hx-vals='{"button":"easy"}'
-            hx-target="#review-card" hx-swap="outerHTML">秒记起</button>
+            hx-target="#review-card" hx-swap="outerHTML">顺利收信</button>
   </div>
   {% endif %}
 {% else %}
@@ -89,9 +93,9 @@
     </div>
     {% endif %}
     <p class="card-word">🎉</p>
-    <p style="text-align:center;color:var(--text-secondary);">今日复习完成，没有到期的词了。</p>
+    <p style="text-align:center;color:var(--text-secondary);">今天的语言信箱已经清空。</p>
     <p style="text-align:center;color:var(--text-secondary);font-size:13px;margin-top:8px;">
-      刚刚标记“没记住”的词会在约 10 分钟后回来。
+      被退回重寄的信，会在约 10 分钟后再次送达。
     </p>
     <div class="button-group" style="margin-top:20px;">
       <a class="btn success" href="{{ url_for('words.lists') }}">回到词库</a>
