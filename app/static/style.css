@@ -571,52 +571,7 @@ h1 {
 .review-card-toolbar {
     justify-content: space-between;
     min-height: 38px;
-    margin-bottom: 4px;
-}
-
-.review-letter-card {
-    position: relative;
-    max-width: 760px;
-    margin-left: auto;
-    margin-right: auto;
-    overflow: hidden;
-    border: 1px solid rgba(74, 108, 247, 0.18);
-    border-radius: 8px;
-    background:
-        linear-gradient(135deg, rgba(74,108,247,0.08), transparent 28%),
-        linear-gradient(180deg, rgba(255,255,255,0.96), var(--card-bg));
-}
-
-.review-letter-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent 0,
-            transparent 31px,
-            rgba(74,108,247,0.08) 32px
-        );
-    opacity: 0.55;
-}
-
-.review-letter-card > * {
-    position: relative;
-}
-
-.review-letter-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 10px;
-}
-
-.review-letter-route {
-    display: grid;
-    gap: 4px;
+    margin-bottom: 8px;
 }
 
 .review-letter-kicker,
@@ -628,40 +583,8 @@ h1 {
 }
 
 .review-letter-kicker {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    min-height: 26px;
-    padding: 4px 9px;
-    border: 1px solid rgba(74, 108, 247, 0.22);
-    border-radius: 999px;
-    background: rgba(74, 108, 247, 0.08);
-    color: var(--primary-color);
-}
-
-.review-letter-subtitle {
-    color: var(--text-secondary);
-    font-size: 12px;
-    letter-spacing: 0;
-}
-
-.review-letter-stamp {
-    display: grid;
-    place-items: center;
-    width: 78px;
-    height: 54px;
-    border: 2px solid rgba(230, 76, 92, 0.48);
-    border-radius: 8px;
-    color: var(--danger-color);
-    transform: rotate(3deg);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-transform: uppercase;
-}
-
-.review-letter-body {
-    padding: 10px 0 4px;
+    margin: 2px 0 8px;
+    text-align: center;
 }
 
 .write-reply-kicker {
@@ -671,71 +594,14 @@ h1 {
 .review-delivery-notice {
     max-width: 760px;
     margin: 0 auto 12px;
-    padding: 10px 16px;
-    border: 1px solid rgba(74, 108, 247, 0.20);
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    background:
-        linear-gradient(90deg, rgba(74,108,247,0.10), transparent 62%),
-        var(--card-bg);
+    background: var(--card-bg);
     color: var(--text-secondary);
     font-size: 14px;
     text-align: center;
     box-shadow: 0 3px 10px var(--shadow-color);
-}
-
-.review-letter-card .card-word {
-    margin-bottom: 24px;
-}
-
-.review-letter-card .definition-item {
-    margin-bottom: 12px;
-    padding: 12px 14px;
-    border: 1px solid rgba(74, 108, 247, 0.12);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.66);
-}
-
-.review-letter-card .definition-item:hover {
-    transform: translateY(-1px);
-}
-
-.review-letter-card .definition-item summary {
-    color: var(--text-color);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.review-empty-letter .card-word {
-    color: var(--success-color);
-}
-
-.dark-mode .review-letter-card {
-    border-color: rgba(109, 143, 255, 0.26);
-    background:
-        linear-gradient(135deg, rgba(109,143,255,0.13), transparent 30%),
-        linear-gradient(180deg, #242424, var(--card-bg));
-}
-
-.dark-mode .review-letter-card::before {
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent 0,
-            transparent 31px,
-            rgba(109,143,255,0.10) 32px
-        );
-}
-
-.dark-mode .review-letter-card .definition-item {
-    background: rgba(42, 42, 42, 0.72);
-    border-color: rgba(109, 143, 255, 0.20);
-}
-
-.dark-mode .review-delivery-notice {
-    border-color: rgba(109, 143, 255, 0.24);
-    background:
-        linear-gradient(90deg, rgba(109,143,255,0.14), transparent 62%),
-        var(--card-bg);
 }
 
 .review-card-left-actions,
@@ -1133,26 +999,21 @@ textarea.form-control {
 /* SRS 复习评分按钮组（自 WordNest index.html 搬入） */
 .srs-grade-group {
     display: flex;
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
-    max-width: 760px;
-    margin: 18px auto 0;
+    gap: 15px;
+    margin-top: 20px;
     animation: fadeIn 0.3s ease-in-out;
 }
 
 .srs-btn {
-    flex: 1 1 150px;
-    min-width: 132px;
-    padding: 11px 22px;
+    padding: 10px 28px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 500;
     color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.10);
 }
 
 .srs-btn:hover {
@@ -1165,15 +1026,15 @@ textarea.form-control {
 }
 
 .srs-forgot {
-    background: linear-gradient(135deg, #e85f58, #c43b34);
+    background: linear-gradient(to right, #e74c3c, #c0392b);
 }
 
 .srs-fuzzy {
-    background: linear-gradient(135deg, #f2a13a, #df7d20);
+    background: linear-gradient(to right, #f39c12, #e67e22);
 }
 
 .srs-known {
-    background: linear-gradient(135deg, #2fb46b, #1f8b52);
+    background: linear-gradient(to right, #27ae60, #1e8449);
 }
 
 /* 顶部品牌栏 + nav 容器 */
