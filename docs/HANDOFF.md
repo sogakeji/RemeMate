@@ -380,3 +380,93 @@ kill -HUP <master_pid>                  # 改代码后手动重载 worker
 - **#10 隐式词表口径**：词表对用户**不可见**，**严禁再在 UI 上让用户建/命名/删词表**。不变量「每用户每语言零或一张」由 `words.get_or_create_language_list` upsert 保证，不靠 schema 唯一索引。只改 UX/路由/service，不动 `word_lists` schema。
 - **#9 职责层先于视觉层**：UI 改动先问「这页职责对不对」再问「美不美」，别只套 CSS 皮（`ui-port` 旧分支就是只套皮被否）。
 - **#12 lapse 冷却**：`srs.py LAPSE_MIN_DELAY=10min` 硬编码，全标忘记后队列瞬时清空是正确行为，UI 要明示「N 分钟后回来」——**算法不改，只改文案**。
+
+---
+
+## 2026-07-03 闭测部署前交接（sentence-square-mvp）
+
+### 当前状态一句话
+
+当前分支：`sentence-square-mvp`。准备部署到服务器做邀请制闭测，不是正式公开上线。核心路径已进入可测状态：多用户隔离、语言设置、词库/复习、造句/三行日记、句子广场、管理员创建账号、Bark 配置与测试推送、用户自助改昵称/密码。
+
+### 最近关键提交
+
+- `2ef48e1 Add self-service account settings`
+  - 设置页新增“昵称”和“登录密码”自助修改。
+  - 密码修改要求当前密码正确，新密码 8-128 位，两次一致。
+- `46ca424 Add timezone preference setting`
+  - 设置页新增时区选择，含 `Europe/Paris`，保存到 `users.timezone`。
+  - 切换时区时重算 `user_quota.quota_reset_at`，闭测法国用户不会按中国本地日重置额度。
+- `6741925 Add Bark test push flow`
+  - 设置页 Bark 面板支持保存后发送测试推送。
+  - 发送前二次校验 URL，只允许 https 公网地址，禁重定向，5 秒超时。
+- `bd3f81b Add Bark notification settings`
+  - 设置页新增 Bark 地址和通知开关保存。
+- `239dd8c Fallback language switch to referrer` / `f90a401 Keep language switch on current page`
+  - 全局语言切换器保持在当前页面，不再切语言后跳回首页。
+
+### 已试过但已回退的方向
+
+- `1cbb2db Prototype language mailbox experience`
+- `e62cd07 Prototype mailbox card visual treatment`
+- 已用 `573c063` / `aa35877` revert。
+
+结论：Slowly/语言信箱方向概念有吸引力，但当前阶段只改文案吸引力有限，改 UI 又体感偏大。闭测前不继续做大 UI 隐喻探索，先保稳定。
+
+### 开发库账号清理
+
+2026-07-03 已按用户要求清理本地 dev 库中管理员以外的账号及其关联数据。清理后仅保留：
+
+- `test@local.dev`（admin）
+- `admin@local.dev`（admin）
+
+已删除的非管理员账号包括：`friend@local.dev`、`square-real-*@example.test`、`sogakeji@gmail.com`、`highlight-check@t.com`、`diag@t.com`、`visual-mailbox@local.dev`。
+
+清理方式：使用 `DISPATCH_DATABASE_URL` 事务删除非管理员用户相关的 `push_log`、`token_usage_log`、`sentence_upvotes`、`messages`、`conversations`、`word_candidates`、`source_segments`、`intake_sources`、`output_entries`、`review_logs`、`definitions`、`words`、`word_lists`、`user_quota`、`user_settings`、`users`。第一次脚本因 `conversations` 实际列名是 `user_id`、`messages` 实际列名是 `conv_id` 失败并回滚；修正后成功。临时脚本已删除。
+
+### 闭测前已验证
+
+- 最新全量测试：`190 passed`
+- 设置页专项：`17 passed`
+- 服务托管：`tmux rememate`，gunicorn 监听 `127.0.0.1:8891`
+- 当前本地服务健康检查：`/healthz` 返回 `status: ok`
+
+### 部署前建议执行
+
+在服务器上按这个顺序走：
+
+```bash
+cd /root/rememate
+git status -s
+.venv/bin/python -m pytest -q
+.venv/bin/python -m flask db current
+.venv/bin/python -m flask doctor --strict
+```
+
+生产/闭测环境至少确认：
+
+- `SECRET_KEY` 已设强随机值，不用 dev 默认。
+- `DATA_ENCRYPTION_KEY` 是有效 Fernet key。
+- `DATABASE_URL` / `MIGRATE_DATABASE_URL` / `DISPATCH_DATABASE_URL` 指向服务器库和对应角色。
+- `DEEPSEEK_API_KEY` 或兼容 OpenAI provider key 已配置，否则 AI 批改/抽词会降级不可用。
+- 服务器上管理员账号存在；普通朋友账号用管理员页面创建，不预设学习语言和母语，让用户首次登录自行设置。
+- Bark 自建/官方地址必须是 https 公网地址；内网、本机、`127.0.0.1` 会被拒绝。
+
+### 近期不建议再做的大改
+
+- 不继续做语言信箱/Slowly 大 UI 隐喻。
+- 不在闭测前重做导航和信息架构。
+- 不在闭测前引入新的后台调度系统，除非只做手动可验证的小闭环。
+
+### 闭测后优先看什么
+
+- 法国用户是否能顺利设置“中文”为学习语言、母语为法语、时区为法国时间。
+- 造句/三行日记是否比抽词导入更能驱动真实使用。
+- 句子广场在小用户量下是否因为“只看同语言”而冷清；目前已有“看全部语言”路径，但历史句子里的用户自写词不建议加回词库。
+- Bark 测试推送是否能被用户配通；下一步可做“导入完成通知”或“到期复习提醒”，但要继续保持发送前 SSRF 二次校验。
+
+### 仍需记住的坑
+
+- WSL/PowerShell 中复杂命令的 `$()`、管道和引号经常被 PowerShell 抢先解析。复杂操作优先写临时 Python 脚本在 WSL 内跑，跑完删除。
+- `8891` 上偶尔会残留游离 gunicorn 旧进程，导致新代码未生效或设置页 500。处理方式：先 `ps -ef | grep gunicorn` 查 PID，精确 kill 旧 master/workers，再用 `tmux new-session -d -s rememate '.venv/bin/gunicorn -c gunicorn.conf.py wsgi:app'` 重托管。
+- `datetime.utcnow()` / DB `now()` 时钟坑仍需避免。造测试到期词时用应用侧 UTC 表盘，不要混用 DB 本地时钟。
