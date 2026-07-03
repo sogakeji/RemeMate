@@ -6,6 +6,7 @@ from app.models.user import User, UserSettings, UserQuota, TokenUsageLog
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.models.output import OutputEntry
 from app.models.intake import IntakeSource, SourceSegment, WordCandidate
+from app.models.reading import ReadingDocument, ReadingLookup
 from app.models.social import SentenceUpvote
 from app.models.conversation import Conversation, Message
 from app.models.push import PushLog
@@ -15,6 +16,7 @@ __all__ = [
     "WordList", "Word", "Definition", "ReviewLog",
     "OutputEntry",
     "IntakeSource", "SourceSegment", "WordCandidate",
+    "ReadingDocument", "ReadingLookup",
     "SentenceUpvote",
     "Conversation", "Message",
     "PushLog",
