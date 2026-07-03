@@ -1,6 +1,6 @@
 """ui-rescope step2：首页 = 当天主词卡（不再是仪表盘）。
 
-首页 `/` 直接渲染到期词卡 + SRS 三按钮；空态显示「语言信箱清空」而非大字待复习数。
+首页 `/` 直接渲染到期词卡 + SRS 三按钮；空态显示「今日复习完成」而非大字待复习数。
 独立 /review 作日常入口已从 nav 移除（路由保留兼容），grade 端点 words.grade 不动。
 
 step4c 起首页按「当前语言」过滤：未设语言显示「先去设置选语言」引导卡，
@@ -40,8 +40,7 @@ def test_home_renders_due_word_card(app, client, bypass_engine):
 
     page = client.get("/").get_data(as_text=True)
     assert "décollage" in page                  # 第一眼暴露词
-    assert "今日来信" in page
-    assert "退回重寄" in page and "收下但模糊" in page and "顺利收信" in page
+    assert "没记住" in page and "有点模糊" in page and "秒记起" in page   # 三按钮
     # 不再是大字仪表盘：首页不再单列「N 个词待复习」大数字 CTA
     assert "开始复习" not in page
 
@@ -55,7 +54,7 @@ def test_home_empty_state_no_dashboard(app, client, bypass_engine):
     page = client.get("/").get_data(as_text=True)
     assert "开始复习" not in page               # 无大字 CTA
     # 空态文案（_card.html 的 else 分支）
-    assert "语言信箱已经清空" in page
+    assert "没有到期的词" in page or "今日复习完成" in page
 
 
 def test_home_prompts_when_no_language(app, client, bypass_engine):
@@ -63,9 +62,9 @@ def test_home_prompts_when_no_language(app, client, bypass_engine):
     provision_user(app, "h2b@t.com", PW)
     login(client, "h2b@t.com", PW)
     page = client.get("/").get_data(as_text=True)
-    assert "打开你的语言信箱" in page
+    assert "先选一个正在学的语言" in page
     assert "去设置选语言" in page
-    assert "退回重寄" not in page                # 未设语言不渲染三按钮
+    assert "没记住" not in page                  # 未设语言不渲染三按钮
 
 
 def test_home_grade_button_hits_words_grade(app, client, bypass_engine):
@@ -105,7 +104,7 @@ def test_home_can_preview_previous_word_after_grading(app, client, bypass_engine
     assert previous.status_code == 200
     assert "avant" in prev_body
     assert "回到当前词" in prev_body
-    assert "退回重寄" not in prev_body           # 回看不允许重复评分
+    assert "没记住" not in prev_body             # 回看不允许重复评分
     with bypass_engine.connect() as c:
         logs = c.execute(text(
             "SELECT count(*) FROM review_logs WHERE word_id=:i"),
@@ -115,7 +114,7 @@ def test_home_can_preview_previous_word_after_grading(app, client, bypass_engine
     current = client.get("/review/current", headers={"HX-Request": "true"})
     current_body = current.get_data(as_text=True)
     assert "apres" in current_body
-    assert "退回重寄" in current_body
+    assert "没记住" in current_body
 
 
 def test_home_grade_next_card_stays_current_language(app, client, bypass_engine):
@@ -132,8 +131,7 @@ def test_home_grade_next_card_stays_current_language(app, client, bypass_engine)
     page = resp.get_data(as_text=True)
     assert resp.status_code == 200
     assert "enword" not in page
-    assert "下一次寄达" in page
-    assert "语言信箱已经清空" in page
+    assert "没有到期的词" in page
 
 
 def test_nav_has_no_review_entry(app, client, bypass_engine):

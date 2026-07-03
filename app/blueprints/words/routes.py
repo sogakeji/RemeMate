@@ -3,8 +3,6 @@
 路由只取参数、调 service、渲染；业务逻辑在 services/words.py（见模块边界规则）。
 """
 import json
-from datetime import timezone
-from zoneinfo import ZoneInfo
 
 from flask import (Blueprint, render_template, request, abort, jsonify,
                    redirect, url_for, flash, session)
@@ -67,15 +65,6 @@ def _current_review_word():
     lang = words_svc.get_current_language(_uid())
     due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
     return due[0] if due else None
-
-
-def _delivery_notice(word):
-    if word is None or word.due_date is None:
-        return None
-    tz = ZoneInfo(getattr(current_user, "timezone", None) or "Asia/Shanghai")
-    due_utc = word.due_date.replace(tzinfo=timezone.utc)
-    due_local = due_utc.astimezone(tz)
-    return f"《{word.word}》下一次寄达：{due_local.strftime('%m-%d %H:%M')}"
 
 
 @bp.get("/words/add")
@@ -307,8 +296,7 @@ def grade(word_id):
     # HTMX：返回下一张卡片片段（无则完成提示）
     word = nxt[0] if nxt else None
     return render_template("review/_card.html", word=word,
-                           previous_available=_previous_available(word),
-                           delivery_notice=_delivery_notice(result))
+                           previous_available=_previous_available(word))
 
 
 @bp.route("/stats")

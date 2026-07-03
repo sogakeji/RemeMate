@@ -36,7 +36,7 @@ def test_submit_does_not_persist(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     resp = client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
     assert resp.status_code == 200
-    assert "笔友回信" in resp.get_data(as_text=True)
+    assert "修正" in resp.get_data(as_text=True)
     assert _count_entries(bypass_engine, uid) == 0      # 没入库
 
 
@@ -143,7 +143,7 @@ def test_degraded_correction_cannot_be_saved(app, client, bypass_engine, fake_ll
     page = resp.get_data(as_text=True)
     assert resp.status_code == 200
     assert "AI 批改暂时不可用" in page
-    assert "收进明信片" not in page
+    assert "保存" not in page
     assert "过期" in client.post("/write/save").get_data(as_text=True)
     assert _count_entries(bypass_engine, uid) == 0
 
@@ -184,7 +184,7 @@ def test_diary_mode_available_without_words(app, client, bypass_engine, fake_llm
 
     page = client.get("/write?mode=diary").get_data(as_text=True)
 
-    assert "今日便笺" in page
+    assert "三行日记" in page
     assert "提示问题" in page
     assert "还没有词" not in page
 
@@ -355,7 +355,7 @@ def test_compose_prioritizes_due_lapses(app, client, bypass_engine, fake_llm):
         c.commit()
 
     page = client.get("/write").get_data(as_text=True)
-    assert "今日来信" in page
+    assert "今日推荐" in page
     assert "fragile" in page
     assert "steady" not in page
     assert '<select name="word_id"' not in page
@@ -367,7 +367,7 @@ def test_target_word_not_used_flagged(app, client, bypass_engine, fake_llm):
                            '"incomplete":false,"errors":[],"is_nsfw":false,"feedback":""}')
     fake_llm["reinstall"]()
     r = client.post("/write/submit", data={"word_id": wid, "sentence": "x"})
-    assert "没用到来信里的词" in r.get_data(as_text=True)
+    assert "没用到目标词" in r.get_data(as_text=True)
 
 
 def test_publish_blocked_for_nsfw(app, client, bypass_engine, fake_llm):

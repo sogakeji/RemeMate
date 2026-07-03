@@ -574,36 +574,6 @@ h1 {
     margin-bottom: 8px;
 }
 
-.review-letter-kicker,
-.write-reply-kicker {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0;
-}
-
-.review-letter-kicker {
-    margin: 2px 0 8px;
-    text-align: center;
-}
-
-.write-reply-kicker {
-    margin-bottom: 10px;
-}
-
-.review-delivery-notice {
-    max-width: 760px;
-    margin: 0 auto 12px;
-    padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--card-bg);
-    color: var(--text-secondary);
-    font-size: 14px;
-    text-align: center;
-    box-shadow: 0 3px 10px var(--shadow-color);
-}
-
 .review-card-left-actions,
 .word-actions {
     justify-content: flex-end;
