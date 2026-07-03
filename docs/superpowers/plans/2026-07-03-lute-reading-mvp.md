@@ -6,7 +6,7 @@
 
 **Architecture:** Add a focused `reading` module with parser, dictionary, context extraction, service, and blueprint boundaries. Keep the existing intake/candidate/commit pipeline as the only path into `words` and `definitions`, preserving hidden language word lists, dedupe, SRS initialization, RLS, and user isolation.
 
-**Tech Stack:** Flask, SQLAlchemy, Flask-Migrate/Alembic, PostgreSQL RLS, Jinja2/HTMX, pytest. Parser default is PyMuPDF only after license approval; otherwise switch parser adapter to `pypdf` or `pdfminer.six`. Dictionary data is local/offline and external to git.
+**Tech Stack:** Flask, SQLAlchemy, Flask-Migrate/Alembic, PostgreSQL RLS, Jinja2/HTMX, pytest. Parser default is `pypdf` because PyMuPDF's official PyPI metadata is AGPL/commercial dual licensed and is not accepted for the closed-beta/future commercial server default. Dictionary data is local/offline and external to git.
 
 ---
 
@@ -14,7 +14,7 @@
 
 Task 1 is a hard gate. Do not start code tasks until all of these are true:
 
-- Parser choice approved: PyMuPDF license accepted, or fallback selected.
+- Parser choice approved: PyMuPDF rejected as default; `pypdf` selected.
 - `zh/en/fr` dictionary datasets selected with license, install path, update method, and distribution posture.
 - `ja` tokenizer/dictionary stack selected with license, install path, update method, and distribution posture.
 - If any language cannot pass license/data review, reduce MVP language set in the spec and commit that spec change before implementation.
@@ -73,7 +73,7 @@ Select and document exact data sources for `zh/en/fr/ja`. Do not leave `TODO` fo
 - [ ] **Step 4: Commit and stop if unresolved**
 
 ```bash
-git add docs/THIRD_PARTY.md docs/superpowers/specs/2026-07-03-lute-reading-mvp-design.md
+git add docs/THIRD_PARTY.md docs/superpowers/specs/2026-07-03-lute-reading-mvp-design.md docs/superpowers/plans/2026-07-03-lute-reading-mvp.md
 git commit -m "docs: record reading MVP third-party license decisions"
 ```
 
@@ -259,7 +259,7 @@ git commit -m "feat: add reading dictionary adapter"
 
 - [ ] **Step 1: Add only approved parser package**
 
-Use the parser selected in `docs/THIRD_PARTY.md`. Do not add PyMuPDF if Task 1 rejected it.
+Use `pypdf`, the parser selected in `docs/THIRD_PARTY.md`. Do not add PyMuPDF unless a commercial license is approved and recorded later.
 
 - [ ] **Step 2: Write failing tests**
 

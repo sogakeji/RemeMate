@@ -35,7 +35,7 @@
 
 | 能力 | MVP 选择 | 说明 |
 |---|---|---|
-| 文本型 PDF 提取 | PyMuPDF（带许可门） | 技术上作为默认 PDF parser。PyMuPDF 许可需在实现前确认；若 AGPL/商业许可不可接受，parser adapter 换 `pypdf` 或 `pdfminer.six`。只处理文本型 PDF，不做 OCR。 |
+| 文本型 PDF 提取 | pypdf | PyMuPDF 官方 PyPI 元数据为 AGPL 3.0 / Artifex 商业双许可，不作为闭测/未来商业服务器默认依赖。MVP 默认 parser 改为 BSD-style license 的 `pypdf`；`pdfminer.six` 作为 MIT fallback 候选。只处理文本型 PDF，不做 OCR。 |
 | 日语分词/词形 | fugashi + unidic-lite | 用于日语选词归一化，不手写日语规则。 |
 | 日语词典 | jamdict / JMdict | 离线 JMdict 查询候选。 |
 | 通用词典 | 本地词典 adapter | 优先适配许可证清晰的本地词典数据，后续可支持 StarDict/MDict/DSL。 |
@@ -85,7 +85,7 @@ EPUB 对纯阅读器通常更容易处理，因为文本和章节结构更清晰
 | 页面 | 路由 | 职责 |
 |---|---|---|
 | 阅读书架 | `GET /reading` | 展示用户已上传 PDF：标题、语言、最近阅读时间、继续阅读按钮。 |
-| 上传 PDF | `GET /reading/new` / `POST /reading` | 选择语言并上传文本型 PDF。PyMuPDF 提取文本后保存阅读材料。 |
+| 上传 PDF | `GET /reading/new` / `POST /reading` | 选择语言并上传文本型 PDF。pypdf 提取文本后保存阅读材料。 |
 | 阅读器 | `GET /reading/<doc_id>` | 渲染文档正文，支持选词弹卡、加入学习、保存最后位置。 |
 | 查词 API | `POST /reading/<doc_id>/lookup` | 接收选中文本和位置，查本地词典，抽取原文整句语境。 |
 | 加入候选 API | `POST /reading/lookups/<lookup_id>/add-candidate` | 把 lookup 转成 `WordCandidate`。 |
@@ -141,7 +141,7 @@ MVP 只保存最后阅读位置，不做完成率：
 
 | 服务 | 职责 | MVP 默认实现 |
 |---|---|---|
-| `reading.parsers` | 文件校验、文本型 PDF 抽纯文本、返回标题/文本/页数/元数据。 | PyMuPDF |
+| `reading.parsers` | 文件校验、文本型 PDF 抽纯文本、返回标题/文本/页数/元数据。 | pypdf |
 | `reading.dictionary` | `lookup(language_code, term)`，统一返回释义/词性/例句/来源。 | 本地离线 adapter |
 | `reading.tokenize` | 处理选中文本、归一化、日语分词/lemma。 | 日语用 fugashi；其他语言先简单 normalize。 |
 | `reading.context` | 根据 selection offset 抽取包含选词的完整句子。 | 语言标点规则 + 长度截断。 |
@@ -262,10 +262,10 @@ dictionary.lookup(language_code, term) -> DictionaryResult
 
 | 语言 | MVP 策略 |
 |---|---|
-| 中文 `zh` | 本地词典 adapter，用户主动选词/短语，exact lookup 优先。 |
-| 英文 `en` | 本地词典 adapter，exact lookup + lowercase。 |
-| 日文 `ja` | fugashi + unidic-lite 做归一化/lemma，jamdict/JMdict 查词。 |
-| 法文 `fr` | 本地词典 adapter，exact lookup + lowercase。 |
+| 中文 `zh` | 本地词典 adapter，外置 Kaikki.org/Wiktionary Chinese 数据，用户主动选词/短语，exact lookup 优先。 |
+| 英文 `en` | 本地词典 adapter，外置 Kaikki.org/Wiktionary English 数据，exact lookup + lowercase。 |
+| 日文 `ja` | fugashi + unidic-lite 做归一化/lemma，jamdict + 外置 JMdict 查词。 |
+| 法文 `fr` | 本地词典 adapter，外置 Kaikki.org/Wiktionary French 数据，exact lookup + lowercase。 |
 
 MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语言后续再放开；第一版 UI 不展示 unsupported language 入口，后端也拒绝。
 
@@ -289,9 +289,9 @@ MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语�
 
 实现开始前必须完成第三方许可确认，不允许边写边赌：
 
-- PyMuPDF 当前许可存在 AGPL/commercial implications，必须确认闭测/未来商业部署是否可接受。若不可接受，立即换到 `pypdf` 或 `pdfminer.six` adapter。这个决定是 Slice 1 的放行条件。
-- `fugashi` / `unidic-lite` / `jamdict` / JMdict 需要逐项记录 license、数据来源、更新方式。
-- 中文、英文、法文词典数据源尚未定。实现前必须选定 exact dataset/package，并记录 license。没有明确再分发许可的数据不得随仓库或服务器镜像分发。
+- PyMuPDF 官方 PyPI 元数据为 `Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License`，闭测/未来商业服务器默认依赖不可接受；MVP 默认使用 `pypdf`，`pdfminer.six` 仅作为 fallback 候选。这个决定是 Slice 1 的放行条件。
+- `fugashi` / `unidic-lite` / `jamdict` / JMdict 已在 `docs/THIRD_PARTY.md` 逐项记录 license、数据来源、更新方式。
+- 中文、英文、法文词典数据源选用外置 Kaikki.org/Wiktionary 数据，具体 license、安装路径、更新方式见 `docs/THIRD_PARTY.md`。没有明确再分发许可的数据不得随仓库或服务器镜像分发。
 - 真实词典数据全部外置，不进 git；仓库只放最小测试 fixture。
 
 ---
@@ -303,7 +303,7 @@ MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语�
 | 非 PDF | 提示“当前版本只支持文本型 PDF”。 |
 | 扫描件或无文本 PDF | 提示“这个 PDF 可能是扫描件，当前版本暂不支持 OCR”。 |
 | PDF 太大或页数太多 | 上传前拦截并提示拆分上传。 |
-| PyMuPDF 解析失败 | 保存失败，不创建阅读材料，提示用户换文件。 |
+| pypdf 解析失败 | 保存失败，不创建阅读材料，提示用户换文件。 |
 | 词典缺失 | 弹卡降级，允许手动加入候选。 |
 | 词典未命中 | 弹卡显示原文整句和“无释义加入候选”。 |
 | offset 漂移 | 后端校验 selection 文本；失败时用附近窗口抽句并记录 warning。 |
@@ -332,7 +332,7 @@ MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语�
 ### Slice 1：设计与依赖确认
 
 - 写本设计文档并提交。
-- 确认 PyMuPDF 许可是否可接受；若不可接受，立刻改 parser 默认到 `pypdf` 或 `pdfminer.six`。
+- 已确认 PyMuPDF 为 AGPL/commercial 双许可，不作为默认依赖；parser 默认改为 `pypdf`。
 - 确认 fugashi / unidic-lite / jamdict / JMdict 许可。
 - 选定中文、英文、法文词典数据源，记录 license、安装路径、更新方式。
 - 写 `docs/THIRD_PARTY.md` 或等价第三方依赖记录文档结构。
@@ -341,7 +341,7 @@ MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语�
 ### Slice 2：PDF 阅读材料
 
 - migration：`reading_documents`。
-- PyMuPDF parser adapter。
+- pypdf parser adapter。
 - PDF 上传/保存/书架/阅读器只读展示。
 - 保存最后位置。
 - parser 单测 + 文档隔离测试。
@@ -372,9 +372,9 @@ MVP 只允许 `zh/en/ja/fr` 四种语言上传阅读材料和查词。其他语�
 
 ## 11. 开放问题 / 实现前硬门
 
-1. **硬门**：PyMuPDF 许可必须先确认。若 AGPL/commercial implications 不适合闭测/未来商业部署，parser adapter 默认改为 `pypdf` 或 `pdfminer.six`，不能进入实现后再处理。
-2. **硬门**：中文/英文/法文词典数据源必须先选定，并记录 license、安装路径、更新方式。没有明确许可的数据不得随仓库或服务器镜像分发。
-3. **硬门**：日语 jamdict/JMdict 数据体积和部署方式必须确认，优先外置到 `DICTIONARY_DATA_DIR`。
+1. **已决策**：PyMuPDF 官方 PyPI 元数据为 AGPL/commercial 双许可，不适合作为闭测/未来商业服务器默认依赖；parser adapter 默认使用 `pypdf`，`pdfminer.six` 作为 fallback 候选。
+2. **已决策**：中文/英文/法文词典数据源选用外置 Kaikki.org/Wiktionary 数据；license、安装路径、更新方式记录在 `docs/THIRD_PARTY.md`。数据不得随仓库或默认服务器镜像分发。
+3. **已决策**：日语 tokenizer 使用 fugashi + unidic-lite；词典使用 jamdict + 外置 JMdict，优先外置到 `DICTIONARY_DATA_DIR`。
 4. `WordCandidate` 原文例句不可变的实现方式需在实现计划里二选一：新增 `source_example/context_sentence` 字段，或候选页对 reading candidate 的 example 只读。推荐新增字段。
 
 ---
