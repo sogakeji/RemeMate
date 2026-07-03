@@ -1,7 +1,10 @@
 """Reading document persistence constraints and cleanup."""
 import pytest
 from sqlalchemy import exc, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import configure_mappers
 
+from app.models import ReadingDocument, ReadingLookup
 from tests.helpers import make_user
 
 
@@ -22,6 +25,13 @@ def _insert_document(conn, user_id, *, language_code="en", content_hash="hash-1"
         "content_hash": content_hash,
         "page_count": page_count,
     }).scalar()
+
+
+def test_reading_models_use_jsonb_and_configure_mappers():
+    configure_mappers()
+
+    assert isinstance(ReadingDocument.__table__.c.last_position.type, JSONB)
+    assert isinstance(ReadingLookup.__table__.c.dictionary_result_json.type, JSONB)
 
 
 def test_reading_documents_unique_per_user_content_hash(bypass_engine):

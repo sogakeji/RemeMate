@@ -21,6 +21,14 @@ def _make_document(bypass_engine, user_id, *, content_hash="hash-1", title="Doc"
         }).scalar()
 
 
+def _make_lookup(bypass_engine, user_id, document_id, *, term="Hello"):
+    with bypass_engine.begin() as conn:
+        return conn.execute(text(
+            "INSERT INTO reading_lookups(document_id, user_id, term, normalized_term, language_code, created_at) "
+            "VALUES (:document_id, :user_id, :term, lower(:term), 'en', now()) RETURNING id"
+        ), {"document_id": document_id, "user_id": user_id, "term": term}).scalar()
+
+
 def test_reading_rls_unset_guc_fails_closed(app_engine, bypass_engine):
     user_id = make_user(bypass_engine, "reader-a@example.com")
     document_id = _make_document(bypass_engine, user_id)
@@ -86,3 +94,56 @@ def test_reading_update_rejects_mismatched_user_id(app_engine, bypass_engine):
             conn.execute(text(
                 "UPDATE reading_documents SET user_id=:user_b WHERE id=:document_id"
             ), {"user_b": user_b, "document_id": document_id})
+
+
+def test_user_cannot_select_update_or_delete_other_users_reading_lookup(app_engine, bypass_engine):
+    user_a = make_user(bypass_engine, "lookup-owner@example.com")
+    user_b = make_user(bypass_engine, "lookup-other@example.com")
+    document_id = _make_document(bypass_engine, user_a)
+    lookup_id = _make_lookup(bypass_engine, user_a, document_id)
+
+    with app_engine.begin() as conn:
+        set_uid(conn, user_b)
+        assert conn.execute(text("SELECT count(*) FROM reading_lookups WHERE id=:id"), {"id": lookup_id}).scalar() == 0
+        update_result = conn.execute(text(
+            "UPDATE reading_lookups SET term='Hacked' WHERE id=:id"
+        ), {"id": lookup_id})
+        delete_result = conn.execute(text(
+            "DELETE FROM reading_lookups WHERE id=:id"
+        ), {"id": lookup_id})
+        assert update_result.rowcount == 0
+        assert delete_result.rowcount == 0
+
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT term FROM reading_lookups WHERE id=:id"
+        ), {"id": lookup_id}).one()
+        assert row[0] == "Hello"
+
+
+def test_reading_lookup_insert_rejects_mismatched_user_id(app_engine, bypass_engine):
+    user_a = make_user(bypass_engine, "lookup-insert-a@example.com")
+    user_b = make_user(bypass_engine, "lookup-insert-b@example.com")
+    document_id = _make_document(bypass_engine, user_b)
+
+    with pytest.raises(exc.DatabaseError):
+        with app_engine.begin() as conn:
+            set_uid(conn, user_a)
+            conn.execute(text(
+                "INSERT INTO reading_lookups(document_id, user_id, term, normalized_term, language_code, created_at) "
+                "VALUES (:document_id, :user_b, 'Hello', 'hello', 'en', now())"
+            ), {"document_id": document_id, "user_b": user_b})
+
+
+def test_reading_lookup_update_rejects_mismatched_user_id(app_engine, bypass_engine):
+    user_a = make_user(bypass_engine, "lookup-update-a@example.com")
+    user_b = make_user(bypass_engine, "lookup-update-b@example.com")
+    document_id = _make_document(bypass_engine, user_a)
+    lookup_id = _make_lookup(bypass_engine, user_a, document_id)
+
+    with pytest.raises(exc.DatabaseError):
+        with app_engine.begin() as conn:
+            set_uid(conn, user_a)
+            conn.execute(text(
+                "UPDATE reading_lookups SET user_id=:user_b WHERE id=:lookup_id"
+            ), {"user_b": user_b, "lookup_id": lookup_id})

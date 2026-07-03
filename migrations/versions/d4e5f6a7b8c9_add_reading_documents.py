@@ -6,6 +6,7 @@ Create Date: 2026-07-04
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 revision = 'd4e5f6a7b8c9'
@@ -53,7 +54,7 @@ def upgrade():
         sa.Column('content_text', sa.Text(), nullable=False),
         sa.Column('content_hash', sa.String(length=128), nullable=False),
         sa.Column('page_count', sa.Integer(), nullable=False),
-        sa.Column('last_position', sa.JSON(), nullable=True),
+        sa.Column('last_position', postgresql.JSONB(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.Column('intake_source_id', sa.Integer(), nullable=True),
@@ -76,7 +77,7 @@ def upgrade():
         sa.Column('term', sa.String(length=200), nullable=False),
         sa.Column('normalized_term', sa.String(length=200), nullable=True),
         sa.Column('language_code', sa.String(length=10), nullable=False),
-        sa.Column('dictionary_result_json', sa.JSON(), nullable=True),
+        sa.Column('dictionary_result_json', postgresql.JSONB(), nullable=True),
         sa.Column('context_sentence', sa.Text(), nullable=True),
         sa.Column('context_start', sa.Integer(), nullable=True),
         sa.Column('context_end', sa.Integer(), nullable=True),

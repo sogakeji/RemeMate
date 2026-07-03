@@ -2,6 +2,7 @@
 from app.extensions import db
 from app.services.timeutil import utc_now
 from sqlalchemy import ForeignKeyConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class ReadingDocument(db.Model):
@@ -22,12 +23,18 @@ class ReadingDocument(db.Model):
     content_text     = db.Column(db.Text, nullable=False)
     content_hash     = db.Column(db.String(128), nullable=False)
     page_count       = db.Column(db.Integer, nullable=False)
-    last_position    = db.Column(db.JSON, nullable=True)
+    last_position    = db.Column(JSONB, nullable=True)
     created_at       = db.Column(db.DateTime, default=utc_now, nullable=False)
     updated_at       = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     intake_source_id = db.Column(db.Integer, db.ForeignKey("intake_sources.id", ondelete="SET NULL"), nullable=True)
 
-    lookups = db.relationship("ReadingLookup", backref="document", cascade="all, delete-orphan", passive_deletes=True)
+    lookups = db.relationship(
+        "ReadingLookup",
+        backref="document",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        foreign_keys="ReadingLookup.document_id",
+    )
 
 
 class ReadingLookup(db.Model):
@@ -50,7 +57,7 @@ class ReadingLookup(db.Model):
     term                   = db.Column(db.String(200), nullable=False)
     normalized_term        = db.Column(db.String(200), nullable=True)
     language_code          = db.Column(db.String(10), nullable=False)
-    dictionary_result_json = db.Column(db.JSON, nullable=True)
+    dictionary_result_json = db.Column(JSONB, nullable=True)
     context_sentence       = db.Column(db.Text, nullable=True)
     context_start          = db.Column(db.Integer, nullable=True)
     context_end            = db.Column(db.Integer, nullable=True)
