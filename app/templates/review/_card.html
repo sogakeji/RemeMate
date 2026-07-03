@@ -3,8 +3,16 @@
   <div class="review-delivery-notice">{{ delivery_notice }}</div>
 {% endif %}
 {% if word %}
-  <div class="word-card review-word-card">
-    <div class="review-letter-kicker">今日来信</div>
+  <div class="word-card review-word-card review-letter-card">
+    <div class="review-letter-top">
+      <div class="review-letter-route">
+        <span class="review-letter-kicker">今日来信</span>
+        <span class="review-letter-subtitle">{{ word.word_list.language_code|upper }} · RemeMate Mail</span>
+      </div>
+      <div class="review-letter-stamp" aria-hidden="true">
+        <span>DELIVERED</span>
+      </div>
+    </div>
     <div class="review-card-toolbar">
       <div class="review-card-left-actions">
         {% if is_previous %}
@@ -52,7 +60,9 @@
       </form>
       </div>
     </div>
-    <p class="card-word">{{ word.word }}</p>
+    <div class="review-letter-body">
+      <p class="card-word">{{ word.word }}</p>
+    </div>
     {% for d in word.definitions %}
       <details class="definition-item"><summary>拆开看看</summary>
         <p>
@@ -79,7 +89,7 @@
   </div>
   {% endif %}
 {% else %}
-  <div class="word-card review-word-card">
+  <div class="word-card review-word-card review-letter-card review-empty-letter">
     {% if previous_available %}
     <div class="review-card-toolbar">
       <div class="review-card-left-actions">
@@ -92,7 +102,16 @@
       </div>
     </div>
     {% endif %}
-    <p class="card-word">🎉</p>
+    <div class="review-letter-top">
+      <div class="review-letter-route">
+        <span class="review-letter-kicker">今日信箱</span>
+        <span class="review-letter-subtitle">All caught up</span>
+      </div>
+      <div class="review-letter-stamp" aria-hidden="true">
+        <span>CLEAR</span>
+      </div>
+    </div>
+    <p class="card-word">✓</p>
     <p style="text-align:center;color:var(--text-secondary);">今天的语言信箱已经清空。</p>
     <p style="text-align:center;color:var(--text-secondary);font-size:13px;margin-top:8px;">
       被退回重寄的信，会在约 10 分钟后再次送达。
