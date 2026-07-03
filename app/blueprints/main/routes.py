@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, session)
 from flask_login import login_required, current_user
+from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.extensions import db
 from app.services import words as words_svc
 
 bp = Blueprint("main", __name__)
@@ -126,6 +128,39 @@ def save_settings():
         flash("设置内容不正确，请检查后再保存")
         return redirect(url_for("main.settings"))
     flash("已保存设置")
+    return redirect(url_for("main.settings"))
+
+
+@bp.post("/settings/account")
+@login_required
+def save_account_settings():
+    display_name = (request.form.get("display_name") or "").strip()
+    current_password = request.form.get("current_password") or ""
+    new_password = request.form.get("new_password") or ""
+    confirm_password = request.form.get("confirm_password") or ""
+    changing_password = any([current_password, new_password, confirm_password])
+
+    if not display_name or len(display_name) > 100:
+        flash("昵称需为 1-100 个字符")
+        return redirect(url_for("main.settings"))
+    current_user.display_name = display_name
+
+    if changing_password:
+        if not check_password_hash(current_user.password_hash, current_password):
+            flash("当前密码不正确")
+            return redirect(url_for("main.settings"))
+        if len(new_password) < 8 or len(new_password) > 128:
+            flash("新密码需为 8-128 个字符")
+            return redirect(url_for("main.settings"))
+        if new_password != confirm_password:
+            flash("两次输入的新密码不一致")
+            return redirect(url_for("main.settings"))
+        current_user.password_hash = generate_password_hash(new_password)
+        current_user.login_attempts = 0
+        current_user.locked_until = None
+
+    db.session.commit()
+    flash("已保存账号设置")
     return redirect(url_for("main.settings"))
 
 

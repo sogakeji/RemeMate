@@ -15,19 +15,30 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     provision_user(app, "se1@t.com", PW)
     login(client, "se1@t.com", PW)
     page = client.get("/settings").get_data(as_text=True)
+    assert "昵称" in page
+    assert "登录密码" in page
     assert "正在学" in page
     assert "中文" in page
     assert "母语" in page
     assert "时区" in page
     assert "Bark 推送" in page
+    assert 'data-settings-toggle="profile-panel"' in page
+    assert 'data-settings-toggle="password-panel"' in page
     assert 'data-settings-toggle="learning-panel"' in page
     assert 'data-settings-toggle="feedback-panel"' in page
     assert 'data-settings-toggle="timezone-panel"' in page
     assert 'data-settings-toggle="bark-panel"' in page
+    assert 'class="settings-panel" id="profile-panel"' in page
+    assert 'class="settings-panel" id="password-panel"' in page
     assert 'class="settings-panel" id="learning-panel"' in page
     assert 'class="settings-panel" id="feedback-panel"' in page
     assert 'class="settings-panel" id="timezone-panel"' in page
     assert 'class="settings-panel" id="bark-panel"' in page
+    assert 'formaction="/settings/account"' in page
+    assert 'name="display_name"' in page
+    assert 'name="current_password"' in page
+    assert 'name="new_password"' in page
+    assert 'name="confirm_password"' in page
     assert 'formaction="/settings/bark/test"' in page
     assert 'name="languages"' in page
     assert 'name="feedback_language"' in page
@@ -71,6 +82,67 @@ def test_settings_save_supports_chinese_target_and_french_feedback(app, client, 
     assert cur == "zh"
     assert fb == "fr"
     assert n == 1
+
+
+def test_settings_account_can_update_display_name(app, client, bypass_engine):
+    uid = provision_user(app, "nickname@t.com", PW)
+    login(client, "nickname@t.com", PW)
+    r = client.post("/settings/account", data={
+        "display_name": "New Nick",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "已保存账号设置" in r.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        name = c.execute(text(
+            "SELECT display_name FROM users WHERE id=:u"),
+            {"u": uid}).scalar()
+    assert name == "New Nick"
+    assert "New Nick" in client.get("/settings").get_data(as_text=True)
+
+
+def test_settings_account_can_change_password(app, client, bypass_engine):
+    provision_user(app, "changepw@t.com", PW)
+    login(client, "changepw@t.com", PW)
+    r = client.post("/settings/account", data={
+        "display_name": "Tester",
+        "current_password": PW,
+        "new_password": "newpass123",
+        "confirm_password": "newpass123",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "已保存账号设置" in r.get_data(as_text=True)
+
+    client.get("/logout")
+    old_login = client.post("/login", data={
+        "email": "changepw@t.com",
+        "password": PW,
+    })
+    assert old_login.status_code == 200
+    assert "邮箱或密码错误" in old_login.get_data(as_text=True)
+    new_login = client.post("/login", data={
+        "email": "changepw@t.com",
+        "password": "newpass123",
+    })
+    assert new_login.status_code == 302
+
+
+def test_settings_account_rejects_wrong_current_password(app, client):
+    provision_user(app, "badcurrent@t.com", PW)
+    login(client, "badcurrent@t.com", PW)
+    r = client.post("/settings/account", data={
+        "display_name": "Tester",
+        "current_password": "wrong-password",
+        "new_password": "newpass123",
+        "confirm_password": "newpass123",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+    assert "当前密码不正确" in r.get_data(as_text=True)
+
+    client.get("/logout")
+    assert client.post("/login", data={
+        "email": "badcurrent@t.com",
+        "password": PW,
+    }).status_code == 302
 
 
 def test_settings_save_timezone_and_recomputes_quota_reset(app, client, bypass_engine):
