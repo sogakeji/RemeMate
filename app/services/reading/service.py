@@ -145,16 +145,18 @@ def add_lookup_to_candidate(user_id: int, lookup_id: int) -> dict[str, Any]:
     if lookup.candidate_id:
         return {"state": "already-candidate", "candidate_id": lookup.candidate_id}
 
+    # Check existing committed word BEFORE creating any source, so we don't
+    # leave a dangling source row if the term is already in the word list.
+    existing_word = _find_existing_word(word_list.id, lookup.normalized_term or lookup.term)
+    if existing_word is not None:
+        return {"state": "existing-word", "word_id": existing_word.id}
+
     source = _source_for_document(user_id, document, word_list.id)
     existing_candidate = _find_existing_candidate(source.id, user_id, lookup.normalized_term or lookup.term)
     if existing_candidate is not None:
         lookup.candidate_id = existing_candidate.id
         db.session.commit()
         return {"state": "already-candidate", "candidate_id": existing_candidate.id}
-
-    existing_word = _find_existing_word(word_list.id, lookup.normalized_term or lookup.term)
-    if existing_word is not None:
-        return {"state": "existing-word", "word_id": existing_word.id}
 
     candidate = _create_candidate(user_id, source, _candidate_item(document, lookup))
     source.total_candidates = WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).count()
@@ -255,8 +257,12 @@ def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[st
     dictionary_result = lookup.dictionary_result_json or {}
     meaning = _first(dictionary_result.get("meanings"))
     source_example = lookup.context_sentence
+    # Use normalized_term (or term) as the candidate word so that dedup
+    # (_find_existing_candidate) compares the same normalized value that
+    # the dictionary lookup already produced.  If two lookups produce the
+    # same normalized form they should map to one candidate.
     return {
-        "word": lookup.term,
+        "word": lookup.normalized_term or lookup.term,
         "part_of_speech": dictionary_result.get("part_of_speech"),
         "meaning": meaning,
         "example": source_example,

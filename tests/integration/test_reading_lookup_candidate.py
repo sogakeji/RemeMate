@@ -305,8 +305,56 @@ def test_existing_word_in_same_language_returns_existing_word_state(app):
         result = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
 
         assert result == {"state": "existing-word", "word_id": existing.id}
+        # No IntakeSource should have been created (existing-word check now
+        # happens before source creation).
+        assert IntakeSource.query.filter_by(user_id=user_id).count() == 0
         assert WordCandidate.query.filter_by(user_id=user_id).count() == 0
         assert ReadingLookup.query.get(lookup.id).candidate_id is None
+
+
+def test_create_reading_candidate_uses_normalized_term_for_dedup(app):
+    """Different surface forms ('CATS' vs 'cat') that normalize to the same
+    term via the dictionary must reuse one candidate, not create two."""
+    user_id = _user(app)
+
+    class NormalizingDict:
+        def lookup(self, language_code, term):
+            return DictionaryResult(
+                term=term,
+                normalized_term="cat",
+                language_code=language_code,
+                part_of_speech="noun",
+                meanings=["meaning for cat"],
+                examples=[],
+                source="normalized",
+                confidence=0.9,
+                found=True,
+            )
+
+    with _rls_context(app, user_id):
+        document = _document(
+            user_id,
+            content_text="The CATS sleep. A cat purrs.",
+        )
+        start_cats = document.content_text.index("CATS")
+        lookup_cats = reading_svc.lookup_term(
+            user_id, document.id, "CATS", start_cats, start_cats + 4,
+            dictionary=NormalizingDict(),
+        )
+        start_cat = document.content_text.index("cat", start_cats + 1)
+        lookup_cat = reading_svc.lookup_term(
+            user_id, document.id, "cat", start_cat, start_cat + 3,
+            dictionary=NormalizingDict(),
+        )
+
+        first = reading_svc.add_lookup_to_candidate(user_id, lookup_cats.id)
+        second = reading_svc.add_lookup_to_candidate(user_id, lookup_cat.id)
+
+        assert first["state"] == "created"
+        assert second == {"state": "already-candidate", "candidate_id": first["candidate_id"]}
+        assert WordCandidate.query.filter_by(user_id=user_id).count() == 1
+        candidate = db_candidate(first["candidate_id"])
+        assert candidate.word == "cat"  # normalized form, not surface form
 
 
 def test_reading_candidate_commits_into_document_language_word_list(app):
