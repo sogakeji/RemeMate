@@ -30,7 +30,7 @@
       <form method="post" action="{{ url_for('reading.delete', doc_id=doc.id) }}" style="display:inline;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn secondary" style="font-size:13px;"
-                onclick="return confirm('确定删除《{{ doc.title }}》吗？');">
+                onclick="return confirm('确定删除这篇阅读材料吗？');">
           删除
         </button>
       </form>

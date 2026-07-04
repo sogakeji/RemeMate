@@ -103,7 +103,7 @@ class TestReadingShelf:
 
         page = client.get("/reading").get_data(as_text=True)
 
-        assert "还没有阅读材料" in page or "空空如也" in page or "reading" in page.lower()
+        assert "还没有阅读材料" in page
 
 
 class TestReadingShow:
