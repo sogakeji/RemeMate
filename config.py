@@ -53,6 +53,10 @@ class BaseConfig:
     MIGRATE_DATABASE_URL = os.environ.get("MIGRATE_DATABASE_URL")
     DISPATCH_DATABASE_URL = os.environ.get("DISPATCH_DATABASE_URL")
 
+    # PDF 上传文件大小上限（MB），需大于 parser 内部限制（25MB）以让 parser 给出明确提示，
+    # 而不是直接报 413 原始错误给用户。
+    MAX_CONTENT_LENGTH = 31 * 1024 * 1024
+
     # LLM
     DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
