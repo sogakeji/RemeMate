@@ -1,4 +1,6 @@
 """Reading document persistence constraints and cleanup."""
+from pathlib import Path
+
 import pytest
 from sqlalchemy import exc, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -206,3 +208,18 @@ def test_composite_reading_owner_fks_are_set_null(bypass_engine):
         "fk_reading_documents_intake_source_owner": "n",
         "fk_reading_lookups_candidate_owner": "n",
     }
+
+
+def test_ownership_migration_repairs_bad_rows_before_constraints():
+    migration_sql = (Path(__file__).resolve().parents[2] / "migrations/versions/e76e0424_fix_reading_ownership_fks.py").read_text()
+
+    repairs = [
+        "UPDATE reading_documents AS rd",
+        "DELETE FROM reading_lookups AS rl",
+        "UPDATE reading_lookups AS rl",
+    ]
+    first_constraint = migration_sql.index("ADD CONSTRAINT fk_reading_documents_intake_source_owner")
+
+    for repair in repairs:
+        assert repair in migration_sql
+        assert migration_sql.index(repair) < first_constraint

@@ -30,6 +30,26 @@ def upgrade():
         ['id', 'user_id'],
     )
     op.execute("""
+        UPDATE reading_documents AS rd
+        SET intake_source_id = NULL
+        FROM intake_sources AS src
+        WHERE rd.intake_source_id = src.id
+          AND rd.user_id <> src.user_id
+    """)
+    op.execute("""
+        DELETE FROM reading_lookups AS rl
+        USING reading_documents AS rd
+        WHERE rl.document_id = rd.id
+          AND rl.user_id <> rd.user_id
+    """)
+    op.execute("""
+        UPDATE reading_lookups AS rl
+        SET candidate_id = NULL
+        FROM word_candidates AS wc
+        WHERE rl.candidate_id = wc.id
+          AND rl.user_id <> wc.user_id
+    """)
+    op.execute("""
         ALTER TABLE reading_documents
         ADD CONSTRAINT fk_reading_documents_intake_source_owner
         FOREIGN KEY (intake_source_id, user_id)
