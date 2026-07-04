@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import pytest
 
 from app.services.reading.dictionary import Dictionary, UnsupportedLanguage
 
 
-FIXTURE_DIR = "tests/fixtures/dictionaries"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "dictionaries"
 
 
 def test_lookup_hits_chinese_fixture():
@@ -88,3 +90,32 @@ def test_missing_term_returns_not_found():
     assert result.found is False
     assert result.normalized_term == "不存在"
     assert result.meanings == []
+
+
+def test_malformed_dictionary_json_returns_not_found(tmp_path):
+    dictionary_dir = tmp_path / "en"
+    dictionary_dir.mkdir()
+    (dictionary_dir / "entries.json").write_text("{not valid json", encoding="utf-8")
+    dictionary = Dictionary(data_dir=tmp_path)
+
+    result = dictionary.lookup("en", "apple")
+
+    assert result.found is False
+    assert result.normalized_term == "apple"
+    assert result.meanings == []
+
+
+def test_malformed_confidence_defaults_to_zero(tmp_path):
+    dictionary_dir = tmp_path / "en"
+    dictionary_dir.mkdir()
+    (dictionary_dir / "entries.json").write_text(
+        '{"apple":{"meanings":["fruit"],"confidence":"high"}}',
+        encoding="utf-8",
+    )
+    dictionary = Dictionary(data_dir=tmp_path)
+
+    result = dictionary.lookup("en", "apple")
+
+    assert result.found is True
+    assert result.meanings == ["fruit"]
+    assert result.confidence == 0.0

@@ -68,7 +68,7 @@ class Dictionary:
             meanings=list(meanings) if isinstance(meanings, list) else [],
             examples=list(examples) if isinstance(examples, list) else [],
             source=entry.get("source"),
-            confidence=float(entry.get("confidence", 0.0)),
+            confidence=self._coerce_confidence(entry.get("confidence", 0.0)),
             found=True,
         )
 
@@ -82,9 +82,18 @@ class Dictionary:
         entries_path = self.data_dir / language_code / "entries.json"
         if not entries_path.exists():
             return {}
-        with entries_path.open("r", encoding="utf-8") as handle:
-            entries = json.load(handle)
+        try:
+            with entries_path.open("r", encoding="utf-8") as handle:
+                entries = json.load(handle)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return {}
         return entries if isinstance(entries, dict) else {}
+
+    def _coerce_confidence(self, value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
 
     def _not_found(self, language_code: str, term: str, normalized_term: str) -> DictionaryResult:
         return DictionaryResult(
