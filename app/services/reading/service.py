@@ -8,10 +8,10 @@ from typing import Any
 from app.extensions import db
 from app.models.intake import IntakeSource, WordCandidate
 from app.models.reading import ReadingDocument, ReadingLookup
-from app.services import intake as intake_svc
+from app.models.word import Word
 from app.services import words as words_svc
 from app.services.reading.context import extract_context_sentence
-from app.services.reading.dictionary import Dictionary, DictionaryResult, SUPPORTED_LANGUAGES
+from app.services.reading.dictionary import Dictionary, SUPPORTED_LANGUAGES
 
 
 class ReadingNotFound(ValueError):
@@ -126,33 +126,38 @@ def lookup_term(
 
 
 def add_lookup_to_candidate(user_id: int, lookup_id: int) -> dict[str, Any]:
-    lookup = ReadingLookup.query.filter_by(id=lookup_id, user_id=user_id).first()
+    initial_lookup = ReadingLookup.query.filter_by(id=lookup_id, user_id=user_id).first()
+    if initial_lookup is None:
+        raise ReadingNotFound("reading lookup not found")
+    initial_document = _require_document(user_id, initial_lookup.document_id)
+    word_list = words_svc.get_or_create_language_list(user_id, initial_document.language_code)
+
+    lookup = (
+        ReadingLookup.query
+        .filter_by(id=lookup_id, user_id=user_id)
+        .with_for_update()
+        .first()
+    )
     if lookup is None:
         raise ReadingNotFound("reading lookup not found")
-    document = _require_document(user_id, lookup.document_id)
-    word_list = words_svc.get_or_create_language_list(user_id, document.language_code)
-
-    existing_word = _find_existing_word(word_list.id, lookup.normalized_term or lookup.term)
-    if existing_word is not None:
-        return {"state": "existing-word", "word_id": existing_word.id}
+    document = _locked_document(user_id, lookup.document_id)
 
     if lookup.candidate_id:
         return {"state": "already-candidate", "candidate_id": lookup.candidate_id}
 
     source = _source_for_document(user_id, document, word_list.id)
-    item = _candidate_item(document, lookup)
-    before_count = WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).count()
-    created = intake_svc._write_candidates(user_id, source, [item])
-    if created != 1:
-        raise ValueError("reading lookup did not create a candidate")
+    existing_candidate = _find_existing_candidate(source.id, user_id, lookup.normalized_term or lookup.term)
+    if existing_candidate is not None:
+        lookup.candidate_id = existing_candidate.id
+        db.session.commit()
+        return {"state": "already-candidate", "candidate_id": existing_candidate.id}
 
-    candidate = (
-        WordCandidate.query
-        .filter_by(source_id=source.id, user_id=user_id)
-        .order_by(WordCandidate.id.desc())
-        .first()
-    )
-    source.total_candidates = before_count + created
+    existing_word = _find_existing_word(word_list.id, lookup.normalized_term or lookup.term)
+    if existing_word is not None:
+        return {"state": "existing-word", "word_id": existing_word.id}
+
+    candidate = _create_candidate(user_id, source, _candidate_item(document, lookup))
+    source.total_candidates = WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).count()
     lookup.candidate_id = candidate.id
     db.session.commit()
     return {"state": "created", "candidate_id": candidate.id, "source_id": source.id}
@@ -183,7 +188,7 @@ def _source_for_document(user_id: int, document: ReadingDocument, word_list_id: 
             id=document.intake_source_id,
             user_id=user_id,
             source_type="reading_pdf",
-        ).first()
+        ).with_for_update().first()
         if source is not None:
             return source
 
@@ -201,6 +206,49 @@ def _source_for_document(user_id: int, document: ReadingDocument, word_list_id: 
     document.intake_source_id = source.id
     db.session.flush()
     return source
+
+
+def _create_candidate(user_id: int, source: IntakeSource, item: dict[str, Any]) -> WordCandidate:
+    word = (item.get("word") or "").strip()
+    if not word:
+        raise ValueError("candidate word is required")
+    candidate = WordCandidate(
+        source_id=source.id,
+        user_id=user_id,
+        word=word,
+        part_of_speech=item.get("part_of_speech"),
+        meaning=item.get("meaning"),
+        example=item.get("example"),
+        source_example=item.get("source_example"),
+        note=item.get("note"),
+        context_start=item.get("context_start"),
+        context_end=item.get("context_end"),
+        status="pending",
+    )
+    db.session.add(candidate)
+    db.session.flush()
+    return candidate
+
+
+def _find_existing_candidate(source_id: int, user_id: int, term: str) -> WordCandidate | None:
+    normalized = (term or "").strip().lower()
+    if not normalized:
+        return None
+    candidates = (
+        WordCandidate.query
+        .filter(
+            WordCandidate.source_id == source_id,
+            WordCandidate.user_id == user_id,
+            WordCandidate.status.in_(["pending", "accepted"]),
+        )
+        .order_by(WordCandidate.id)
+        .with_for_update()
+        .all()
+    )
+    for candidate in candidates:
+        if candidate.word.strip().lower() == normalized:
+            return candidate
+    return None
 
 
 def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[str, Any]:
@@ -229,6 +277,18 @@ def _find_existing_word(word_list_id: int, term: str):
         if word.word.strip().lower() == normalized:
             return word
     return None
+
+
+def _locked_document(user_id: int, document_id: int) -> ReadingDocument:
+    document = (
+        ReadingDocument.query
+        .filter_by(id=document_id, user_id=user_id)
+        .with_for_update()
+        .first()
+    )
+    if document is None:
+        raise ReadingNotFound("reading document not found")
+    return document
 
 
 def _require_document(user_id: int, document_id: int) -> ReadingDocument:

@@ -167,6 +167,21 @@ def test_add_lookup_creates_candidate_with_example_and_source_example(app):
         assert candidate.note == "来自《reader.pdf》"
 
 
+def test_retry_after_linked_candidate_commit_returns_already_candidate(app):
+    user_id = _user(app)
+
+    with _rls_context(app, user_id):
+        lookup = _lookup(user_id)
+        result = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
+        candidate = db_candidate(result["candidate_id"])
+        intake_svc.accept_candidate(user_id, candidate.id)
+        intake_svc.commit_intake_source(user_id, candidate.source_id)
+
+        retry = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
+
+        assert retry == {"state": "already-candidate", "candidate_id": candidate.id}
+
+
 def test_candidate_edit_cannot_override_final_definition_example(app):
     user_id = _user(app)
 
@@ -210,6 +225,71 @@ def test_two_lookups_from_one_document_reuse_one_intake_source(app):
         assert source.status == "done"
         assert source.total_segments == 0
         assert source.total_candidates == 2
+
+
+def test_add_lookup_links_candidate_created_for_this_lookup_when_other_candidate_exists(app):
+    user_id = _user(app)
+
+    with _rls_context(app, user_id):
+        document = _document(user_id)
+        lookup = _lookup(user_id, document)
+        word_list = words_svc.get_or_create_language_list(user_id, document.language_code)
+        source = IntakeSource(
+            user_id=user_id,
+            source_type="reading_pdf",
+            language_code=document.language_code,
+            word_list_id=word_list.id,
+            original_name=document.source_filename,
+            status="done",
+            total_segments=0,
+        )
+        db.session.add(source)
+        db.session.flush()
+        document.intake_source_id = source.id
+        older_candidate = WordCandidate(
+            source_id=source.id,
+            user_id=user_id,
+            word="aardvark",
+            status="pending",
+        )
+        db.session.add(older_candidate)
+        db.session.commit()
+
+        result = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
+
+        candidate = db_candidate(result["candidate_id"])
+        assert candidate.word == "cat"
+        assert candidate.id != older_candidate.id
+        assert ReadingLookup.query.get(lookup.id).candidate_id == candidate.id
+        assert IntakeSource.query.get(source.id).total_candidates == 2
+
+
+def test_separate_lookup_for_same_term_reuses_existing_candidate(app):
+    user_id = _user(app)
+
+    with _rls_context(app, user_id):
+        document = _document(
+            user_id,
+            content_text="The cat purrs softly. Another cat sleeps.",
+        )
+        first_lookup = _lookup(user_id, document, "cat")
+        second_start = document.content_text.index("cat", first_lookup.context_end)
+        second_lookup = reading_svc.lookup_term(
+            user_id,
+            document.id,
+            "cat",
+            second_start,
+            second_start + len("cat"),
+            dictionary=StubDictionary(),
+        )
+
+        first = reading_svc.add_lookup_to_candidate(user_id, first_lookup.id)
+        second = reading_svc.add_lookup_to_candidate(user_id, second_lookup.id)
+
+        assert first["state"] == "created"
+        assert second == {"state": "already-candidate", "candidate_id": first["candidate_id"]}
+        assert WordCandidate.query.filter_by(user_id=user_id, word="cat").count() == 1
+        assert ReadingLookup.query.get(second_lookup.id).candidate_id == first["candidate_id"]
 
 
 def test_existing_word_in_same_language_returns_existing_word_state(app):
