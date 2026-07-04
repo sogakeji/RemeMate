@@ -179,10 +179,8 @@ def add_candidate(lookup_id):
                                     source_id=lookup_row.document.intake_source_id))
         return redirect(url_for("reading.index"))
 
-    if state == "already-candidate":
-        flash("已加入候选，可在候选页审核")
-    else:
-        flash("已加入候选，可在候选页审核")
+    # both already-candidate and created states: candidate exists for review
+    flash("已加入候选，可在候选页审核")
 
     if source_id is None:
         # already-candidate 路径不一定返回 source_id；从 candidate 反查。

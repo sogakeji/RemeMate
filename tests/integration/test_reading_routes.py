@@ -495,21 +495,20 @@ class TestReadingAddCandidate:
             data={"csrf_token": csrf},
         )
 
-        # Should redirect (to candidate review page or shelf)
+        # Should redirect to the intake candidate review page
         assert resp.status_code == 302
-        # Verify candidate was created
+        loc = resp.headers.get("Location", "")
+        assert "/intake/" in loc
+        # Verify candidate was created and linked to this lookup
         with _rls_context(app, uid):
             from app.models.intake import WordCandidate
-            cand = WordCandidate.query.filter_by(
-                user_id=uid, source_id=lookup.candidate_id if lookup.candidate_id else None
-            ).first() if False else None
-            # candidate should exist for this lookup
-            cand_count = (
-                WordCandidate.query
-                .filter_by(user_id=uid)
-                .count()
-            )
-            assert cand_count == 1
+            from app.models.reading import ReadingLookup
+            fresh = ReadingLookup.query.filter_by(id=lookup_id, user_id=uid).one()
+            cand = WordCandidate.query.filter_by(user_id=uid).one()
+            assert fresh.candidate_id == cand.id
+            assert cand.source_id == fresh.document.intake_source_id
+            # URL is path form: /intake/<source_id>/candidates
+            assert f"/intake/{cand.source_id}/candidates" in loc
 
     def test_add_candidate_rejects_cross_user(self, app, client):
         """User B cannot add-candidate on user A's lookup."""
