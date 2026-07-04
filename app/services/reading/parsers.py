@@ -52,7 +52,11 @@ def parse_pdf_bytes(
     except (PdfReadError, OSError, ValueError) as exc:
         raise PdfParseError(f"Could not parse PDF '{filename}'") from exc
 
-    page_count = len(reader.pages)
+    try:
+        page_count = len(reader.pages)
+    except (PdfReadError, KeyError, TypeError, ValueError, OSError) as exc:
+        raise PdfParseError(f"Could not parse PDF '{filename}'") from exc
+
     if page_count > max_pages:
         raise TooManyPages(f"PDF '{filename}' has {page_count} pages and exceeds maximum pages of {max_pages}")
 

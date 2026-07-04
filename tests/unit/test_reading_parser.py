@@ -1,9 +1,12 @@
 import pytest
 from pypdf import PdfWriter
-from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject, TextStringObject
+from pypdf.errors import PdfReadError
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
+import app.services.reading.parsers as parsers
 from app.services.reading.parsers import (
     EmptyPdfText,
+    PdfParseError,
     PdfTooLarge,
     TooManyPages,
     parse_pdf_bytes,
@@ -77,3 +80,19 @@ def test_char_limit_raises_pdf_too_large():
 
     with pytest.raises(PdfTooLarge, match="exceeds maximum text length"):
         parse_pdf_bytes(pdf_bytes, "too-long.pdf", max_chars=5)
+
+
+def test_page_tree_parse_errors_raise_pdf_parse_error(monkeypatch):
+    pdf_bytes = _make_pdf_bytes(texts=["Hello reader"])
+
+    class BrokenReader:
+        @property
+        def pages(self):
+            raise PdfReadError("broken page tree")
+
+    monkeypatch.setattr(parsers, "PdfReader", lambda _: BrokenReader())
+
+    with pytest.raises(PdfParseError, match="Could not parse PDF 'broken.pdf'"):
+        parse_pdf_bytes(pdf_bytes, "broken.pdf")
+
+
