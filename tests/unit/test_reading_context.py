@@ -67,6 +67,17 @@ def test_searches_nearby_window_when_offsets_do_not_match_expected_term():
     assert result.offset_matched is False
 
 
+def test_invalid_offsets_do_not_match_expected_term():
+    text = "Hello world. Bye."
+
+    result = extract_context_sentence(text, -4, len(text), "en", expected_term="Bye.")
+
+    assert result.sentence == "Bye."
+    assert result.start == text.index("Bye")
+    assert result.end == len(text)
+    assert result.offset_matched is False
+
+
 def test_truncates_long_sentence_while_keeping_expected_term():
     prefix = "a" * 260
     term = "target-term"
@@ -80,4 +91,17 @@ def test_truncates_long_sentence_while_keeping_expected_term():
     assert term in result.sentence
     assert result.start <= start
     assert result.end >= start + len(term)
+    assert result.offset_matched is True
+
+
+def test_keeps_entire_target_term_when_it_exceeds_max_chars():
+    term = "x" * 100
+    text = f"Start. {term}. End."
+    start = text.index(term)
+
+    result = extract_context_sentence(text, start, start + len(term), "en", expected_term=term, max_chars=80)
+
+    assert result.sentence == term
+    assert result.start == start
+    assert result.end == start + len(term)
     assert result.offset_matched is True

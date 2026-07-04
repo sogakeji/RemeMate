@@ -50,8 +50,10 @@ def _selection_matches(
     selection_end: int,
     expected_term: str | None,
 ) -> bool:
+    if not 0 <= selection_start <= selection_end <= len(text):
+        return False
     if expected_term is None:
-        return 0 <= selection_start <= selection_end <= len(text)
+        return True
     return text[selection_start:selection_end] == expected_term
 
 
@@ -111,7 +113,7 @@ def _truncate_bounds(
 
     target_length = target_end - target_start
     if target_length >= max_chars:
-        return target_start, target_start + max_chars
+        return target_start, target_end
 
     remaining = max_chars - target_length
     before = remaining // 2
