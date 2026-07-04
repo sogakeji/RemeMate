@@ -1,8 +1,11 @@
 """Reading shelf and read-only document routes."""
 import re
 from contextlib import contextmanager
+from io import BytesIO
 
 import pytest
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from app.extensions import db
 from flask import g
@@ -51,6 +54,43 @@ def _create_doc(app, user_id, **overrides):
         doc = reading_svc.create_document(user_id, **payload)
         doc_id = doc.id
     return doc_id
+
+
+def _make_pdf_bytes(*, texts=None, title=None):
+    """Generate a minimal text-based PDF in memory using pypdf.
+
+    No real PDF fixtures on disk — generated in test, per spec requirement.
+    """
+    writer = PdfWriter()
+    for text in texts or []:
+        page = writer.add_blank_page(width=200, height=200)
+        if text:
+            stream = DecodedStreamObject()
+            stream.set_data(
+                f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode("utf-8")
+            )
+            stream_ref = writer._add_object(stream)
+            page[NameObject("/Contents")] = stream_ref
+            page[NameObject("/Resources")] = DictionaryObject(
+                {
+                    NameObject("/Font"): DictionaryObject(
+                        {
+                            NameObject("/F1"): DictionaryObject(
+                                {
+                                    NameObject("/Type"): NameObject("/Font"),
+                                    NameObject("/Subtype"): NameObject("/Type1"),
+                                    NameObject("/BaseFont"): NameObject("/Helvetica"),
+                                }
+                            )
+                        }
+                    )
+                }
+            )
+    if title is not None:
+        writer.add_metadata({"/Title": title})
+    buf = BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
 
 
 class TestReadingRoutesLoginRequired:
@@ -127,6 +167,143 @@ class TestReadingShow:
         resp = client.get(f"/reading/{doc_id}")
 
         assert resp.status_code == 404
+
+
+class TestReadingUpload:
+    """Task 8: POST /reading PDF upload route."""
+
+    def test_upload_requires_login(self, client):
+        """POST /reading without login redirects to login page."""
+        resp = client.post("/reading")
+        assert resp.status_code == 302
+        assert "/login" in resp.headers.get("Location", "")
+
+    def test_unsupported_language_rejected(self, app, client):
+        """Upload with unsupported language 'de' is rejected."""
+        _user(app, "up-lang@t.com")
+        _login(client, "up-lang@t.com")
+        csrf = _csrf(client, "/reading/new")
+
+        pdf = _make_pdf_bytes(texts=["Hello world"])
+        resp = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf,
+                "language_code": "de",
+                "file": (BytesIO(pdf), "test.pdf"),
+            },
+        )
+        assert resp.status_code == 302
+
+    def test_non_pdf_extension_rejected(self, app, client):
+        """Upload with .txt extension is rejected."""
+        _user(app, "up-ext@t.com")
+        _login(client, "up-ext@t.com")
+        csrf = _csrf(client, "/reading/new")
+
+        resp = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf,
+                "language_code": "en",
+                "file": (BytesIO(b"not a pdf"), "test.txt"),
+            },
+        )
+        assert resp.status_code == 302
+
+    def test_supported_upload_creates_document(self, app, client):
+        """Valid upload creates a document and redirects to the reader."""
+        uid = _user(app, "up-ok@t.com")
+        _login(client, "up-ok@t.com")
+        csrf = _csrf(client, "/reading/new")
+
+        pdf = _make_pdf_bytes(
+            texts=["Hello world. This is a test document."],
+            title="My PDF",
+        )
+        resp = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf,
+                "language_code": "en",
+                "file": (BytesIO(pdf), "test.pdf"),
+            },
+        )
+        assert resp.status_code == 302
+        loc = resp.headers.get("Location", "")
+        assert "/reading/" in loc
+
+        # Extract doc_id from redirect URL (last path segment)
+        doc_id = int(loc.rsplit("/", 1)[-1])
+
+        # Verify document exists in DB with correct fields
+        with _rls_context(app, uid):
+            doc = reading_svc.get_document(uid, doc_id)
+            assert doc is not None
+            assert doc.title == "My PDF"
+            assert doc.language_code == "en"
+            assert doc.source_filename == "test.pdf"
+            assert "Hello world" in doc.content_text
+            assert doc.page_count == 1
+
+    def test_parser_empty_text_error(self, app, client):
+        """Empty/no-text PDF flashes error and redirects back."""
+        _user(app, "up-empty@t.com")
+        _login(client, "up-empty@t.com")
+        csrf = _csrf(client, "/reading/new")
+
+        pdf = _make_pdf_bytes(texts=[""])  # blank page, no extractable text
+        resp = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf,
+                "language_code": "en",
+                "file": (BytesIO(pdf), "empty.pdf"),
+            },
+        )
+        # Should redirect back, not to a reader page
+        assert resp.status_code == 302
+
+    def test_duplicate_upload_redirects_to_existing(self, app, client):
+        """Same PDF uploaded twice redirects to the existing document."""
+        uid = _user(app, "up-dup@t.com")
+        _login(client, "up-dup@t.com")
+
+        pdf = _make_pdf_bytes(texts=["Unique content for dedup test."])
+
+        # First upload
+        csrf1 = _csrf(client, "/reading/new")
+        resp1 = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf1,
+                "language_code": "en",
+                "file": (BytesIO(pdf), "test.pdf"),
+            },
+        )
+        assert resp1.status_code == 302
+        doc_id1 = int(resp1.headers.get("Location", "").rsplit("/", 1)[-1])
+
+        # Second upload (same content) needs a fresh CSRF token
+        csrf2 = _csrf(client, "/reading/new")
+        resp2 = client.post(
+            "/reading",
+            data={
+                "csrf_token": csrf2,
+                "language_code": "en",
+                "file": (BytesIO(pdf), "test.pdf"),
+            },
+        )
+        assert resp2.status_code == 302
+        doc_id2 = int(resp2.headers.get("Location", "").rsplit("/", 1)[-1])
+
+        # Must redirect to the SAME document
+        assert doc_id2 == doc_id1
+
+        # Only one document should exist in DB
+        with _rls_context(app, uid):
+            docs = reading_svc.list_documents(uid)
+            assert len(docs) == 1
 
     def test_nonexistent_document_returns_404(self, app, client):
         _user(app, "show-404@t.com")
