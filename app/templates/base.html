@@ -32,6 +32,7 @@
       {% if current_user.is_authenticated %}
       <nav class="app-nav">
         <a class="nav-link" href="{{ url_for('main.index') }}">首页</a>
+        <a class="nav-link" href="{{ url_for('reading.index') }}">阅读</a>
         <a class="nav-link" href="{{ url_for('write.compose') }}">造句</a>
         <a class="nav-link" href="{{ url_for('square.index') }}">广场</a>
         <div class="nav-dropdown" data-nav-dropdown>

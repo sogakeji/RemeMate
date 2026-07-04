@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}阅读 · 记搭{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <h1>阅读</h1>
+    <a class="btn primary" href="{{ url_for('reading.new') }}">上传新阅读材料</a>
+  </div>
+
+  {% if not documents %}
+  <div class="word-card">
+    <p style="text-align:center;color:var(--text-secondary);margin-bottom:16px;">
+      还没有阅读材料，上传一篇 PDF 开始阅读。
+    </p>
+  </div>
+  {% else %}
+  <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px;">
+    {% for doc in documents %}
+    <div class="word-card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <a class="nav-link" href="{{ url_for('reading.show', doc_id=doc.id) }}" style="font-size:18px;font-weight:600;">
+          {{ doc.title }}
+        </a>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+          <span>{{ doc.language_code | upper }}</span>
+          <span style="margin-left:12px;">{{ doc.page_count }} 页</span>
+          <span style="margin-left:12px;">{{ doc.updated_at.strftime('%Y-%m-%d %H:%M') if doc.updated_at else '' }}</span>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('reading.delete', doc_id=doc.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn secondary" style="font-size:13px;"
+                onclick="return confirm('确定删除《{{ doc.title }}》吗？');">
+          删除
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
