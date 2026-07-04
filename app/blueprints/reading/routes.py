@@ -2,13 +2,14 @@
 
 Task 7 范围：书架列表、上传占位页、阅读器只读展示、删除文档。
 Task 8 范围：PDF 上传路由。
+Task 9 范围：查词弹卡 + 加入候选 action。
 """
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.models.reading import ReadingDocument
+from app.models.reading import ReadingDocument, ReadingLookup
 from app.services.reading import service as reading_svc
 from app.services.reading import parsers as reading_parsers
 from app.services.reading.parsers import EmptyPdfText, PdfParseError
@@ -110,3 +111,88 @@ def delete(doc_id):
         abort(404)
     flash("阅读材料已删除")
     return redirect(url_for("reading.index"))
+
+
+def _int_form(field, *, default=None):
+    """Parse an int form field; return default if missing/invalid."""
+    raw = request.form.get(field)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+@bp.post("/reading/<int:doc_id>/lookup")
+@login_required
+def lookup(doc_id):
+    """查词：根据选中文本和位置查本地词典，返回 _lookup_card 片段。
+
+    HTMX 友好：返回 HTML 片段，前端注入到选词位置旁的卡片容器。
+    """
+    document = reading_svc.get_document(_uid(), doc_id)
+    if document is None:
+        abort(404)
+
+    term = (request.form.get("term") or "").strip()
+    selection_start = _int_form("selection_start")
+    selection_end = _int_form("selection_end")
+    if not term or selection_start is None or selection_end is None:
+        abort(400, "missing term or selection offsets")
+
+    try:
+        lookup_row = reading_svc.lookup_term(
+            _uid(), doc_id, term, selection_start, selection_end,
+        )
+    except ValueError as e:
+        abort(400, str(e))
+
+    return render_template("reading/_lookup_card.html", lookup=lookup_row,
+                           document=document)
+
+
+@bp.post("/reading/lookups/<int:lookup_id>/add-candidate")
+@login_required
+def add_candidate(lookup_id):
+    """加入学习：把 lookup 转成 WordCandidate，跳到候选审核页。
+
+    幂等：重复调用返回同一 source 的候选审核页。
+    """
+    try:
+        result = reading_svc.add_lookup_to_candidate(_uid(), lookup_id)
+    except reading_svc.ReadingNotFound:
+        abort(404)
+
+    state = result.get("state")
+    source_id = result.get("source_id")
+
+    if state == "existing-word":
+        flash("词库中已存在该词")
+        # source_id 可能未创建（existing-word 短路在 source 创建之前），
+        # 用 lookup 的 document 反查 source。
+        lookup_row = ReadingLookup.query.filter_by(
+            id=lookup_id, user_id=_uid()
+        ).first()
+        if lookup_row is not None and lookup_row.document.intake_source_id:
+            return redirect(url_for("intake.candidates",
+                                    source_id=lookup_row.document.intake_source_id))
+        return redirect(url_for("reading.index"))
+
+    if state == "already-candidate":
+        flash("已加入候选，可在候选页审核")
+    else:
+        flash("已加入候选，可在候选页审核")
+
+    if source_id is None:
+        # already-candidate 路径不一定返回 source_id；从 candidate 反查。
+        from app.models.intake import WordCandidate
+        cand = WordCandidate.query.filter_by(
+            id=result.get("candidate_id"), user_id=_uid()
+        ).first()
+        if cand is not None:
+            source_id = cand.source_id
+
+    if source_id is None:
+        return redirect(url_for("reading.index"))
+    return redirect(url_for("intake.candidates", source_id=source_id))

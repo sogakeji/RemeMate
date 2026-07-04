@@ -388,3 +388,150 @@ class TestReadingDelete:
                            data={"csrf_token": csrf})
 
         assert resp.status_code == 404
+
+
+class TestReadingLookup:
+    """Task 9: POST /reading/<doc_id>/lookup and add-candidate action."""
+
+    def test_lookup_returns_card_with_meaning_and_context(self, app, client):
+        """Lookup endpoint returns _lookup_card fragment with dictionary
+        meaning and PDF context sentence."""
+        uid = _user(app, "lookup-a@t.com")
+        _login(client, "lookup-a@t.com")
+        doc_id = _create_doc(
+            app, uid,
+            content_text="The quick brown fox jumps over the lazy dog.",
+            content_hash="lookup-card-hash",
+        )
+
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        # "fox" starts at position 16
+        resp = client.post(
+            f"/reading/{doc_id}/lookup",
+            data={
+                "csrf_token": csrf,
+                "term": "fox",
+                "selection_start": 16,
+                "selection_end": 19,
+            },
+        )
+
+        assert resp.status_code == 200
+        page = resp.get_data(as_text=True)
+        assert "fox" in page
+        # PDF original sentence must appear in the card
+        assert "The quick brown fox jumps over the lazy dog." in page
+
+    def test_lookup_rejects_cross_user(self, app, client):
+        """User B cannot lookup on user A's document."""
+        uid_a = _user(app, "lookup-owner@t.com")
+        _user(app, "lookup-other@t.com")
+        doc_id = _create_doc(app, uid_a, content_hash="lookup-cross-hash")
+
+        _login(client, "lookup-other@t.com")
+        csrf = _csrf(client, "/reading")
+        resp = client.post(
+            f"/reading/{doc_id}/lookup",
+            data={
+                "csrf_token": csrf,
+                "term": "Hello",
+                "selection_start": 0,
+                "selection_end": 5,
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_lookup_rejects_invalid_offsets(self, app, client):
+        """Negative or out-of-range offsets return 400, not 500."""
+        uid = _user(app, "lookup-bad@t.com")
+        _login(client, "lookup-bad@t.com")
+        doc_id = _create_doc(
+            app, uid,
+            content_text="Short text.",
+            content_hash="lookup-bad-hash",
+        )
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/{doc_id}/lookup",
+            data={
+                "csrf_token": csrf,
+                "term": "text",
+                "selection_start": -1,
+                "selection_end": 4,
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_lookup_requires_login(self, client):
+        resp = client.post("/reading/1/lookup",
+                           data={"term": "x", "selection_start": 0,
+                                 "selection_end": 1})
+        assert resp.status_code == 302
+        assert "/login" in resp.headers.get("Location", "")
+
+
+class TestReadingAddCandidate:
+    """Task 9: POST /reading/lookups/<lookup_id>/add-candidate."""
+
+    def test_add_candidate_creates_candidate_and_redirects(self, app, client):
+        uid = _user(app, "addc-ok@t.com")
+        _login(client, "addc-ok@t.com")
+        doc_id = _create_doc(
+            app, uid,
+            content_text="The cat sleeps on the mat.",
+            content_hash="addc-hash",
+        )
+
+        # Create a lookup via service (simulating prior selection)
+        with _rls_context(app, uid):
+            lookup = reading_svc.lookup_term(
+                uid, doc_id, "cat", 4, 7,
+            )
+            lookup_id = lookup.id
+
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/lookups/{lookup_id}/add-candidate",
+            data={"csrf_token": csrf},
+        )
+
+        # Should redirect (to candidate review page or shelf)
+        assert resp.status_code == 302
+        # Verify candidate was created
+        with _rls_context(app, uid):
+            from app.models.intake import WordCandidate
+            cand = WordCandidate.query.filter_by(
+                user_id=uid, source_id=lookup.candidate_id if lookup.candidate_id else None
+            ).first() if False else None
+            # candidate should exist for this lookup
+            cand_count = (
+                WordCandidate.query
+                .filter_by(user_id=uid)
+                .count()
+            )
+            assert cand_count == 1
+
+    def test_add_candidate_rejects_cross_user(self, app, client):
+        """User B cannot add-candidate on user A's lookup."""
+        uid_a = _user(app, "addc-owner@t.com")
+        _user(app, "addc-other@t.com")
+        doc_id = _create_doc(app, uid_a, content_hash="addc-cross-hash")
+
+        with _rls_context(app, uid_a):
+            lookup = reading_svc.lookup_term(
+                uid_a, doc_id, "Hello", 0, 5,
+            )
+            lookup_id = lookup.id
+
+        _login(client, "addc-other@t.com")
+        csrf = _csrf(client, "/reading")
+        resp = client.post(
+            f"/reading/lookups/{lookup_id}/add-candidate",
+            data={"csrf_token": csrf},
+        )
+        assert resp.status_code == 404
+
+    def test_add_candidate_requires_login(self, client):
+        resp = client.post("/reading/lookups/1/add-candidate")
+        assert resp.status_code == 302
+        assert "/login" in resp.headers.get("Location", "")
