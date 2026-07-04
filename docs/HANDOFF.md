@@ -470,3 +470,141 @@ git status -s
 - WSL/PowerShell 中复杂命令的 `$()`、管道和引号经常被 PowerShell 抢先解析。复杂操作优先写临时 Python 脚本在 WSL 内跑，跑完删除。
 - `8891` 上偶尔会残留游离 gunicorn 旧进程，导致新代码未生效或设置页 500。处理方式：先 `ps -ef | grep gunicorn` 查 PID，精确 kill 旧 master/workers，再用 `tmux new-session -d -s rememate '.venv/bin/gunicorn -c gunicorn.conf.py wsgi:app'` 重托管。
 - `datetime.utcnow()` / DB `now()` 时钟坑仍需避免。造测试到期词时用应用侧 UTC 表盘，不要混用 DB 本地时钟。
+---
+
+## 2026-07-04 Lute-style PDF 阅读 MVP 分支（lute-reading-mvp-design）
+
+### 当前状态一句话
+
+分支：`lute-reading-mvp-design`。从 master 切出，独立于 `sentence-square-mvp`（闭测部署分支）和 `ui-rescope`（UI 职责纠偏分支）。**此分支尚未合并 master**，测试 260 passed（13 个 settings 失败来自无关的 `settings.html` dirty 改动，非本分支引入）。
+
+### 产品目标
+
+在 RemeMate 现有基座上新增一个 **PDF 阅读学语言** MVP：用户上传文本型 PDF，进入阅读器边读边选词；选词后弹出本地词典卡片；点击"加入学习"后，词进入 RemeMate 现有候选审核与入库链路，并把 PDF 原文中包含该词的整句写入词库例句字段。
+
+核心设计原则：
+- **阅读器优先，不是导入器优先**
+- 所有入库必须走现有 `WordCandidate` / intake commit 链路，**不直接写 `words`**
+- PDF 原文整句写入 `WordCandidate.source_example`，commit 后 `Definition.example` 必须是 PDF 原文整句
+- 词表对用户不可见（隐式词表口径，延续 ui-rescope 决策）
+
+### 关键设计决策
+
+| 决策 | 选择 | 原因 |
+|---|---|---|
+| PDF parser | `pypdf`（BSD-style） | PyMuPDF 官方 PyPI 为 AGPL/commercial 双许可，闭测/商业不可接受 |
+| 词典 | 本地离线 adapter | 接口 `dictionary.lookup(language_code, term)`，数据外置，不进 git |
+| 首批语言 | `zh/en/ja/fr` | 只允许这四种语言上传和查词；其他语言后续再开 |
+| AI 查词 | 不进 MVP 主路径 | 弹卡只走本地词典，AI 不在阅读器查词路径上 |
+| 词典数据源 | Kaikki/Wiktionary (zh/en/fr) + JMdict (ja) | 全部外置到 `DICTIONARY_DATA_DIR`，仓库只放最小测试 fixture |
+| 阅读材料 | 持久保存 | 有书架、可复读、记录最后位置 |
+| 文档格式 | 只做文本型 PDF | EPUB/TXT/MD 不做；不做 OCR/扫描件 |
+| 显示 | 纯文本渲染 | 不还原版式，不 tokenize 全篇 |
+
+### 已完成（切片 1-4）
+
+**Slice 1：设计与依赖确认**
+- 设计文档 `docs/superpowers/specs/2026-07-03-lute-reading-mvp-design.md`
+- 第三方许可决策 `docs/THIRD_PARTY.md`（PyMuPDF 拒绝为默认，Kaikki/JMdict 批准）
+- 实现计划 `docs/superpowers/plans/2026-07-03-lute-reading-mvp.md`
+
+**Slice 2：PDF 阅读材料 + 数据模型**
+- commits `fba4eac3` → `4f51bcb`（5 commits）
+- `app/models/reading.py`：`ReadingDocument` / `ReadingLookup`
+- `app/models/intake.py`：`WordCandidate.source_example`
+- migrations：新建两表 + RLS（fail-closed 表达式 `NULLIF(current_setting...`）+ composite owner FK + repair-before-constraint
+- `tests/conftest.py` 清理顺序更新
+- tests：19 passed（模型约束 + RLS 隔离）
+
+**Slice 3：查词基础能力**
+- `app/services/reading/context.py`：句子边界抽取（zh/ja/en/fr 标点 + offset 校验 + 超长截断）
+- `app/services/reading/dictionary.py`：本地 JSON adapter + `DictionaryResult` + 日语/英法 normalize 预留
+- `app/services/reading/parsers.py`：`pypdf` parser adapter（文本型 PDF 提取 + size/page/char 限制 + 懒加载页树异常为 typed exception）
+- `requirements.txt`：加 `pypdf>=5.0,<6.0`
+- tests：context 8 passed、dictionary 9 passed、parser 6 passed
+
+**Slice 4：候选桥接（本轮核心 + 最耗时）**
+- commits `7a6c572` → `28f00f7`（3 commits）
+- `app/services/reading/service.py`：document CRUD、lookup、last-position、**`add_lookup_to_candidate`**（文档级 IntakeSource 复用、lookup 锁/幂等、normalized-term 去重、existing-word 前移防 dangling source）
+- `app/services/intake.py`：commit 用 `c.source_example or c.example` 保护 PDF 原文例句
+
+### 进行中（切片 5：页面+路由）
+
+- **已做**：shelf + reader + upload（Task 7 + 8，共 21 tests）
+- **已做**：上传表单 + 文件校验 + 去重 + 错误提示
+- **未做**：lookup card API（`POST /reading/<doc_id>/lookup` + `_lookup_card.html` + add-candidate action）（Task 9）
+- **未做**：reader JS 选词 offset 计算 + 位置上报（Task 10）
+- **未做**：doctor 词典检查 + config 补全（Task 11）
+- **未做**：全线 validation + handoff 更新（Task 12）
+
+### 当前 commit 链（最近 20）
+
+```
+f6fcd90 fix: harden reading upload security and integration
+206f067 feat: upload PDFs into reading shelf
+0db7ca5 fix: harden reading UI and tests
+e1587be feat: add reading shelf and reader pages
+28f00f7 fix: make reading candidate bridge idempotent
+48269ad fix: harden reading lookup candidate bridge
+7a6c572 feat: bridge reading lookups to candidates
+fbcc79c fix: wrap PDF page tree parse errors
+b7217a3 feat: add text PDF parser adapter
+9d37bc6 fix: harden reading dictionary adapter
+bf17f13 feat: add reading dictionary adapter
+2419ced fix: harden reading context extraction
+b7a3d52 feat: add reading context extraction
+4f51bcb fix: repair reading ownership before constraints
+a801539 fix: preserve reading set-null ownership fks
+84f310f fix: harden reading persistence mappings
+fba4eac feat: add reading document persistence
+fc1d367 docs: record reading MVP third-party license decisions
+fef8db8 docs: plan Lute-style PDF reading MVP implementation
+f5c51d3 docs: design Lute-style PDF reading MVP for RemeMate
+```
+
+### 本轮踩坑（本分支特有）
+
+**#13 — `pypdf` 懒解析 page tree 会漏出原始异常**
+- **症状**：`len(reader.pages)` 在 pypdf 内是懒解析属性；PDF 损坏或格式异常时，抛出的 `pypdf` 原生异常会绕过 adapter 的 `PdfParseError` 边界，直接 500 给用户。
+- **解法**：包 `len(reader.pages)` 进 try/except，捕获相关 pypdf/Python 异常后 raise `PdfParseError`。已在 `fbcc79c` 修好。
+- **How to apply**：parser adapter 入口不信任第三方库的"正常构造=一定能读"——page tree 解析也属"extraction"，要包进 typed exception。
+
+**#14 — `add_lookup_to_candidate` 幂等性和并发风险是 Task 6 trivially 引入了 5 个真实 bug**
+- **症状**：
+  1. `WordCandidate.example` 存 raw term 而非 normalized term → 去重失效
+  2. existing-word 检查在 source 创建之后 → 已入库词查新 lookup 会留下孤 dangling source
+  3. `_write_candidates()` 后按"最新 candidate"回查 → 并发可串号
+  4. `source.total_candidates = before + created` → 并发丢增量
+  5. `document.intake_source_id` 为空时并发 add → 同一个 document 可能创多个 `reading_pdf` source
+- **根因**：MVP service 函数看似简单，但涉及 IntakeSource 复用、candidate 去重、row lock、existing-word 短路——每一步都要考虑"这条数据是否可能被同一用户另一请求并发创建"。第一版写的时候忽略了并发/幂等场景。
+- **解法（282f 系列 fix）**：前移 existing-word 检查到 source 创建前；candidate word 使用 normalized_term；source 创建走 `with_for_update()` + flush 原子化；去重检查已存在 pending/accepted candidate；total_candidates 事务内从库实时 count。
+- **How to apply**：任何"find-or-create"函数，不能靠 Python 级幂等保证——必须用 `SELECT ... FOR UPDATE` + 数据库唯一约束 + 事务内 validate-before-write。单线程测试能过不等于并发安全。
+
+**#15 — 模板 `confirm()` 内插用户文本 = 存储型 XSS**
+- **症状**：`index.html` / `show.html` 的删除按钮用 `onclick="return confirm('确定删除《{{ doc.title }}》吗？')"`。Jinja2 的 `{{ }}` 自动 HTML 转义，但 HTML 实体在属性值内被浏览器解回 → 单引号、`</script>` 或恶意代码可注入 JavaScript 字符串。法语标题 `L'étranger` 就能崩，恶意标题可执行代码。
+- **解法**：删掉用户文本插值，改用通用文案 `'确定删除这篇阅读材料吗？'`。已在 `0db7ca5` 修好。
+- **How to apply**：**永不在 inline 事件处理器（onclick/onmouseover 等）内插用户文本**。`|tojson` filter 是安全入口，换成 `<button data-...>` + 绑定事件比裸 onclick 更安全。
+
+**#16 — Task 6 质量审查反复卡在同一子代理，循环 6+ 轮才过**
+- **症状**：Task 6 子代理实现 → quality review → fix → 再 review → 再 fix，一轮比一轮拖，最后一次只修了 2 个点又要再修。总耗时是其他 task 的 3-4 倍。
+- **根因**：Task 6 的 `add_lookup_to_candidate` 是最集成、最敏感的函数（触 IntakeSource、WordCandidate、ReadingLookup、Word 四张表），但子代理在实现时没有做"并发/幂等场景压力测试"就报 DONE。每一轮 review 都抓到新的幂等/竞态问题，子代理只修当前指出的点，不会主动回顾其他同类风险。
+- **解法**：最后我直接在主会话修了最后的 2 个点（existing-word 前移 + normalized_term candidate word），不再派回子代理。2 分钟修好，比继续和子代理来回收发快得多。
+- **How to apply**：函数复杂度超过一张 JOIN 或两表 find-or-create 时，**不要交给同一子代理死磕**——review 一轮后如果还有 2+ 个 issue，直接在主会话修，不要追求"子代理闭环"。子代理擅长写简单绿 field 代码，不擅长并发/幂等全链路推演。
+
+**#17 — replace_all 批量断言替换污染了无关测试**
+- **症状**：在 Task 8 的 review fix 里，我用 `.venv/bin/python -m pytest` 的 replace_all 把所有 `assert resp.status_code == 302` 替换成 `assert resp.status_code == 302 AND /reading/new in location`。结果 login-required 测试（redirect 到 `/login`）和成功上传测试（redirect 到 `/reading/<id>`）全被污染成错误断言。
+- **根因**：replace_all 不区分上下文——所有 "302" 都被替换，包括不应该加 `/reading/new` 的。
+- **解法**：手动逐条修复每个受影响的测试：login-required 删掉 `/reading/new` 断言、成功上传断言删掉 `/reading/new`。
+- **How to apply**：**永远不要用 replace_all 替换测试断言**。测试断言字符串可以出现在多个类/多个测试场景中，语义完全不同。只做精确单次 replace。
+
+### 接手下一步
+
+1. `cd /root/rememate && git checkout lute-reading-mvp-design`
+2. `.venv/bin/python -m pytest -q` — 应 260 passed（13 个 settings 失败是已知的无关问题）
+3. 继续 Task 9：lookup card API + add-candidate action
+   - 新增 `POST /reading/<doc_id>/lookup` 和 `POST /reading/lookups/<id>/add-candidate`
+   - 模板 `_lookup_card.html`
+   - 测试覆盖 lookup 返回卡片 + 加入候选 + 已有词状态
+4. 然后 Task 10（reader JS + position）、Task 11（doctor/config）、Task 12（validation + handoff）
+5. 改代码后 `kill -HUP` gunicorn master（常为 pid 1614）真机验证
+6. 真机流程：上传 PDF → 书架看到 → 打开阅读器 → 选词弹卡 → 加入学习 → 候选审核 → commit，词库 example 必须是 PDF 原文整句
