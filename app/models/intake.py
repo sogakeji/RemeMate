@@ -11,7 +11,7 @@ class IntakeSource(db.Model):
 
     id               = db.Column(db.Integer, primary_key=True)
     user_id          = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    source_type      = db.Column(db.String(20), nullable=False)  # csv / text_extract / quick_add
+    source_type      = db.Column(db.String(20), nullable=False)  # csv / text_extract / quick_add / reading_pdf
     language_code    = db.Column(db.String(10), nullable=False)
     word_list_id     = db.Column(db.Integer, db.ForeignKey("word_lists.id", ondelete="CASCADE"), nullable=False)
     original_name    = db.Column(db.String(200))

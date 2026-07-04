@@ -1,4 +1,4 @@
-"""输入管道：CSV / 文本抽词 / 快速加词 → 候选词。
+"""输入管道：CSV / 文本抽词 / 快速加词 / 阅读材料 → 候选词。
 
 核心原则（用户决策 2026-06-23）：
 - 长度/数量在解析前就拦，绝不「先烧 token 再发现超限」。
@@ -244,7 +244,7 @@ def process_source(user_id, source_id):
                                 used_user_key=own, feature="extract")
         yield {"type": "progress", "done": created, "total": created}
 
-    else:  # csv
+    elif source.source_type == "csv":
         segs = (SourceSegment.query.filter_by(source_id=source.id)
                 .order_by(SourceSegment.segment_index).all())
         total = min(len(segs), remaining)
@@ -269,6 +269,12 @@ def process_source(user_id, source_id):
                                     provider=res.provider, model=res.model,
                                     used_user_key=own, feature="clean")
             yield {"type": "progress", "done": created, "total": total}
+
+    else:
+        source.status = "error"
+        db.session.commit()
+        yield {"type": "error", "message": "不支持的导入来源类型"}
+        return
 
     source.status = "done"
     source.total_candidates = created
@@ -338,7 +344,11 @@ def _write_candidates(user_id, source, items) -> int:
             source_id=source.id, user_id=user_id, word=w,
             part_of_speech=it.get("part_of_speech"),
             meaning=it.get("meaning"), example=it.get("example"),
-            note=it.get("note"), status="pending",
+            source_example=it.get("source_example"),
+            note=it.get("note"),
+            context_start=it.get("context_start"),
+            context_end=it.get("context_end"),
+            status="pending",
         ))
         n += 1
     db.session.flush()
@@ -427,10 +437,11 @@ def commit_intake_source(user_id, source_id) -> int:
                     due_date=utc_now(), interval=1, ease=2.5, reps=0, lapses=0)
         db.session.add(word)
         db.session.flush()
-        if any([c.meaning, c.part_of_speech, c.example, c.note]):
+        example = c.source_example or c.example
+        if any([c.meaning, c.part_of_speech, example, c.note]):
             db.session.add(Definition(
                 word_id=word.id, part_of_speech=c.part_of_speech,
-                meaning=c.meaning, example=c.example, note=c.note))
+                meaning=c.meaning, example=example, note=c.note))
         c.word_id = word.id
         existing.add(c.word.strip().lower())
         committed += 1
