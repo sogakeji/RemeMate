@@ -55,9 +55,7 @@
     var out = '';
     var paras = reader.children;
     for (var i = 0; i < paras.length; i++) {
-      if (i > 0) out += '
-
-';
+      if (i > 0) out += '\n\n';
       var walker = document.createTreeWalker(paras[i], NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) out += walker.currentNode.nodeValue;
     }
