@@ -670,3 +670,72 @@ de24ad7 fix: make reader content scrollable for position tracking
 - 定向测试 114 passed / 0 failed
 - 全套测试 297 passed / 0 failed（settings.html dirty 改动已清理，13 个 settings 失败消失）
 - DB head `e76e0424`
+
+
+### 2026-07-05 真机验证 debug 续：JS 语法错误 + offset 重写 + 句子边界修复
+
+接上文（commit 13bbc90），真机验证又发现一系列问题，逐个修复：
+
+**commit cf789a0 — JS 字符串字面量裸换行导致语法错误**
+- 症状：选词不弹卡，阅读位置不恢复
+- 根因：上轮修复 show.html 时 Python 脚本把 `\n\n` 写成了实际换行符，JS 字符串 `out += '` 里有裸换行，整个 IIFE 崩溃
+- 解法：把 JS 字符串里的裸换行改回 `\n\n` 转义序列
+
+**commit dceee7f — 重写 reader JS offset 计算**
+- 症状：cf789a0 修复后仍不弹卡（Jinja 模板缓存未清）
+- 根因：旧 `fullText()`/`offsetInNode()` 用 `TreeWalker(SHOW_TEXT)` 遍历，逻辑复杂且脆弱
+- 解法：重写为 `getElementsByTagName('p')` + `textContent` 拼接，`globalOffset()` 按 `<p>` 遍历用 `_contains()` 判断选区所在段落，增加 `indexOf` fallback
+
+**commit 481d9cc — 移除 \n 避免句子在段落分隔处提前截断**
+- 症状：法语正确，但中文整句没到句号就截断了
+- 根因：`_boundaries_for` 把 `\n` 包含在句子边界字符里，`_sentence_bounds` 向后搜索时遇到 `\n\n` 的第一个 `\n` 就停止
+- 解法：从 `_boundaries_for` 移除 `\n`，只保留标点符号 `.!?` 和 `。！？`
+
+**commit aa5a78f — \n\n 段落分隔作为句子边界**
+- 症状：移除 `\n` 后，没有句号的中文段落会跨段落抽取整段
+- 根因：`_sentence_bounds` 没有段落边界概念，找不到标点就搜到文本末尾
+- 解法：`_sentence_bounds` 遇到 `\n\n` 时作为边界停止（向前和向后都检查），但不包含 `\n` 本身
+
+**commit 57c7a65 — 中文逗号分号作为句子边界**
+- 症状：中文 PDF 提取后常缺少句号 `。`，只有逗号 `，` 分隔分句，整段被当作一个句子返回
+- 根因：`_boundaries_for` 中文只含 `。！？`，没有逗号分号；中文 PDF 文本里句号可能被版式折行丢失或根本不存在
+- 解法：中文边界改为 `。！？，；`，在逗号处也能正确分段
+- 修复思路：中文不像英文那样每个句子都以句号结束，很多中文 PDF 提取出来的文本段内只有逗号没有句号。把逗号 `，` 和分号 `；` 加入边界集后，`_sentence_bounds` 会在逗号处停止，返回当前分句而非整段。这是中文 NLP 的常见做法——中文分句不能只靠句号，必须考虑逗号。
+
+**#20 — Python 脚本写 JS 文件时 \n\n 转义陷阱**
+- 症状：Python 三引号字符串里 `\n\n` 被解释成实际换行符，写到 JS 文件后字符串字面量里有裸换行，JS 语法错误
+- 根因：Python `'''\n'''` → 文件内容 `
+`（实际换行）→ JS 字符串里裸换行 → 语法错误
+- 解法：用 `write_to_file` 在 Windows 侧写脚本再从 WSL 执行，或用 `chr(92)` 构造反斜杠
+- How to apply：跨语言生成代码时，转义字符的层数要仔细计算——Python 一层、文件内容一层、目标语言一层
+
+**#21 — Jinja 模板缓存导致 HUP 不生效**
+- 症状：`kill -HUP` gunicorn 后模板改动不生效
+- 根因：Flask 生产模式默认 `TEMPLATES_AUTO_RELOAD = False`，HUP 重载 worker 但模板缓存可能未清
+- 解法：完全重启 gunicorn（`pkill` + 重新 `--daemon` 启动）
+- How to apply：改模板后要完全重启 gunicorn，不能只 HUP
+
+**#22 — 中文句子边界不能只靠句号**
+- 症状：中文 PDF 选词后整段作为上下文
+- 根因：中文 PDF 提取后常缺少句号 `。`，只有逗号 `，`；`_boundaries_for` 只含 `。！？`
+- 解法：中文边界加逗号 `，` 和分号 `；`
+- How to apply：中文分句必须考虑逗号，不能照搬英文只靠句号
+
+### 当前 commit 链（最新 7）
+
+```
+57c7a65 fix: add Chinese comma and semicolon as sentence boundaries for context extraction
+aa5a78f fix: handle \n\n paragraph breaks as sentence boundaries in context extraction
+481d9cc fix: remove newline from sentence boundaries to avoid premature truncation
+dceee7f fix: rewrite reader JS with robust offset calc and indexOf fallback
+cf789a0 fix: escape \n\n in JS string literal to prevent syntax error
+af09726 docs: record reader context sentence fix and pitfalls #18-19 in handoff
+13bbc90 fix: correct reader context sentence for repeated words and paragraph offsets
+```
+
+### 当前测试状态
+
+- 定向测试 44 passed / 0 failed（context + routes）
+- 全套测试 297 passed / 0 failed
+- DB head `e76e0424`
+- 真机验证：弹卡正确、位置恢复正确、法语上下文正确、中文上下文待最终确认
