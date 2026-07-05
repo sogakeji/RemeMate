@@ -113,6 +113,29 @@ def delete(doc_id):
     return redirect(url_for("reading.index"))
 
 
+@bp.post("/reading/<int:doc_id>/position")
+@login_required
+def update_position(doc_id):
+    """保存最后阅读位置。前端滚动时或离开页面前上报。"""
+    document = reading_svc.get_document(_uid(), doc_id)
+    if document is None:
+        abort(404)
+    char_offset = _int_form("char_offset", default=-1)
+    scroll_ratio_raw = request.form.get("scroll_ratio")
+    if char_offset is None or scroll_ratio_raw is None:
+        abort(400, "missing char_offset or scroll_ratio")
+    try:
+        payload = {"char_offset": int(char_offset),
+                   "scroll_ratio": float(scroll_ratio_raw)}
+    except (TypeError, ValueError):
+        abort(400, "invalid numeric values")
+    try:
+        reading_svc.update_last_position(_uid(), doc_id, payload)
+    except ValueError as e:
+        abort(400, str(e))
+    return "", 200
+
+
 def _int_form(field, *, default=None):
     """Parse an int form field; return default if missing/invalid."""
     raw = request.form.get(field)

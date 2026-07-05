@@ -22,9 +22,144 @@
     <span style="margin-left:12px;">{{ document.content_text | length }} 字符</span>
   </div>
 
-  <div class="word-card">
+  <div class="word-card" style="position:relative;">
     <pre id="reader-content" style="white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:16px;line-height:1.8;margin:0;user-select:text;"
     >{{ document.content_text }}</pre>
+    <div id="lookup-card-container" style="position:absolute;top:0;right:0;max-width:360px;z-index:100;"></div>
   </div>
 </div>
+
+<script>
+(function () {
+  var csrfToken = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfToken ? csrfToken.getAttribute('content') : '';
+
+  var pre = document.getElementById('reader-content');
+  var cardContainer = document.getElementById('lookup-card-container');
+  var docId = {{ document.id }};
+  var textContent = pre.textContent;
+  var saveTimer = null;
+
+  // ---- Lookup on text selection ----
+  pre.addEventListener('mouseup', function () {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      return;
+    }
+    var term = sel.toString().trim();
+    if (!term) return;
+
+    // Compute offsets relative to pre's textContent.
+    var range = sel.getRangeAt(0);
+    // Start offset: walk tree from pre to startContainer, sum text lengths.
+    var start = offsetInNode(pre, range.startContainer, range.startOffset);
+    var end = offsetInNode(pre, range.endContainer, range.endOffset);
+    if (start < 0 || end <= start || end > textContent.length) {
+      return;
+    }
+
+    // Verify the substring at computed offsets matches the selection.
+    if (textContent.substring(start, end) !== term) {
+      return;
+    }
+
+    var form = new FormData();
+    form.append('csrf_token', csrf);
+    form.append('term', term);
+    form.append('selection_start', start);
+    form.append('selection_end', end);
+
+    fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
+      .then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { console.warn('lookup failed', t); });
+        return r.text();
+      })
+      .then(function (html) {
+        if (!html) return;
+        cardContainer.innerHTML = html;
+        var card = cardContainer.firstElementChild;
+        if (card) {
+          // Position near selection
+          var rect = range.getBoundingClientRect();
+          var preRect = pre.getBoundingClientRect();
+          var top = rect.bottom - preRect.top + 6;
+          var left = Math.min(rect.left - preRect.left, preRect.width - 360);
+          card.style.position = 'absolute';
+          card.style.top = top + 'px';
+          card.style.left = Math.max(0, left) + 'px';
+        }
+      });
+  });
+
+  // Hide card when clicking elsewhere on the page
+  document.addEventListener('click', function (e) {
+    if (!cardContainer.contains(e.target) && !pre.contains(e.target)) {
+      cardContainer.innerHTML = '';
+    }
+  });
+
+  // ---- Save position on scroll and unload ----
+  function savePosition() {
+    var ratio = pre.scrollTop ? pre.scrollTop / (pre.scrollHeight - pre.clientHeight) : 0;
+    // Estimate char offset: proportional to scroll ratio (rough, but works for pre wrap).
+    var estimatedOffset = Math.round(textContent.length * ratio);
+    navigator.sendBeacon(
+      '/reading/' + docId + '/position',
+      new URLSearchParams({
+        csrf_token: csrf,
+        char_offset: Math.min(estimatedOffset, textContent.length),
+        scroll_ratio: ratio.toFixed(4),
+      })
+    );
+  }
+
+  pre.addEventListener('scroll', function () {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(savePosition, 2000);
+  });
+
+  window.addEventListener('beforeunload', function () {
+    savePosition();
+  });
+
+  // ---- Restore saved position (if any) ----
+  {% if document.last_position %}
+  (function () {
+    var pos = {{ document.last_position | tojson }};
+    if (pos && typeof pos.scroll_ratio === 'number') {
+      pre.scrollTop = pos.scroll_ratio * (pre.scrollHeight - pre.clientHeight);
+    }
+  })();
+  {% endif %}
+
+  // ---- offsetInNode: walk from root to target, sum text lengths ----
+  function offsetInNode(root, node, offset) {
+    if (node === root) return offset;
+    var total = 0;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var n = walker.currentNode;
+      if (n === node) {
+        return total + offset;
+      }
+      if (n.parentNode && isDescendantOrSelf(n.parentNode, node)) {
+        // We are inside the target's subtree: skip the before-text and
+        // then break out of tree-walk and recurse to find the precise offset.
+        total += n.textContent.length;
+        continue;
+      }
+      total += n.textContent.length;
+    }
+    return total + offset;
+  }
+
+  function isDescendantOrSelf(parent, child) {
+    while (child) {
+      if (child === parent) return true;
+      child = child.parentNode;
+    }
+    return false;
+  }
+})();
+</script>
 {% endblock %}

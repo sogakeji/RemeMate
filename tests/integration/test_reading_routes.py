@@ -99,6 +99,85 @@ class TestReadingRoutesLoginRequired:
         assert resp.status_code == 302
         assert "/login" in resp.headers.get("Location", "")
 
+
+class TestReadingPosition:
+    """Task 10: POST /reading/<doc_id>/position save and validation."""
+
+    def test_position_saves_and_persists(self, app, client):
+        uid = _user(app, "pos-ok@t.com")
+        _login(client, "pos-ok@t.com")
+        doc_id = _create_doc(app, uid, content_hash="pos-hash")
+
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/{doc_id}/position",
+            data={
+                "csrf_token": csrf,
+                "char_offset": 5,
+                "scroll_ratio": 0.42,
+            },
+        )
+        assert resp.status_code == 200
+
+        with _rls_context(app, uid):
+            doc = reading_svc.get_document(uid, doc_id)
+            assert doc.last_position == {"char_offset": 5, "scroll_ratio": 0.42}
+
+    def test_position_rejects_invalid_offset(self, app, client):
+        uid = _user(app, "pos-bad@t.com")
+        _login(client, "pos-bad@t.com")
+        doc_id = _create_doc(
+            app, uid, content_text="abcde", content_hash="pos-bad-hash",
+        )
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/{doc_id}/position",
+            data={
+                "csrf_token": csrf,
+                "char_offset": -1,
+                "scroll_ratio": 0.5,
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_position_rejects_invalid_scroll_ratio(self, app, client):
+        uid = _user(app, "pos-scroll@t.com")
+        _login(client, "pos-scroll@t.com")
+        doc_id = _create_doc(app, uid, content_hash="pos-scroll-hash")
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/{doc_id}/position",
+            data={
+                "csrf_token": csrf,
+                "char_offset": 0,
+                "scroll_ratio": 1.5,
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_position_rejects_cross_user(self, app, client):
+        uid_a = _user(app, "pos-owner@t.com")
+        _user(app, "pos-other@t.com")
+        doc_id = _create_doc(app, uid_a, content_hash="pos-cross-hash")
+
+        _login(client, "pos-other@t.com")
+        csrf = _csrf(client, "/reading")
+        resp = client.post(
+            f"/reading/{doc_id}/position",
+            data={
+                "csrf_token": csrf,
+                "char_offset": 0,
+                "scroll_ratio": 0.0,
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_position_requires_login(self, client):
+        resp = client.post("/reading/1/position",
+                           data={"char_offset": 0, "scroll_ratio": 0.0})
+        assert resp.status_code == 302
+        assert "/login" in resp.headers.get("Location", "")
+
     def test_new_requires_login(self, client):
         resp = client.get("/reading/new")
         assert resp.status_code == 302
