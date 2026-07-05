@@ -74,6 +74,13 @@
 - **add_word 词表内去重**（review 2026-06-23 L10）
   同表可重复加同词；输入管道 commit 时会埋重复牌。加服务层去重或 unique。
 
+- **CSV 导入表头兼容性**（用户反馈 2026-07-05，计划下周处理）
+  当前 CSV 导入要求表头必须包含 `word` 和 `meaning`，会拒绝常见第三方/中文表头。
+  已知无法导入的格式：中文表头 `单词,词性,释义,例句,笔记,是否标注`；Aisten 导出表头
+  `word,definition,sentence,note`。下周修复时应增加表头别名映射：`word/单词`、
+  `meaning/definition/释义`、`part_of_speech/词性`、`example/sentence/例句`、`note/笔记`，
+  并把错误提示改成列出支持的表头，而不是只提示 `word` + `meaning`。
+
 ---
 
 ## 健壮性 / 纵深防御
