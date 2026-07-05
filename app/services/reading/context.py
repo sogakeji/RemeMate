@@ -132,7 +132,9 @@ def _boundaries_for(language_code: str) -> str:
     almost always precedes the ``\n\n``.
     """
     if language_code in {"zh", "ja"}:
-        return "。！？"
+        # Include comma and semicolon as boundaries: Chinese PDF text
+        # often lacks terminal periods but uses these to separate clauses.
+        return "。！？，；"
     return ".!?"
 
 
