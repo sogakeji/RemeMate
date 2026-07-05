@@ -22,7 +22,7 @@
     <span style="margin-left:12px;">{{ document.content_text | length }} 字符</span>
   </div>
 
-  {# 按段落渲染，不再用 <pre> 保留硬换行；段落来自 _reflow_paragraphs 输出（\n\n 分段） #}
+  {# 按段落渲染；段落来自 _reflow_paragraphs 输出（\n\n 分段） #}
   <div class="word-card">
     <div id="reader-content" style="max-height:75vh;overflow:auto;"
     >{% for para in document.content_text.split('\n\n') %}<p style="margin:0 0 1.1em 0;font-size:16px;line-height:1.8;white-space:normal;word-break:break-word;">{{ para }}</p>{% endfor %}</div>
@@ -41,31 +41,17 @@
   var layer = document.getElementById('lookup-card-layer');
   var docId = {{ document.id }};
 
-  // 把 reader 内所有文本节点的文本按顺序拼起来，得到与 content_text 一致的字符串。
-  // offset 计算仍按累计字符 length，下游 lookup 的 selection_start/end 语义不变。
-  function fullText() {
-    // Walk element children (the <p> paragraphs) and join their text with
-    // 
-
- so the result matches document.content_text exactly.  The
-    // previous version only concatenated text nodes, which dropped the
-    // 
-
- paragraph separators and caused offset drift on long docs.
-    var out = '';
-    var paras = reader.children;
-    for (var i = 0; i < paras.length; i++) {
-      if (i > 0) out += '\n\n';
-      var walker = document.createTreeWalker(paras[i], NodeFilter.SHOW_TEXT);
-      while (walker.nextNode()) out += walker.currentNode.nodeValue;
-    }
-    return out;
+  // reader.textContent gives the full text content of all <p> children
+  // concatenated.  Browsers do NOT insert separators between block elements
+  // in textContent, so this drops the \n\n paragraph boundaries.
+  // We rebuild the full text by joining paragraph text with \n\n to match
+  // the server-side content_text exactly.
+  var paras = reader.getElementsByTagName('p');
+  var fullText = '';
+  for (var i = 0; i < paras.length; i++) {
+    if (i > 0) fullText += '\n\n';
+    fullText += paras[i].textContent;
   }
-  var textContent = fullText();
-
-  // 重算 textContent（段落渲染后可能含空白差异，但段落内容与原文一致）
-  // 注意：Jinja 渲染 <p>{{ para }}</p> 时不会插入额外文本节点，所以 fullText()
-  // == content_text（按段落顺序拼接）。如果有差异，子串校验会失败，lookup 不会发出。
 
   // ---- 选词查card ----
   reader.addEventListener('mouseup', function () {
@@ -74,13 +60,31 @@
     var term = sel.toString().trim();
     if (!term) return;
 
+    // Find the selection offset in fullText by searching for the term.
+    // We use the anchor offset within its text node and walk up to find
+    // the paragraph, then calculate the global offset.
     var range = sel.getRangeAt(0);
-    var start = offsetInNode(reader, range.startContainer, range.startOffset);
-    var end = offsetInNode(reader, range.endContainer, range.endOffset);
-    if (start < 0 || end <= start || end > textContent.length) return;
+    var start = globalOffset(reader, range.startContainer, range.startOffset);
+    var end = globalOffset(reader, range.endContainer, range.endOffset);
 
-    // 校验选区文本与计算 offset 处文本一致
-    if (textContent.substring(start, end) !== term) return;
+    // Fallback: if offset calculation fails, use indexOf
+    if (start < 0 || end <= start) {
+      var idx = fullText.indexOf(term);
+      if (idx < 0) return;
+      start = idx;
+      end = idx + term.length;
+    }
+
+    if (end > fullText.length) return;
+
+    // Verify the substring matches
+    if (fullText.substring(start, end) !== term) {
+      // Try indexOf fallback
+      var idx2 = fullText.indexOf(term);
+      if (idx2 < 0) return;
+      start = idx2;
+      end = idx2 + term.length;
+    }
 
     var form = new FormData();
     form.append('csrf_token', csrf);
@@ -96,14 +100,12 @@
       .then(function (html) {
         if (!html) return;
         layer.innerHTML = html;
-        // 用选区 viewport 坐标定位浮层
         var rect = range.getBoundingClientRect();
         var card = layer.firstElementChild;
         if (!card) return;
         var cardW = Math.min(360, window.innerWidth - 32);
         var top = rect.bottom + 8;
         var left = rect.left + (rect.width - cardW) / 2;
-        // 防溢出
         if (top + 200 > window.innerHeight) top = rect.top - 200 - 8;
         if (top < 8) top = 8;
         if (left < 8) left = 8;
@@ -125,12 +127,12 @@
   var saveTimer = null;
   function savePosition() {
     var ratio = reader.scrollTop ? reader.scrollTop / (reader.scrollHeight - reader.clientHeight) : 0;
-    var offset = Math.round(textContent.length * ratio);
+    var offset = Math.round(fullText.length * ratio);
     navigator.sendBeacon(
       '/reading/' + docId + '/position',
       new URLSearchParams({
         csrf_token: csrf,
-        char_offset: Math.min(offset, textContent.length),
+        char_offset: Math.min(offset, fullText.length),
         scroll_ratio: ratio.toFixed(4),
       })
     );
@@ -151,27 +153,42 @@
   })();
   {% endif %}
 
-  // ---- offset 计算：TreeWalker 累加 text node length ----
-  function offsetInNode(root, node, offset) {
-    if (node === root) return offset;
-    // Walk paragraph children in order, accumulating text length and
-    // adding 
-
- between paragraphs so offsets match content_text.
+  // ---- global offset calculation ----
+  // Walk <p> children, summing textContent length + 2 for \n\n between paras.
+  function globalOffset(root, node, offset) {
     var total = 0;
-    var paras = root.children;
-    for (var i = 0; i < paras.length; i++) {
-      if (i > 0) total += 2;  // 
-
-
-      var walker = document.createTreeWalker(paras[i], NodeFilter.SHOW_TEXT);
-      while (walker.nextNode()) {
-        var n = walker.currentNode;
-        if (n === node) return total + offset;
-        total += n.nodeValue.length;
+    var ps = root.getElementsByTagName('p');
+    for (var i = 0; i < ps.length; i++) {
+      if (i > 0) total += 2; // \n\n
+      // Check if node is inside this <p>
+      if (_contains(ps[i], node)) {
+        // Walk text nodes within this <p> to find the offset
+        var localOffset = _localOffset(ps[i], node, offset);
+        if (localOffset >= 0) return total + localOffset;
       }
+      total += ps[i].textContent.length;
     }
-    return total + offset;
+    return -1;
+  }
+
+  function _contains(parent, child) {
+    if (child === parent) return true;
+    while (child) {
+      if (child === parent) return true;
+      child = child.parentNode;
+    }
+    return false;
+  }
+
+  function _localOffset(para, targetNode, targetOffset) {
+    var total = 0;
+    var walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var n = walker.currentNode;
+      if (n === targetNode) return total + targetOffset;
+      total += n.nodeValue.length;
+    }
+    return -1;
   }
 })();
 </script>
