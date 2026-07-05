@@ -630,3 +630,43 @@ ad530e4 fix: tighten reading add-candidate test and collapse flash
 4. 然后 Task 10（reader JS + position）、Task 11（doctor/config）、Task 12（validation + handoff）
 5. 改代码后 `kill -HUP` gunicorn master（常为 pid 1614）真机验证
 6. 真机流程：上传 PDF → 书架看到 → 打开阅读器 → 选词弹卡 → 加入学习 → 候选审核 → commit，词库 example 必须是 PDF 原文整句
+
+
+### 2026-07-05 真机验证 debug：选词整句错位修复（commit 13bbc90）
+
+真机验证发现选词弹卡的"原文整句"不正确：同一单词第二次出现时显示第一次的整句；文档向后翻以后选中词语出现的整句中竟然没有该词。
+
+根因是两个相关 bug：
+
+1. **`_find_in_window` 找第一个匹配而非最近的**（`app/services/reading/context.py`）：当 JS 传来的 offset 不精确触发 fallback 搜索时，`text.find()` 返回窗口内第一个匹配，重复词会解析到最早出现的位置。
+2. **JS `fullText()`/`offsetInNode()` 丢失 `\n\n` 段落分隔符**（`app/templates/reading/show.html`）：模板按 `\n\n` 分段渲染成 `<p>` 元素，但 JS 的 `TreeWalker(SHOW_TEXT)` 只遍历文本节点，`<p>` 之间的 `\n\n` 不在任何文本节点里。导致 JS 端 `textContent` 比 Python 端 `content_text` 短，offset 按段落数累积偏移，段落越多偏移越大。
+
+修复：`_find_in_window` 遍历窗口内所有匹配选离 `selection_start` 最近的；`fullText()`/`offsetInNode()` 按 `<p>` 子元素遍历，段落间补 `\n\n`。新增 3 个回归测试。修复后全套 297 passed / 0 failed。
+
+**#18 — 段落渲染与 JS offset 不一致**
+- **症状**：`show.html` 把 `content_text` 按 `\n\n` 分段渲染成多个 `<p>`，JS `fullText()` 用 `TreeWalker(SHOW_TEXT)` 只遍历文本节点拼接，丢失段落间的 `\n\n`。JS 端 `textContent` 比 Python 端 `content_text` 短，offset 按段落数累积偏移。向后翻（段落多）后选词 offset 完全错位，抽出的整句里没有选中的词。
+- **根因**：DOM 元素之间的分隔符（`\n\n`）不在任何文本节点里，`TreeWalker(SHOW_TEXT)` 看不到。
+- **解法**：`fullText()` 和 `offsetInNode()` 改为按 `<p>` 子元素遍历，段落间手动补 `\n\n`。
+- **How to apply**：任何把字符串按分隔符拆成多个 DOM 元素渲染的场景，JS 端重建文本时必须补回分隔符，否则 offset 全部错位。
+
+**#19 — `_find_in_window` 找第一个而非最近的匹配**
+- **症状**：offset 不精确触发 fallback 搜索时，`text.find()` 返回窗口内第一个匹配，而非离 selection 最近的。重复词会解析到错误位置，抽出第一次出现的整句。
+- **根因**：`text.find()` 只返回第一个匹配，不考虑距离。
+- **解法**：遍历窗口内所有匹配，选离 `selection_start` 绝对距离最近的。
+- **How to apply**：fallback 搜索不能假设第一个匹配就是正确的——必须按距离选最近。
+
+### 当前 commit 链（最新 5）
+
+```
+13bbc90 fix: correct reader context sentence for repeated words and paragraph offsets
+c99f26b docs: finalize Lute MVP handoff with Task 10-12 recap
+d967a5e feat: add reading dictionary doctor checks
+de24ad7 fix: make reader content scrollable for position tracking
+72c3517 feat: wire reader selection and progress
+```
+
+### 当前测试状态
+
+- 定向测试 114 passed / 0 failed
+- 全套测试 297 passed / 0 failed（settings.html dirty 改动已清理，13 个 settings 失败消失）
+- DB head `e76e0424`
