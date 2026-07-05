@@ -599,6 +599,28 @@ f5c51d3 docs: design Lute-style PDF reading MVP for RemeMate
 
 ### 接手下一步
 
+### 2026-07-04 收盘状态（Task 10-12 收尾）
+
+Task 10-12 已全部完成，本分支 Lute MVP 所有 code commits 已落地。
+
+- **Task 10** (`72c3517` + `de24ad7`)：阅读器选词 JS + 位置保存/恢复。TreeWalker 偏移计算、scroll 位置 throttle + beforeunload 上报、lookup 弹卡注入、页面加载恢复上次位置。
+- **Task 11** (`d967a5e`)：doctor 词典检查。`DICTIONARY_DATA_DIR` 配置、`zh/en/ja/fr` 子目录存在性检查、`--strict` 失败语义、`.env.example` 补全。
+- **Task 12**（最后验证）：定向 105 passed / 全套 275 passed（13 settings 已知失败与本分支无关）、DB head `e76e0424`。
+
+### 当前 commit 链（最新 5）
+
+```
+d967a5e feat: add reading dictionary doctor checks
+de24ad7 fix: make reader content scrollable for position tracking
+72c3517 feat: wire reader selection and progress
+ad530e4 fix: tighten reading add-candidate test and collapse flash
+8391e90 feat: add reading lookup card actions
+```
+
+### 验收标准（spec §12）
+
+1-12 全路径在 dev DB 测试中通过（路由 + service + candidate/commit + RBAC），真机验证尚未执行（需上传文本型 PDF 走一遍完整 UI 流程）。真机步骤见下文。
+
 1. `cd /root/rememate && git checkout lute-reading-mvp-design`
 2. `.venv/bin/python -m pytest -q` — 应 260 passed（13 个 settings 失败是已知的无关问题）
 3. 继续 Task 9：lookup card API + add-candidate action
