@@ -85,3 +85,28 @@ def test_doctor_warns_invalid_data_encryption_key(app, runner):
     assert result.exit_code == 0
     assert "[WARN] DATA_ENCRYPTION_KEY" in result.output
     assert "invalid Fernet key" in result.output
+
+
+def test_doctor_warns_missing_dictionary_dir(app, runner):
+    app.config["DICTIONARY_DATA_DIR"] = None
+    result = runner.invoke(args=["doctor"])
+    assert result.exit_code == 0
+    assert "[WARN] reading dictionaries" in result.output
+    assert "DICTIONARY_DATA_DIR not set" in result.output
+
+
+def test_doctor_reports_dictionary_dir_ok(app, runner, tmp_path):
+    import json
+    for lc in ("zh", "en", "ja", "fr"):
+        d = tmp_path / lc
+        d.mkdir(parents=True)
+        (d / "entries.json").write_text(json.dumps({}), encoding="utf-8")
+    app.config["DICTIONARY_DATA_DIR"] = str(tmp_path)
+    result = runner.invoke(args=["doctor"])
+    assert "[OK] reading dictionaries" in result.output
+
+
+def test_doctor_strict_fails_on_warn(app, runner):
+    app.config["DICTIONARY_DATA_DIR"] = None
+    result = runner.invoke(args=["doctor", "--strict"])
+    assert result.exit_code != 0

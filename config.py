@@ -57,6 +57,13 @@ class BaseConfig:
     # 而不是直接报 413 原始错误给用户。
     MAX_CONTENT_LENGTH = 31 * 1024 * 1024
 
+    # 阅读词典数据目录（外置，不进 git）
+    DICTIONARY_DATA_DIR = os.environ.get("DICTIONARY_DATA_DIR")
+    # 阅读 PDF 上传限制（需与 parser 的 max_bytes/max_pages/max_chars 联动）
+    READING_MAX_PDF_BYTES = int(os.environ.get("READING_MAX_PDF_BYTES", 8 * 1024 * 1024))
+    READING_MAX_PDF_PAGES = int(os.environ.get("READING_MAX_PDF_PAGES", 80))
+    READING_MAX_PDF_CHARS = int(os.environ.get("READING_MAX_PDF_CHARS", 250_000))
+
     # LLM
     DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
