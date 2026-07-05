@@ -3,6 +3,7 @@
 Task 7 范围：书架列表、上传占位页、阅读器只读展示、删除文档。
 Task 8 范围：PDF 上传路由。
 Task 9 范围：查词弹卡 + 加入候选 action。
+Task 10 范围：阅读位置保存 + 选词 JS。
 """
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
@@ -60,7 +61,7 @@ def create():
     file_bytes = file.read()
 
     try:
-        parsed = reading_parsers.parse_pdf_bytes(file_bytes, file.filename)
+        chunks = reading_parsers.parse_pdf_bytes_multi(file_bytes, file.filename)
     except EmptyPdfText:
         flash("这个 PDF 可能是扫描件，当前版本暂不支持 OCR")
         return redirect(url_for("reading.new"))
@@ -68,28 +69,36 @@ def create():
         flash(str(e))
         return redirect(url_for("reading.new"))
 
-    try:
-        doc = reading_svc.create_document(
-            _uid(),
-            language_code=language_code,
-            title=parsed.title,
-            source_filename=file.filename,
-            content_text=parsed.text,
-            content_hash=None,          # let service own the hash
-            page_count=parsed.page_count,
-        )
-    except IntegrityError:
-        db.session.rollback()
-        existing = ReadingDocument.query.filter_by(
-            user_id=_uid(), content_hash=reading_svc._content_hash(parsed.text)
-        ).first()
-        if existing:
-            flash("该 PDF 已上传")
-            return redirect(url_for("reading.show", doc_id=existing.id))
-        flash("上传失败，请稍后重试")
-        return redirect(url_for("reading.new"))
+    if len(chunks) > 1:
+        flash(f"PDF 共 {len(chunks)} 部分，已自动切分为 {len(chunks)} 篇阅读材料")
 
-    return redirect(url_for("reading.show", doc_id=doc.id))
+    docs = []
+    for parsed in chunks:
+        try:
+            doc = reading_svc.create_document(
+                _uid(),
+                language_code=language_code,
+                title=parsed.title,
+                source_filename=file.filename,
+                content_text=parsed.text,
+                content_hash=None,
+                page_count=parsed.page_count,
+            )
+        except IntegrityError:
+            db.session.rollback()
+            existing = ReadingDocument.query.filter_by(
+                user_id=_uid(), content_hash=reading_svc._content_hash(parsed.text)
+            ).first()
+            if existing:
+                docs.append(existing)
+                continue
+            flash("上传失败，请稍后重试")
+            return redirect(url_for("reading.new"))
+        docs.append(doc)
+
+    if len(docs) == 1:
+        return redirect(url_for("reading.show", doc_id=docs[0].id))
+    return redirect(url_for("reading.index"))
 
 
 @bp.get("/reading/<int:doc_id>")

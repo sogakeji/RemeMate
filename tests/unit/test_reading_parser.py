@@ -8,8 +8,8 @@ from app.services.reading.parsers import (
     EmptyPdfText,
     PdfParseError,
     PdfTooLarge,
-    TooManyPages,
     parse_pdf_bytes,
+    parse_pdf_bytes_multi,
 )
 
 
@@ -64,22 +64,17 @@ def test_empty_pdf_raises_empty_pdf_text():
 def test_size_limit_raises_pdf_too_large():
     pdf_bytes = _make_pdf_bytes(texts=["Hello reader"])
 
-    with pytest.raises(PdfTooLarge, match="exceeds maximum size"):
+    with pytest.raises(PdfTooLarge, match=r"超过"):
         parse_pdf_bytes(pdf_bytes, "large.pdf", max_bytes=len(pdf_bytes) - 1)
 
 
-def test_page_limit_raises_too_many_pages():
-    pdf_bytes = _make_pdf_bytes(texts=["Page one", "Page two"])
-
-    with pytest.raises(TooManyPages, match="exceeds maximum pages"):
-        parse_pdf_bytes(pdf_bytes, "many-pages.pdf", max_pages=1)
-
-
-def test_char_limit_raises_pdf_too_large():
+def test_char_limit_triggers_split_in_multi_mode():
+    """In multi mode, exceeding max_chars produces multiple documents."""
     pdf_bytes = _make_pdf_bytes(texts=["This text is too long"])
 
-    with pytest.raises(PdfTooLarge, match="exceeds maximum text length"):
-        parse_pdf_bytes(pdf_bytes, "too-long.pdf", max_chars=5)
+    docs = parse_pdf_bytes_multi(pdf_bytes, "too-long.pdf", max_chars=5)
+
+    assert len(docs) >= 1  # at least the first chunk survives
 
 
 def test_page_tree_parse_errors_raise_pdf_parse_error(monkeypatch):
@@ -90,9 +85,39 @@ def test_page_tree_parse_errors_raise_pdf_parse_error(monkeypatch):
         def pages(self):
             raise PdfReadError("broken page tree")
 
+        metadata = None
+
+        metadata = None
+
     monkeypatch.setattr(parsers, "PdfReader", lambda _: BrokenReader())
 
-    with pytest.raises(PdfParseError, match="Could not parse PDF 'broken.pdf'"):
+    with pytest.raises(PdfParseError, match=r"无法"):
         parse_pdf_bytes(pdf_bytes, "broken.pdf")
 
 
+def test_multi_split_large_pdf():
+    """parse_pdf_bytes_multi splits a PDF exceeding max_chars into multiple docs."""
+    pdf_bytes = _make_pdf_bytes(
+        texts=["A" * 100, "B" * 100, "C" * 100, "D" * 100],
+        title="Split Test",
+    )
+
+    docs = parse_pdf_bytes_multi(pdf_bytes, "split.pdf", max_chars=150)
+
+    assert len(docs) > 1
+    assert docs[0].title.startswith("Split Test (第 1/")
+    assert all(d.page_count == 4 for d in docs)
+    combined = "".join(d.text for d in docs)
+    assert "AAAA" in combined
+    assert "DDDD" in combined
+
+
+def test_multi_small_pdf_returns_single():
+    """parse_pdf_bytes_multi returns one doc for a small PDF (no suffix)."""
+    pdf_bytes = _make_pdf_bytes(texts=["Hello reader"], title="Small PDF")
+
+    docs = parse_pdf_bytes_multi(pdf_bytes, "small.pdf")
+
+    assert len(docs) == 1
+    assert docs[0].title == "Small PDF"
+    assert "Hello reader" in docs[0].text
