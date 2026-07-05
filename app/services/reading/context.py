@@ -93,15 +93,28 @@ def _sentence_bounds(
     start = max(0, min(target_start, len(text)))
     end_anchor = max(start, min(target_end, len(text)))
 
-    while start > 0 and text[start - 1] not in boundaries:
+    # Walk backward to find sentence start.
+    # Stop at terminal punctuation or a \n\n paragraph break.
+    while start > 0:
+        if text[start - 1] in boundaries:
+            break
+        if text[start - 1] == "\n" and start >= 2 and text[start - 2] == "\n":
+            # We are at a \n\n boundary; stop here (don't include the \n)
+            break
         start -= 1
     while start < len(text) and text[start].isspace():
         start += 1
 
+    # Walk forward to find sentence end.
+    # Stop at terminal punctuation or a \n\n paragraph break.
     end = end_anchor
-    while end < len(text) and text[end] not in boundaries:
-        end += 1
-    if end < len(text):
+    while end < len(text):
+        if text[end] in boundaries:
+            end += 1  # include the punctuation
+            break
+        if text[end] == "\n" and end + 1 < len(text) and text[end + 1] == "\n":
+            # \n\n paragraph break; stop here (don't include the \n)
+            break
         end += 1
 
     return start, end
