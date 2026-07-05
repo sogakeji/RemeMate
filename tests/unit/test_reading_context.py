@@ -105,3 +105,29 @@ def test_keeps_entire_target_term_when_it_exceeds_max_chars():
     assert result.start == start
     assert result.end == start + len(term)
     assert result.offset_matched is True
+
+
+
+def test_repeated_term_fallback_finds_nearest_occurrence():
+    """When offsets do not match, _find_in_window must resolve the occurrence
+    closest to the selection, not the first one in the window.
+
+    Regression: selecting the second 'fox' returned the first sentence because
+    text.find() returned the earliest match.  See HANDOFF pitfall #18.
+    """
+    text = "The fox runs fast. The fox sleeps quietly."
+    # Simulate imprecise offsets near the second 'fox' (position 23-26).
+    ctx = extract_context_sentence(text, 25, 28, "en", expected_term="fox")
+    assert ctx.sentence == "The fox sleeps quietly."
+    assert "fox" in ctx.sentence
+    assert ctx.offset_matched is False
+
+
+def test_repeated_term_exact_offset_returns_correct_sentence():
+    """When offsets match exactly, the correct sentence is returned for the
+    second occurrence of a repeated term."""
+    text = "The fox runs fast. The fox sleeps quietly."
+    second_fox = text.index("fox", 10)
+    ctx = extract_context_sentence(text, second_fox, second_fox + 3, "en", expected_term="fox")
+    assert ctx.sentence == "The fox sleeps quietly."
+    assert ctx.offset_matched is True

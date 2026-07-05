@@ -613,3 +613,36 @@ class TestReadingAddCandidate:
         resp = client.post("/reading/lookups/1/add-candidate")
         assert resp.status_code == 302
         assert "/login" in resp.headers.get("Location", "")
+
+
+    def test_lookup_second_paragraph_returns_correct_sentence(self, app, client):
+        """Lookup on a word in the second paragraph of a multi-para document.
+
+        Regression: JS fullText() dropped \\n\\n separators, so offsets drifted and the card showed the wrong sentence.
+        """
+        uid = _user(app, "lookup-para@t.com")
+        _login(client, "lookup-para@t.com")
+        content = "The fox runs fast.\n\nThe fox sleeps quietly."
+        doc_id = _create_doc(
+            app, uid,
+            content_text=content,
+            content_hash="lookup-para-hash",
+        )
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        # Second "fox" is in the second paragraph: "The fox sleeps quietly."
+        # it starts at offset 23 (after the first para + \n\n)
+        second_fox = content.index("fox", 10)
+        resp = client.post(
+            f"/reading/{doc_id}/lookup",
+            data={
+                "csrf_token": csrf,
+                "term": "fox",
+                "selection_start": second_fox,
+                "selection_end": second_fox + 3,
+            },
+        )
+        assert resp.status_code == 200
+        page = resp.get_data(as_text=True)
+        # The card must show the second sentence, not the first
+        assert "The fox sleeps quietly." in page
+        assert "The fox runs fast." not in page

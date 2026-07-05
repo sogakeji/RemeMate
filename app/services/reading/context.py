@@ -65,10 +65,22 @@ def _find_in_window(
 ) -> int | None:
     window_start = max(0, selection_start - 200)
     window_end = min(len(text), selection_end + 200)
-    index = text.find(expected_term, window_start, window_end)
-    if index == -1:
-        return None
-    return index
+    # Find the occurrence closest to the selection start, not the first
+    # one in the window.  Otherwise repeated terms later in the document
+    # would resolve to the earliest match and surface the wrong sentence.
+    best_index = None
+    best_distance = None
+    search_from = window_start
+    while True:
+        index = text.find(expected_term, search_from, window_end)
+        if index == -1:
+            break
+        distance = abs(index - selection_start)
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_index = index
+        search_from = index + 1
+    return best_index
 
 
 def _sentence_bounds(

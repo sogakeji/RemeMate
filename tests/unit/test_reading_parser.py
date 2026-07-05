@@ -121,3 +121,60 @@ def test_multi_small_pdf_returns_single():
     assert len(docs) == 1
     assert docs[0].title == "Small PDF"
     assert "Hello reader" in docs[0].text
+
+
+def _make_pdf_bytes_lines(*, lines: list[str], title: str | None = None) -> bytes:
+    """Build a PDF whose page text contains explicit newlines (line-wrapped layout).
+
+    pypdf's `add_blank_page` + content stream only renders one line per page,
+    so to simulate multi-line page text we put each line on its own page and
+    let the extractor join them with `\n\n`. That's not ideal, but for the
+    reflow test we instead call `_reflow_paragraphs` directly on a synthetic
+    string with embedded newlines.
+    """
+    # Not used by reflow tests; they call _reflow_paragraphs directly.
+    return _make_pdf_bytes(texts=["\n".join(lines)], title=title)
+
+
+def test_reflow_merges_wrapped_lines_into_paragraph():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    raw = "The quick brown\nfox jumps over\nthe lazy dog.\n\nSecond para here."
+    out = _reflow_paragraphs(raw)
+    assert "The quick brown fox jumps over the lazy dog." in out
+    assert "Second para here." in out
+    # 段间仍是 \n\n
+    assert "\n\n" in out
+
+
+def test_reflow_handles_hyphenated_line_break():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    raw = "exam-\nple word"
+    out = _reflow_paragraphs(raw)
+    assert "example word" in out
+    assert "exam-\n" not in out
+
+
+def test_reflow_strips_trailing_blank_lines():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    out = _reflow_paragraphs("hello\n\n\n\nworld")
+    assert out.startswith("hello")
+    assert out.endswith("world")
+    assert "hello\n\nworld" == out
+
+
+def test_reflow_normalizes_crlf():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    out = _reflow_paragraphs("line one\r\nline two\r\rpara two")
+    assert "line one line two" in out
+    assert "para two" in out
+
+
+def test_reflow_empty_returns_empty():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    assert _reflow_paragraphs("") == ""
+    assert _reflow_paragraphs("   \n  \n  ") == ""

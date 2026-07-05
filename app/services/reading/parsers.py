@@ -112,10 +112,52 @@ def _extract_pages(reader, filename):
         for page in reader.pages:
             text = page.extract_text() or ""
             if text.strip():
-                pages.append(text.strip())
+                pages.append(_reflow_paragraphs(text).strip())
     except (PdfReadError, KeyError, TypeError, ValueError) as exc:
         raise PdfParseError(f"无法从 PDF '{filename}' 提取文本") from exc
     return pages
+
+
+def _reflow_paragraphs(text: str) -> str:
+    """把 PDF 版式行重排成自然段。
+
+    PDF 文本抽取出来的硬换行是版式行（页面宽度折行），不是语义段落。
+    本函数：
+    - 统一换行符。
+    - 按 blank-line（≥2 个换行 / 全空白行）切成段。
+    - 段内单换行合并成空格；处理行尾断词连字符（拉丁字母词）。
+    - 段间用 ``\\n\\n`` 重新拼接。
+    返回重排后的纯文本，offset 仍按单一字符串计算，下游不变。
+    """
+    import re
+
+    if not text:
+        return ""
+    # 统一换行
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # 按「连续空白行」切段（一个以上空行算段界）
+    paragraphs: list[str] = []
+    for block in re.split(r"\n\s*\n", text):
+        block = block.strip()
+        if not block:
+            continue
+        # 段内逐行合并
+        lines = [ln.strip() for ln in block.split("\n")]
+        merged = ""
+        for ln in lines:
+            if not ln:
+                continue
+            if merged:
+                # 断词连字符：merged 以「字母-」结尾、ln 以字母开头 → 去连字符拼接
+                if len(merged) >= 2 and merged[-1] == "-" and merged[-2].isalpha() and ln[:1].isalpha():
+                    merged = merged[:-1] + ln
+                else:
+                    merged = merged + " " + ln
+            else:
+                merged = ln
+        if merged:
+            paragraphs.append(merged)
+    return "\n\n".join(paragraphs)
 
 
 def _split_pages(pages, *, max_chars, filename):
