@@ -108,9 +108,19 @@ def _sentence_bounds(
 
 
 def _boundaries_for(language_code: str) -> str:
+    """Sentence boundary characters.
+
+    Note: we deliberately exclude ``\n`` from the boundary set.  After
+    ``_reflow_paragraphs`` the only newlines in content_text are the
+    ``\n\n`` paragraph separators.  If ``\n`` were a boundary,
+    ``_sentence_bounds`` would stop at the first ``\n`` of a ``\n\n``
+    pair and truncate the sentence before the period.  Paragraph breaks
+    are still respected because a period (or other terminal punctuation)
+    almost always precedes the ``\n\n``.
+    """
     if language_code in {"zh", "ja"}:
-        return "。！？\n"
-    return ".!?\n"
+        return "。！？"
+    return ".!?"
 
 
 def _truncate_bounds(
