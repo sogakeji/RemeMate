@@ -739,3 +739,23 @@ af09726 docs: record reader context sentence fix and pitfalls #18-19 in handoff
 - 全套测试 297 passed / 0 failed
 - DB head `e76e0424`
 - 真机验证：弹卡正确、位置恢复正确、法语上下文正确、中文上下文待最终确认
+
+
+### 2026-07-05 收尾验证（297 passed，无回归）
+
+commit `1b4de71` 把坑 #20-22 和本轮 commit 链写进了 HANDOFF（即本节前一段）。本段只做收尾验证，未改代码。
+
+**验证结果**：
+- 全套：`297 passed / 0 failed`
+- DB head：`e76e0424`（head）
+- Doctor：所有核心检查 OK（app/dispatch/migrate DB、migrations、SECRET_KEY、DATA_ENCRYPTION_KEY、admin account=2 active）。3 个预期 WARN：LLM correction/nsfw 未配、`DICTIONARY_DATA_DIR` 未设（本地词典数据外置）。
+- gunicorn 完全重启（非 HUP），`/healthz` OK
+
+**真机验证清单（待你执行）**：
+1. 上传一个文本型 PDF（含中文、法文文本）→ 书架出现
+2. 打开阅读器 → 正文按段落渲染、无 PDF 硬换行残留
+3. 选词 → 弹卡在选区附近以 fixed 浮层出现，显示词典释义（或"词典暂未命中"）+ PDF 原文整句
+4. 点击"加入学习" → 跳转候选审核页
+5. 候选审核 → commit → 词库详情中 `definition.example` = PDF 原文整句
+6. 另一个用户无法访问该 PDF/lookup/候选
+7. 选已入库词 → 弹卡提示"词库中已存在该词"
