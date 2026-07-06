@@ -207,11 +207,12 @@ def add_candidate(lookup_id):
 
     state = result.get("state")
     source_id = result.get("source_id")
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if state == "existing-word":
+        if is_ajax:
+            return {"ok": False, "state": "existing-word", "message": "词库中已存在该词"}
         flash("词库中已存在该词")
-        # source_id 可能未创建（existing-word 短路在 source 创建之前），
-        # 用 lookup 的 document 反查 source。
         lookup_row = ReadingLookup.query.filter_by(
             id=lookup_id, user_id=_uid()
         ).first()
@@ -220,11 +221,7 @@ def add_candidate(lookup_id):
                                     source_id=lookup_row.document.intake_source_id))
         return redirect(url_for("reading.index"))
 
-    # both already-candidate and created states: candidate exists for review
-    flash("已加入候选，可在候选页审核")
-
     if source_id is None:
-        # already-candidate 路径不一定返回 source_id；从 candidate 反查。
         from app.models.intake import WordCandidate
         cand = WordCandidate.query.filter_by(
             id=result.get("candidate_id"), user_id=_uid()
@@ -232,6 +229,20 @@ def add_candidate(lookup_id):
         if cand is not None:
             source_id = cand.source_id
 
+    if is_ajax:
+        lookup_row = ReadingLookup.query.filter_by(
+            id=lookup_id, user_id=_uid()
+        ).first()
+        term = lookup_row.term if lookup_row else ""
+        return {
+            "ok": True,
+            "state": state,
+            "term": term,
+            "source_id": source_id,
+            "candidate_id": result.get("candidate_id"),
+        }
+
+    flash("已加入候选，可在候选页审核")
     if source_id is None:
         return redirect(url_for("reading.index"))
     return redirect(url_for("intake.candidates", source_id=source_id))

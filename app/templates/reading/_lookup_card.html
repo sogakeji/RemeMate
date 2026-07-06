@@ -24,8 +24,10 @@
   </div>
   {% endif %}
 
-  <form method="post" action="{{ url_for('reading.add_candidate', lookup_id=lookup.id) }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn primary" style="width:100%;">加入学习</button>
-  </form>
+  <button type="button" class="btn primary" style="width:100%;"
+          data-lookup-id="{{ lookup.id }}"
+          data-term="{{ lookup.term }}"
+          onclick="ReaderAddCandidate.add(this)">
+    加入学习
+  </button>
 </div>
