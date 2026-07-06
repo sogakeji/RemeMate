@@ -24,12 +24,17 @@
 
   {# 逐句卡片 #}
   <div id="reader-content" style="max-height:75vh;overflow:auto;">
+    {% if sentences %}
     {% for s in sentences %}
-    <div class="sentence-card" data-start="{{ s.start }}" data-end="{{ s.end }}" data-text="{{ s.text }}">
+    <div class="sentence-card" data-start="{{ s.start }}" data-end="{{ s.end }}">
       <span class="sentence-text">{{ s.text }}</span>
       <button class="speak-btn" data-speak="{{ s.text }}" data-lang="{{ document.language_code }}" title="朗读">🔊</button>
     </div>
     {% endfor %}
+    {% else %}
+    {# fallback: raw text when split_sentences produces nothing #}
+    <pre style="white-space:pre-wrap;font-size:16px;line-height:1.8;margin:0;">{{ document.content_text }}</pre>
+    {% endif %}
   </div>
 </div>
 
@@ -45,28 +50,24 @@
   var layer = document.getElementById('lookup-card-layer');
   var docId = {{ document.id }};
 
-  // Build the full text (same as server content_text) by joining sentence
-  // text from card data attributes, with \n\n between paragraphs implied
-  // by the original content_text structure.  For offset calculation we use
-  // the data-start/data-end attributes directly.
+  // Build the full text by reading sentence-text spans.  Gap between
+  // consecutive cards is determined from data-start/data-end attributes.
+  // This avoids the HTML-attribute escaping issues of data-text.
   var cards = reader.getElementsByClassName('sentence-card');
   var fullText = '';
   for (var i = 0; i < cards.length; i++) {
     if (i > 0) {
-      // Check if there's a paragraph gap between cards.
-      // Two consecutive cards without a paragraph break: no separator needed.
-      // A \n\n gap between them: add it back.
       var prevEnd = parseInt(cards[i - 1].getAttribute('data-end'), 10);
       var currStart = parseInt(cards[i].getAttribute('data-start'), 10);
       var gapLength = currStart - prevEnd;
-      // If the raw text between cards starts with \n\n, add \n\n back.
       if (gapLength >= 2) {
         fullText += '\n\n';
       } else if (gapLength > 0) {
         fullText += ' ';
       }
     }
-    fullText += cards[i].getAttribute('data-text');
+    var span = cards[i].querySelector('.sentence-text');
+    fullText += span ? span.textContent : '';
   }
 
   // ---- Click-to-lookup: expand click position to a word, then POST ----
