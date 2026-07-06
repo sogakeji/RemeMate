@@ -10,6 +10,9 @@ class ContextSentence:
     offset_matched: bool
 
 
+_PAIRED_OPEN = {"(": ")", "[": "]", "{": "}", "“": "”", "‘": "’", "«": "»"}
+
+
 def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
     """把文本按句子边界切分，返回带 start/end 的句子列表。
 
@@ -23,26 +26,36 @@ def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
     start = 0
     i = 0
     n = len(text)
+    # Track paired delimiter depth so we don't split inside (parens) etc.
+    depth = 0
+    open_stack: list[str] = []
     while i < n:
         ch = text[i]
-        if ch in boundaries:
-            end = i + 1  # include the punctuation
-            # trim leading whitespace after previous sentence end
+        # Track paired delimiter nesting
+        if ch in _PAIRED_OPEN:
+            open_stack.append(ch)
+            depth += 1
+        elif open_stack and ch == _PAIRED_OPEN[open_stack[-1]]:
+            open_stack.pop()
+            depth -= 1
+        if ch in boundaries and depth == 0:
+            end = i + 1
+            # Gobble consecutive boundary characters into this sentence
+            # so that "..." or "!!" don't fragment into tiny sentences.
+            while end < n and text[end] in boundaries:
+                end += 1
             s = _trim_sentence(text, start, end)
             if s:
                 sentences.append({"text": s, "start": start, "end": end})
             start = end
-            # skip whitespace between sentences
             while start < n and text[start] in " \n":
                 start += 1
             i = start
         elif ch == "\n" and i + 1 < n and text[i + 1] == "\n":
-            # \n\n paragraph break — end current sentence if any
-            if start < i:
+            if depth == 0 and start < i:
                 s = _trim_sentence(text, start, i)
                 if s:
                     sentences.append({"text": s, "start": start, "end": i})
-            # skip the \n\n and any following whitespace
             i += 2
             start = i
             while start < n and text[start] in " \n":
@@ -50,12 +63,42 @@ def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
             i = start
         else:
             i += 1
-    # trailing text after last boundary
+    # Trailing text after last boundary
     if start < n:
         s = _trim_sentence(text, start, n)
         if s:
             sentences.append({"text": s, "start": start, "end": n})
-    return sentences
+    return _merge_tiny_sentences(sentences)
+
+
+def _merge_tiny_sentences(
+    sentences: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """合并纯标点的微小句子到相邻句，避免单个 '.' 或 '..' 独立成卡片。"""
+    if not sentences:
+        return sentences
+    # Define "tiny": sentence text contains only punctuation/whitespace
+    def _is_tiny(t: str) -> bool:
+        stripped = t.strip()
+        if not stripped:
+            return True
+        return all(ch in ".,;:!?\"'()[]{}“”‘’…、。，．！？；："
+                   for ch in stripped)
+
+    merged: list[dict[str, Any]] = []
+    for s in sentences:
+        if _is_tiny(s["text"]):
+            if merged:
+                # Attach to previous sentence
+                prev = merged[-1]
+                prev["text"] = prev["text"] + s["text"]
+                prev["end"] = s["end"]
+            else:
+                # First sentence is tiny — keep it alone (unlikely)
+                merged.append(s)
+        else:
+            merged.append(s)
+    return merged
 
 
 def _trim_sentence(text: str, start: int, end: int) -> str:

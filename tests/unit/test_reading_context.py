@@ -160,3 +160,44 @@ def test_split_preserves_paragraph_gaps():
 
 def test_split_empty():
     assert split_sentences("", "en") == []
+
+
+def test_split_merges_consecutive_boundary_chars():
+    sentences = split_sentences("Hello... world.", "en")
+    assert len(sentences) == 2
+    assert sentences[0]["text"] == "Hello..."
+    assert sentences[1]["text"] == "world."
+
+
+def test_split_parens_dont_break_sentence():
+    sentences = split_sentences("(Yes!) Right.", "en")
+    assert len(sentences) == 1
+    assert sentences[0]["text"] == "(Yes!) Right."
+
+
+def test_split_brackets_dont_break_sentence():
+    sentences = split_sentences("He said [no way!] and left.", "en")
+    assert len(sentences) == 1
+    assert sentences[0]["text"] == "He said [no way!] and left."
+
+
+def test_split_does_not_fragment_ellipsis():
+    sentences = split_sentences("Para one.\n\n..\n\nPara two.", "en")
+    assert len(sentences) == 2
+    # The two lone periods are merged into the previous sentence
+    assert ".." not in [s["text"] for s in sentences]
+    assert sentences[0]["text"] == "Para one..."
+
+
+def test_split_french_guillemets():
+    sentences = split_sentences("« Oui ! Exact. » Encore.", "fr")
+    assert len(sentences) >= 1
+    # boundary punct inside guillemets should not split
+    assert any("«" in s["text"] for s in sentences)
+
+
+def test_split_lone_periods_are_merged():
+    sentences = split_sentences("A.\n.\nB.", "en")
+    texts = [s["text"] for s in sentences]
+    assert "." not in texts
+    assert len(sentences) <= 2
