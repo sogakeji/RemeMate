@@ -31,6 +31,9 @@
 <div id="lookup-card-layer" style="position:fixed;z-index:1000;display:none;"></div>
 
 <script>
+var KNOWN_WORDS = {{ known_words | tojson }};
+</script>
+<script>
 (function () {
   var csrfToken = document.querySelector('meta[name="csrf-token"]');
   var csrf = csrfToken ? csrfToken.getAttribute('content') : '';
@@ -39,6 +42,80 @@
   var readerText = document.getElementById('reader-text');
   var layer = document.getElementById('lookup-card-layer');
   var docId = {{ document.id }};
+  var lang = '{{ document.language_code }}';
+
+  // ---- Highlight known words ----
+  function highlightKnownWords() {
+    if (!KNOWN_WORDS.length) return;
+    var isLatin = (lang === 'en' || lang === 'fr');
+    var knownSet = new Set();
+    var maxLen = 0;
+    for (var i = 0; i < KNOWN_WORDS.length; i++) {
+      var w = KNOWN_WORDS[i];
+      knownSet.add(isLatin ? w.toLowerCase() : w);
+      if (w.length > maxLen) maxLen = w.length;
+    }
+
+    var walker = document.createTreeWalker(readerText, NodeFilter.SHOW_TEXT);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    for (var i = 0; i < textNodes.length; i++) {
+      var node = textNodes[i];
+      var text = node.nodeValue;
+      var frag = document.createDocumentFragment();
+      var lastEnd = 0;
+
+      if (isLatin) {
+        var regex = /[a-zA-ZÀ-ÿ'-]+/g;
+        var match;
+        while ((match = regex.exec(text)) !== null) {
+          var word = match[0];
+          if (knownSet.has(word.toLowerCase())) {
+            if (match.index > lastEnd) {
+              frag.appendChild(document.createTextNode(text.slice(lastEnd, match.index)));
+            }
+            var mark = document.createElement('mark');
+            mark.className = 'known-word';
+            mark.textContent = word;
+            frag.appendChild(mark);
+            lastEnd = match.index + word.length;
+          }
+        }
+      } else {
+        var pos = 0;
+        while (pos < text.length) {
+          var found = false;
+          for (var len = Math.min(maxLen, text.length - pos); len >= 1; len--) {
+            var sub = text.slice(pos, pos + len);
+            if (knownSet.has(sub)) {
+              if (pos > lastEnd) {
+                frag.appendChild(document.createTextNode(text.slice(lastEnd, pos)));
+              }
+              var mark = document.createElement('mark');
+              mark.className = 'known-word';
+              mark.textContent = sub;
+              frag.appendChild(mark);
+              pos += len;
+              lastEnd = pos;
+              found = true;
+              break;
+            }
+          }
+          if (!found) pos++;
+        }
+      }
+
+      if (lastEnd < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+      }
+      if (frag.childNodes.length > 0) {
+        node.parentNode.replaceChild(frag, node);
+      }
+    }
+  }
+  highlightKnownWords();
+
   var fullText = readerText.textContent || '';
 
   function getGlobalOffset(textNode, offsetWithinNode) {
@@ -114,7 +191,6 @@
     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
 
     var nodeText = textNode.nodeValue;
-    var lang = '{{ document.language_code }}';
     var isLatin = (lang === 'en' || lang === 'fr');
 
     var wordStart = clickOffset;

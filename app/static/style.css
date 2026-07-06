@@ -190,6 +190,18 @@
     }
 }
 
+/* ===== 阅读器：已入库词高亮 ===== */
+.known-word {
+    background: #d4e8ff;
+    border-radius: 3px;
+    padding: 1px 2px;
+    cursor: pointer;
+}
+.dark-mode .known-word {
+    background: #2d4a6f;
+    color: #c4dcff;
+}
+
 /* base/reset */
 body {
     font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",

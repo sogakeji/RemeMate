@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models.reading import ReadingDocument, ReadingLookup
+from app.models.word import Word, WordList
 from app.services.reading import service as reading_svc
 from app.services.reading import parsers as reading_parsers
 from app.services.reading.parsers import EmptyPdfText, PdfParseError
@@ -108,7 +109,15 @@ def show(doc_id):
     document = reading_svc.get_document(_uid(), doc_id)
     if document is None:
         abort(404)
-    return render_template("reading/show.html", document=document)
+    known_words = [
+        row[0] for row in
+        Word.query.join(WordList).filter(
+            WordList.user_id == _uid(),
+            WordList.language_code == document.language_code,
+        ).with_entities(Word.word).all()
+    ]
+    return render_template("reading/show.html", document=document,
+                           known_words=known_words)
 
 
 @bp.post("/reading/<int:doc_id>/delete")
