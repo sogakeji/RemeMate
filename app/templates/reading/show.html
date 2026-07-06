@@ -22,19 +22,8 @@
     <span style="margin-left:12px;">{{ document.content_text | length }} 字符</span>
   </div>
 
-  {# 逐句卡片 #}
   <div id="reader-content" style="max-height:75vh;overflow:auto;">
-    {% if sentences %}
-    {% for s in sentences %}
-    <div class="sentence-card" data-start="{{ s.start }}" data-end="{{ s.end }}">
-      <span class="sentence-text">{{ s.text }}</span>
-      <button class="speak-btn" data-speak="{{ s.text }}" data-lang="{{ document.language_code }}" title="朗读">🔊</button>
-    </div>
-    {% endfor %}
-    {% else %}
-    {# fallback: raw text when split_sentences produces nothing #}
-    <pre style="white-space:pre-wrap;font-size:16px;line-height:1.8;margin:0;">{{ document.content_text }}</pre>
-    {% endif %}
+    <pre id="reader-text" style="white-space:pre-wrap;font-size:16px;line-height:1.8;margin:0;">{{ document.content_text }}</pre>
   </div>
 </div>
 
@@ -47,44 +36,65 @@
   var csrf = csrfToken ? csrfToken.getAttribute('content') : '';
 
   var reader = document.getElementById('reader-content');
+  var readerText = document.getElementById('reader-text');
   var layer = document.getElementById('lookup-card-layer');
   var docId = {{ document.id }};
+  var fullText = readerText.textContent || '';
 
-  // Build the full text by reading sentence-text spans.  Gap between
-  // consecutive cards is determined from data-start/data-end attributes.
-  // This avoids the HTML-attribute escaping issues of data-text.
-  var cards = reader.getElementsByClassName('sentence-card');
-  var fullText = '';
-  for (var i = 0; i < cards.length; i++) {
-    if (i > 0) {
-      var prevEnd = parseInt(cards[i - 1].getAttribute('data-end'), 10);
-      var currStart = parseInt(cards[i].getAttribute('data-start'), 10);
-      var gapLength = currStart - prevEnd;
-      if (gapLength >= 2) {
-        fullText += '\n\n';
-      } else if (gapLength > 0) {
-        fullText += ' ';
+  function getGlobalOffset(textNode, offsetWithinNode) {
+    var offset = 0;
+    var walker = document.createTreeWalker(readerText, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var n = walker.currentNode;
+      if (n === textNode) {
+        return offset + offsetWithinNode;
       }
+      offset += n.nodeValue.length;
     }
-    var span = cards[i].querySelector('.sentence-text');
-    fullText += span ? span.textContent : '';
+    return -1;
   }
 
-  // ---- Click-to-lookup: expand click position to a word, then POST ----
-  reader.addEventListener('click', function (e) {
-    // Only handle clicks on sentence text, not on speak buttons
-    if (e.target.closest('.speak-btn') || e.target.closest('.sentence-card')) {
-      // ok — clicked inside a card
-    } else {
-      return;
-    }
-    if (!e.target.classList.contains('sentence-text')) {
-      // Clicked on card chrome (padding, gap) — hide card
-      layer.style.display = 'none';
-      return;
+  function showLookupCard(term, start, end, x, y) {
+    if (end <= start || start < 0 || end > fullText.length) return;
+    if (fullText.substring(start, end) !== term) {
+      var idx = fullText.indexOf(term);
+      if (idx < 0) return;
+      start = idx;
+      end = idx + term.length;
     }
 
-    // Use caretPositionFromPoint to find the click offset within the text node
+    var form = new FormData();
+    form.append('csrf_token', csrf);
+    form.append('term', term);
+    form.append('selection_start', start);
+    form.append('selection_end', end);
+
+    fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
+      .then(function (r) {
+        if (!r.ok) { layer.style.display = 'none'; return; }
+        return r.text();
+      })
+      .then(function (html) {
+        if (!html) return;
+        layer.innerHTML = html;
+        var card = layer.firstElementChild;
+        if (!card) return;
+        var cardW = Math.min(360, window.innerWidth - 32);
+        var top = y + 8;
+        var left = x - cardW / 2;
+        if (top + 200 > window.innerHeight) top = y - 200 - 8;
+        if (top < 8) top = 8;
+        if (left < 8) left = 8;
+        if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
+        card.style.width = cardW + 'px';
+        layer.style.top = top + 'px';
+        layer.style.left = left + 'px';
+        layer.style.display = 'block';
+      });
+  }
+
+  // ---- Click-to-lookup ----
+  readerText.addEventListener('click', function (e) {
     var range;
     if (document.caretPositionFromPoint) {
       var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
@@ -107,18 +117,14 @@
     var lang = '{{ document.language_code }}';
     var isLatin = (lang === 'en' || lang === 'fr');
 
-    // Expand to word boundaries
     var wordStart = clickOffset;
     var wordEnd = clickOffset;
     if (isLatin) {
-      // Expand to letter boundaries
       while (wordStart > 0 && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordStart - 1])) wordStart--;
       while (wordEnd < nodeText.length && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordEnd])) wordEnd++;
     } else {
-      // CJK: take 1-2 characters around click, plus any adjacent CJK chars
       wordStart = Math.max(0, clickOffset - 2);
       wordEnd = Math.min(nodeText.length, clickOffset + 3);
-      // Contract to actual CJK range
       while (wordStart < clickOffset && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
       wordStart = Math.max(0, clickOffset - 2);
       while (wordStart < clickOffset && !/[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
@@ -131,136 +137,28 @@
     if (wordEnd <= wordStart) return;
     var term = nodeText.substring(wordStart, wordEnd).trim();
     if (!term || term.length === 0) return;
-    // Skip single punctuation
     if (term.length === 1 && /[，。！？、；：,.!?;:]/.test(term)) return;
 
-    // Calculate global offset by finding which card this text node belongs to,
-    // then adding local offset within that card.
-    var card = e.target.closest('.sentence-card');
-    if (!card) return;
-    var cardStart = parseInt(card.getAttribute('data-start'), 10);
-    // Walk all text nodes within this card up to the clicked node, summing
-    // lengths, to find the local offset within the card's sentence text.
-    var localOffset = 0;
-    var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      var n = walker.currentNode;
-      if (n === textNode) {
-        localOffset += wordStart;
-        break;
-      }
-      localOffset += n.nodeValue.length;
-    }
-    var globalStart = cardStart + localOffset - 1; // approximate; will be validated
+    var globalStart = getGlobalOffset(textNode, wordStart);
     var globalEnd = globalStart + term.length;
 
-    // Fallback: use fullText.indexOf if needed
-    if (globalStart < 0 || globalEnd > fullText.length ||
-        fullText.substring(globalStart, globalEnd) !== term) {
-      var idx = fullText.indexOf(term);
-      if (idx < 0) return;
-      globalStart = idx;
-      globalEnd = idx + term.length;
-    }
-
-    var form = new FormData();
-    form.append('csrf_token', csrf);
-    form.append('term', term);
-    form.append('selection_start', globalStart);
-    form.append('selection_end', globalEnd);
-
-    fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
-      .then(function (r) {
-        if (!r.ok) { layer.style.display = 'none'; return; }
-        return r.text();
-      })
-      .then(function (html) {
-        if (!html) return;
-        layer.innerHTML = html;
-        var card = layer.firstElementChild;
-        if (!card) return;
-        var cardW = Math.min(360, window.innerWidth - 32);
-        var top = e.clientY + 8;
-        var left = e.clientX - cardW / 2;
-        if (top + 200 > window.innerHeight) top = e.clientY - 200 - 8;
-        if (top < 8) top = 8;
-        if (left < 8) left = 8;
-        if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
-        card.style.width = cardW + 'px';
-        layer.style.top = top + 'px';
-        layer.style.left = left + 'px';
-        layer.style.display = 'block';
-      });
+    showLookupCard(term, globalStart, globalEnd, e.clientX, e.clientY);
   });
 
-  // ---- Also keep drag-selection support (mouseup) for precise selection ----
-  reader.addEventListener('mouseup', function (e) {
+  // ---- Drag-select lookup ----
+  readerText.addEventListener('mouseup', function (e) {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return;
     var term = sel.toString().trim();
     if (!term) return;
 
     var range = sel.getRangeAt(0);
-    // Find the card the selection is in
-    var card = range.startContainer;
-    while (card && !card.classList.contains('sentence-card')) {
-      card = card.parentElement;
-    }
-    if (!card) return;
-    var cardStart = parseInt(card.getAttribute('data-start'), 10);
+    var start = getGlobalOffset(range.startContainer, range.startOffset);
+    var end = getGlobalOffset(range.endContainer, range.endOffset);
 
-    // Walk text nodes in this card to find the selection offset
-    var localStart = 0, localEnd = 0;
-    var foundStart = false, foundEnd = false;
-    var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      var n = walker.currentNode;
-      if (n === range.startContainer) { localStart += range.startOffset; foundStart = true; }
-      else if (!foundStart) { localStart += n.nodeValue.length; }
-      if (n === range.endContainer) { localEnd += range.endOffset; foundEnd = true; break; }
-      if (!foundEnd) { localEnd += n.nodeValue.length; }
-    }
-    if (!foundStart || !foundEnd) return;
-    var start = cardStart + localStart;
-    var end = cardStart + localEnd;
+    if (start < 0 || end < 0) return;
 
-    if (end <= start || end > fullText.length) return;
-    if (fullText.substring(start, end) !== term) {
-      var idx2 = fullText.indexOf(term);
-      if (idx2 < 0) return;
-      start = idx2;
-      end = idx2 + term.length;
-    }
-
-    var form = new FormData();
-    form.append('csrf_token', csrf);
-    form.append('term', term);
-    form.append('selection_start', start);
-    form.append('selection_end', end);
-
-    fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
-      .then(function (r) {
-        if (!r.ok) { layer.style.display = 'none'; return; }
-        return r.text();
-      })
-      .then(function (html) {
-        if (!html) return;
-        layer.innerHTML = html;
-        var rect = range.getBoundingClientRect();
-        var card = layer.firstElementChild;
-        if (!card) return;
-        var cardW = Math.min(360, window.innerWidth - 32);
-        var top = rect.bottom + 8;
-        var left = rect.left + (rect.width - cardW) / 2;
-        if (top + 200 > window.innerHeight) top = rect.top - 200 - 8;
-        if (top < 8) top = 8;
-        if (left < 8) left = 8;
-        if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
-        card.style.width = cardW + 'px';
-        layer.style.top = top + 'px';
-        layer.style.left = left + 'px';
-        layer.style.display = 'block';
-      });
+    showLookupCard(term, start, end, e.clientX, e.clientY);
   });
 
   // 点别处关卡
@@ -268,9 +166,6 @@
     if (layer.contains(e.target)) return;
     layer.style.display = 'none';
   });
-
-  // ---- 朗读按钮（base.html 已有 speechSynthesis 监听 data-speak） ----
-  // 无需额外 JS，base.html 的全局 click listener 会处理 .speak-btn[data-speak]
 
   // ---- 保存阅读位置 ----
   var saveTimer = null;
