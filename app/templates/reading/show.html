@@ -80,7 +80,7 @@ var ReaderAddCandidate = (function () {
         _addItem(term);
         if (data.source_id) {
           savedSourceId = data.source_id;
-          reviewLink.href = '/intake/candidates?source_id=' + data.source_id;
+          reviewLink.href = '/intake/' + data.source_id + '/candidates';
           reviewLink.style.display = '';
         }
         lookupLayer.style.display = 'none';
