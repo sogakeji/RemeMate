@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -7,6 +8,66 @@ class ContextSentence:
     start: int
     end: int
     offset_matched: bool
+
+
+def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
+    """把文本按句子边界切分，返回带 start/end 的句子列表。
+
+    用于渲染阅读器逐句卡片，保留和 content_text 一致的 offset，
+    点词查词时 offset 语义不变。
+    """
+    if not text:
+        return []
+    boundaries = _boundaries_for(language_code)
+    sentences: list[dict[str, Any]] = []
+    start = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch in boundaries:
+            end = i + 1  # include the punctuation
+            # trim leading whitespace after previous sentence end
+            s = _trim_sentence(text, start, end)
+            if s:
+                sentences.append({"text": s, "start": start, "end": end})
+            start = end
+            # skip whitespace between sentences
+            while start < n and text[start] in " \n":
+                start += 1
+            i = start
+        elif ch == "\n" and i + 1 < n and text[i + 1] == "\n":
+            # \n\n paragraph break — end current sentence if any
+            if start < i:
+                s = _trim_sentence(text, start, i)
+                if s:
+                    sentences.append({"text": s, "start": start, "end": i})
+            # skip the \n\n and any following whitespace
+            i += 2
+            start = i
+            while start < n and text[start] in " \n":
+                start += 1
+            i = start
+        else:
+            i += 1
+    # trailing text after last boundary
+    if start < n:
+        s = _trim_sentence(text, start, n)
+        if s:
+            sentences.append({"text": s, "start": start, "end": n})
+    return sentences
+
+
+def _trim_sentence(text: str, start: int, end: int) -> str:
+    raw = text[start:end]
+    # strip leading/trailing whitespace, but keep internal spaces
+    trimmed = raw.strip()
+    # also strip leading \n inside the segment (leftover from \n\n handling)
+    while trimmed.startswith("\n"):
+        trimmed = trimmed[1:].lstrip()
+    while trimmed.endswith("\n"):
+        trimmed = trimmed[:-1].rstrip()
+    return trimmed
 
 
 def extract_context_sentence(

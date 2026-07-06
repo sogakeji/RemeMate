@@ -14,6 +14,7 @@ from app.models.reading import ReadingDocument, ReadingLookup
 from app.services.reading import service as reading_svc
 from app.services.reading import parsers as reading_parsers
 from app.services.reading.parsers import EmptyPdfText, PdfParseError
+from app.services.reading.context import split_sentences
 
 bp = Blueprint("reading", __name__)
 
@@ -104,11 +105,12 @@ def create():
 @bp.get("/reading/<int:doc_id>")
 @login_required
 def show(doc_id):
-    """阅读器：展示文档纯文本内容。"""
+    """阅读器：逐句卡片展示文档纯文本内容。"""
     document = reading_svc.get_document(_uid(), doc_id)
     if document is None:
         abort(404)
-    return render_template("reading/show.html", document=document)
+    sentences = split_sentences(document.content_text or "", document.language_code)
+    return render_template("reading/show.html", document=document, sentences=sentences)
 
 
 @bp.post("/reading/<int:doc_id>/delete")

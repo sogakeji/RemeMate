@@ -131,3 +131,32 @@ def test_repeated_term_exact_offset_returns_correct_sentence():
     ctx = extract_context_sentence(text, second_fox, second_fox + 3, "en", expected_term="fox")
     assert ctx.sentence == "The fox sleeps quietly."
     assert ctx.offset_matched is True
+# ---- split_sentences ----
+
+from app.services.reading.context import split_sentences
+
+
+def test_split_english_sentences():
+    sentences = split_sentences("Hello world. Goodbye moon! See you soon?", "en")
+    assert len(sentences) == 3
+    assert sentences[0]["text"] == "Hello world."
+    assert sentences[1]["text"] == "Goodbye moon!"
+    assert sentences[2]["text"] == "See you soon?"
+    assert sentences[2]["start"] > sentences[1]["end"]
+
+
+def test_split_chinese_sentences():
+    sentences = split_sentences("今天天气很好。我们去公园吧！你准备好了吗，走吧。", "zh")
+    assert len(sentences) >= 3
+    texts = [s["text"] for s in sentences]
+    assert "今天天气很好。" in texts
+
+
+def test_split_preserves_paragraph_gaps():
+    sentences = split_sentences("Para one end.\n\nPara two start.", "en")
+    assert len(sentences) == 2
+    assert sentences[0]["text"] == "Para one end."
+
+
+def test_split_empty():
+    assert split_sentences("", "en") == []

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ document.title }} · 阅读 · 记搭{% endblock %}
 {% block content %}
-<div class="container">
+<div class="container" style="max-width:760px;">
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <h1>{{ document.title }}</h1>
     <div style="display:flex;gap:8px;">
@@ -22,14 +22,18 @@
     <span style="margin-left:12px;">{{ document.content_text | length }} 字符</span>
   </div>
 
-  {# 按段落渲染；段落来自 _reflow_paragraphs 输出（\n\n 分段） #}
-  <div class="word-card">
-    <div id="reader-content" style="max-height:75vh;overflow:auto;"
-    >{% for para in document.content_text.split('\n\n') %}<p style="margin:0 0 1.1em 0;font-size:16px;line-height:1.8;white-space:normal;word-break:break-word;">{{ para }}</p>{% endfor %}</div>
+  {# 逐句卡片 #}
+  <div id="reader-content" style="max-height:75vh;overflow:auto;">
+    {% for s in sentences %}
+    <div class="sentence-card" data-start="{{ s.start }}" data-end="{{ s.end }}" data-text="{{ s.text }}">
+      <span class="sentence-text">{{ s.text }}</span>
+      <button class="speak-btn" data-speak="{{ s.text }}" data-lang="{{ document.language_code }}" title="朗读">🔊</button>
+    </div>
+    {% endfor %}
   </div>
 </div>
 
-{# 浮层：fixed 定位，跟随选区 viewport 坐标 #}
+{# 浮层：固定定位，点词弹出词卡 #}
 <div id="lookup-card-layer" style="position:fixed;z-index:1000;display:none;"></div>
 
 <script>
@@ -41,45 +45,186 @@
   var layer = document.getElementById('lookup-card-layer');
   var docId = {{ document.id }};
 
-  // reader.textContent gives the full text content of all <p> children
-  // concatenated.  Browsers do NOT insert separators between block elements
-  // in textContent, so this drops the \n\n paragraph boundaries.
-  // We rebuild the full text by joining paragraph text with \n\n to match
-  // the server-side content_text exactly.
-  var paras = reader.getElementsByTagName('p');
+  // Build the full text (same as server content_text) by joining sentence
+  // text from card data attributes, with \n\n between paragraphs implied
+  // by the original content_text structure.  For offset calculation we use
+  // the data-start/data-end attributes directly.
+  var cards = reader.getElementsByClassName('sentence-card');
   var fullText = '';
-  for (var i = 0; i < paras.length; i++) {
-    if (i > 0) fullText += '\n\n';
-    fullText += paras[i].textContent;
+  for (var i = 0; i < cards.length; i++) {
+    if (i > 0) {
+      // Check if there's a paragraph gap between cards.
+      // Two consecutive cards without a paragraph break: no separator needed.
+      // A \n\n gap between them: add it back.
+      var prevEnd = parseInt(cards[i - 1].getAttribute('data-end'), 10);
+      var currStart = parseInt(cards[i].getAttribute('data-start'), 10);
+      var gapLength = currStart - prevEnd;
+      // If the raw text between cards starts with \n\n, add \n\n back.
+      if (gapLength >= 2) {
+        fullText += '\n\n';
+      } else if (gapLength > 0) {
+        fullText += ' ';
+      }
+    }
+    fullText += cards[i].getAttribute('data-text');
   }
 
-  // ---- 选词查card ----
-  reader.addEventListener('mouseup', function () {
+  // ---- Click-to-lookup: expand click position to a word, then POST ----
+  reader.addEventListener('click', function (e) {
+    // Only handle clicks on sentence text, not on speak buttons
+    if (e.target.closest('.speak-btn') || e.target.closest('.sentence-card')) {
+      // ok — clicked inside a card
+    } else {
+      return;
+    }
+    if (!e.target.classList.contains('sentence-text')) {
+      // Clicked on card chrome (padding, gap) — hide card
+      layer.style.display = 'none';
+      return;
+    }
+
+    // Use caretPositionFromPoint to find the click offset within the text node
+    var range;
+    if (document.caretPositionFromPoint) {
+      var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos) {
+        range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+      }
+    }
+    if (!range && document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    }
+    if (!range) return;
+
+    var textNode = range.startContainer;
+    var clickOffset = range.startOffset;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
+
+    var nodeText = textNode.nodeValue;
+    var lang = '{{ document.language_code }}';
+    var isLatin = (lang === 'en' || lang === 'fr');
+
+    // Expand to word boundaries
+    var wordStart = clickOffset;
+    var wordEnd = clickOffset;
+    if (isLatin) {
+      // Expand to letter boundaries
+      while (wordStart > 0 && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordStart - 1])) wordStart--;
+      while (wordEnd < nodeText.length && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordEnd])) wordEnd++;
+    } else {
+      // CJK: take 1-2 characters around click, plus any adjacent CJK chars
+      wordStart = Math.max(0, clickOffset - 2);
+      wordEnd = Math.min(nodeText.length, clickOffset + 3);
+      // Contract to actual CJK range
+      while (wordStart < clickOffset && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
+      wordStart = Math.max(0, clickOffset - 2);
+      while (wordStart < clickOffset && !/[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
+      if (wordStart >= clickOffset) wordStart = Math.max(0, clickOffset - 1);
+      while (wordEnd > clickOffset && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordEnd])) wordEnd--;
+      if (wordEnd <= clickOffset) wordEnd = Math.min(nodeText.length, clickOffset + 2);
+      while (wordEnd < nodeText.length && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordEnd])) wordEnd++;
+    }
+
+    if (wordEnd <= wordStart) return;
+    var term = nodeText.substring(wordStart, wordEnd).trim();
+    if (!term || term.length === 0) return;
+    // Skip single punctuation
+    if (term.length === 1 && /[，。！？、；：,.!?;:]/.test(term)) return;
+
+    // Calculate global offset by finding which card this text node belongs to,
+    // then adding local offset within that card.
+    var card = e.target.closest('.sentence-card');
+    if (!card) return;
+    var cardStart = parseInt(card.getAttribute('data-start'), 10);
+    // Walk all text nodes within this card up to the clicked node, summing
+    // lengths, to find the local offset within the card's sentence text.
+    var localOffset = 0;
+    var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var n = walker.currentNode;
+      if (n === textNode) {
+        localOffset += wordStart;
+        break;
+      }
+      localOffset += n.nodeValue.length;
+    }
+    var globalStart = cardStart + localOffset - 1; // approximate; will be validated
+    var globalEnd = globalStart + term.length;
+
+    // Fallback: use fullText.indexOf if needed
+    if (globalStart < 0 || globalEnd > fullText.length ||
+        fullText.substring(globalStart, globalEnd) !== term) {
+      var idx = fullText.indexOf(term);
+      if (idx < 0) return;
+      globalStart = idx;
+      globalEnd = idx + term.length;
+    }
+
+    var form = new FormData();
+    form.append('csrf_token', csrf);
+    form.append('term', term);
+    form.append('selection_start', globalStart);
+    form.append('selection_end', globalEnd);
+
+    fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
+      .then(function (r) {
+        if (!r.ok) { layer.style.display = 'none'; return; }
+        return r.text();
+      })
+      .then(function (html) {
+        if (!html) return;
+        layer.innerHTML = html;
+        var card = layer.firstElementChild;
+        if (!card) return;
+        var cardW = Math.min(360, window.innerWidth - 32);
+        var top = e.clientY + 8;
+        var left = e.clientX - cardW / 2;
+        if (top + 200 > window.innerHeight) top = e.clientY - 200 - 8;
+        if (top < 8) top = 8;
+        if (left < 8) left = 8;
+        if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
+        card.style.width = cardW + 'px';
+        layer.style.top = top + 'px';
+        layer.style.left = left + 'px';
+        layer.style.display = 'block';
+      });
+  });
+
+  // ---- Also keep drag-selection support (mouseup) for precise selection ----
+  reader.addEventListener('mouseup', function (e) {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return;
     var term = sel.toString().trim();
     if (!term) return;
 
-    // Find the selection offset in fullText by searching for the term.
-    // We use the anchor offset within its text node and walk up to find
-    // the paragraph, then calculate the global offset.
     var range = sel.getRangeAt(0);
-    var start = globalOffset(reader, range.startContainer, range.startOffset);
-    var end = globalOffset(reader, range.endContainer, range.endOffset);
-
-    // Fallback: if offset calculation fails, use indexOf
-    if (start < 0 || end <= start) {
-      var idx = fullText.indexOf(term);
-      if (idx < 0) return;
-      start = idx;
-      end = idx + term.length;
+    // Find the card the selection is in
+    var card = range.startContainer;
+    while (card && !card.classList.contains('sentence-card')) {
+      card = card.parentElement;
     }
+    if (!card) return;
+    var cardStart = parseInt(card.getAttribute('data-start'), 10);
 
-    if (end > fullText.length) return;
+    // Walk text nodes in this card to find the selection offset
+    var localStart = 0, localEnd = 0;
+    var foundStart = false, foundEnd = false;
+    var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var n = walker.currentNode;
+      if (n === range.startContainer) { localStart += range.startOffset; foundStart = true; }
+      else if (!foundStart) { localStart += n.nodeValue.length; }
+      if (n === range.endContainer) { localEnd += range.endOffset; foundEnd = true; break; }
+      if (!foundEnd) { localEnd += n.nodeValue.length; }
+    }
+    if (!foundStart || !foundEnd) return;
+    var start = cardStart + localStart;
+    var end = cardStart + localEnd;
 
-    // Verify the substring matches
+    if (end <= start || end > fullText.length) return;
     if (fullText.substring(start, end) !== term) {
-      // Try indexOf fallback
       var idx2 = fullText.indexOf(term);
       if (idx2 < 0) return;
       start = idx2;
@@ -119,9 +264,12 @@
 
   // 点别处关卡
   document.addEventListener('mousedown', function (e) {
-    if (layer.contains(e.target) || reader.contains(e.target)) return;
+    if (layer.contains(e.target)) return;
     layer.style.display = 'none';
   });
+
+  // ---- 朗读按钮（base.html 已有 speechSynthesis 监听 data-speak） ----
+  // 无需额外 JS，base.html 的全局 click listener 会处理 .speak-btn[data-speak]
 
   // ---- 保存阅读位置 ----
   var saveTimer = null;
@@ -152,44 +300,6 @@
     }
   })();
   {% endif %}
-
-  // ---- global offset calculation ----
-  // Walk <p> children, summing textContent length + 2 for \n\n between paras.
-  function globalOffset(root, node, offset) {
-    var total = 0;
-    var ps = root.getElementsByTagName('p');
-    for (var i = 0; i < ps.length; i++) {
-      if (i > 0) total += 2; // \n\n
-      // Check if node is inside this <p>
-      if (_contains(ps[i], node)) {
-        // Walk text nodes within this <p> to find the offset
-        var localOffset = _localOffset(ps[i], node, offset);
-        if (localOffset >= 0) return total + localOffset;
-      }
-      total += ps[i].textContent.length;
-    }
-    return -1;
-  }
-
-  function _contains(parent, child) {
-    if (child === parent) return true;
-    while (child) {
-      if (child === parent) return true;
-      child = child.parentNode;
-    }
-    return false;
-  }
-
-  function _localOffset(para, targetNode, targetOffset) {
-    var total = 0;
-    var walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      var n = walker.currentNode;
-      if (n === targetNode) return total + targetOffset;
-      total += n.nodeValue.length;
-    }
-    return -1;
-  }
 })();
 </script>
 {% endblock %}
