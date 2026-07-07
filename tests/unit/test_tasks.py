@@ -100,3 +100,37 @@ def test_read_progress_counts_documents_touched_today(app, bypass_engine):
     assert read.goal == 1
     assert read.progress == 1
     assert read.done
+
+
+def test_sentence_and_diary_progress(app, bypass_engine):
+    """造句进度 = 今日 word_id 非空 OutputEntry 数；日记进度 = 今日 word_id 为空数。"""
+    from flask import g
+    from app.extensions import db
+    from app.models.output import OutputEntry
+    from app.services.tasks import get_today_task_card
+    from tests.helpers import make_word, provision_user
+
+    uid = provision_user(app, email="wr@t.com")
+    list_id, word_id = make_word(bypass_engine, uid, "cat")
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        # 一条句子
+        db.session.add(OutputEntry(
+            user_id=uid, word_id=word_id, language_code="en",
+            original="The cat sleeps.", corrected="The cat sleeps.",
+            feedback="", has_error=False, translation="",
+            word_text="cat", is_public=False))
+        # 一条日记（word_id=None）
+        db.session.add(OutputEntry(
+            user_id=uid, word_id=None, language_code="en",
+            original="line1\nline2\nline3",
+            corrected="line1\nline2\nline3", feedback="", has_error=False,
+            translation="", word_text="", is_public=False))
+        db.session.commit()
+        card = get_today_task_card(uid)
+
+    s = next(t for t in card.items if t.slug == "sentence")
+    d = next(t for t in card.items if t.slug == "diary")
+    assert s.progress == 1 and s.done
+    assert d.progress == 1 and d.done

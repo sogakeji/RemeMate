@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.word import ReviewLog
 from app.models.intake import WordCandidate
+from app.models.output import OutputEntry
 from app.models.reading import ReadingDocument
 from app.services.timeutil import today_local_start_utc
 
@@ -60,9 +61,11 @@ def get_today_task_card(user_id: int) -> TaskCard:
                  goal=DEFAULT_GOALS["read"],
                  progress=_read_progress(user_id), href="/reading"),
         TaskItem(slug="sentence", title="造一句句子",
-                 goal=DEFAULT_GOALS["sentence"], progress=0, href="/write"),
+                 goal=DEFAULT_GOALS["sentence"],
+                 progress=_writing_progress(user_id, diary=False), href="/write"),
         TaskItem(slug="diary", title="写三行日记",
-                 goal=DEFAULT_GOALS["diary"], progress=0, href="/write"),
+                 goal=DEFAULT_GOALS["diary"],
+                 progress=_writing_progress(user_id, diary=True), href="/write"),
     ]
     return TaskCard(items=items)
 
@@ -106,3 +109,19 @@ def _read_progress(user_id: int) -> int:
         1 for d in docs
         if (d.last_position or {}).get("scroll_ratio", 0) >= 0.01
     )
+
+
+def _writing_progress(user_id: int, *, diary: bool) -> int:
+    """今天 OutputEntry 数。diary=True 计 word_id IS NULL，否则 IS NOT NULL。"""
+    user = db.session.get(User, user_id)
+    if user is None:
+        return 0
+    since = today_local_start_utc(user.timezone or "Asia/Shanghai")
+    q = (OutputEntry.query
+         .filter(OutputEntry.user_id == user_id,
+                 OutputEntry.created_at >= since))
+    if diary:
+        q = q.filter(OutputEntry.word_id.is_(None))
+    else:
+        q = q.filter(OutputEntry.word_id.isnot(None))
+    return q.count()
