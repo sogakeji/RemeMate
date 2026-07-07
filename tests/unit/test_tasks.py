@@ -45,3 +45,36 @@ def test_review_progress_counts_today_review_logs(app, bypass_engine):
     assert review.goal == 10
     assert review.progress == 3
     assert not review.done
+
+
+def test_import_progress_counts_today_accepted_candidates(app, bypass_engine):
+    """导入进度 = 今天 accept 的 WordCandidate 数（覆盖 CSV/extract/quick_add/reading）。"""
+    from flask import g
+    from sqlalchemy import text
+    from app.services.tasks import get_today_task_card
+    from tests.helpers import provision_user
+
+    uid = provision_user(app, email="imp@t.com")
+    # 用 bypass 建词表 + source + 1 个 accepted 候选，跳过 quick_add 的 LLM 依赖
+    with bypass_engine.begin() as c:
+        wl = c.execute(text(
+            "INSERT INTO word_lists(user_id,name,language_code,created_at) "
+            "VALUES (:u,'L','en',now()) RETURNING id"), {"u": uid}).scalar()
+        src = c.execute(text(
+            "INSERT INTO intake_sources(user_id,source_type,language_code,"
+            "word_list_id,original_name,status,total_segments,total_candidates,"
+            "accepted_count,created_at) "
+            "VALUES (:u,'quick_add','en',:wl,'w','done',1,1,0,now()) RETURNING id"),
+            {"u": uid, "wl": wl}).scalar()
+        c.execute(text(
+            "INSERT INTO word_candidates(source_id,user_id,word,status,created_at) "
+            "VALUES (:s,:u,'hello','accepted',now())"),
+            {"s": src, "u": uid})
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        card = get_today_task_card(uid)
+    imp = next(t for t in card.items if t.slug == "import")
+    assert imp.goal == 5
+    assert imp.progress == 1
+    assert not imp.done

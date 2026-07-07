@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from app.extensions import db
 from app.models.user import User
 from app.models.word import ReviewLog
+from app.models.intake import WordCandidate
 from app.services.timeutil import today_local_start_utc
 
 
@@ -52,7 +53,8 @@ def get_today_task_card(user_id: int) -> TaskCard:
                  goal=DEFAULT_GOALS["review"],
                  progress=_review_progress(user_id), href="/review"),
         TaskItem(slug="import", title="导入单词",
-                 goal=DEFAULT_GOALS["import"], progress=0, href="/intake/quick-add"),
+                 goal=DEFAULT_GOALS["import"],
+                 progress=_import_progress(user_id), href="/intake/quick-add"),
         TaskItem(slug="read", title="阅读 1%",
                  goal=DEFAULT_GOALS["read"], progress=0, href="/reading"),
         TaskItem(slug="sentence", title="造一句句子",
@@ -72,4 +74,17 @@ def _review_progress(user_id: int) -> int:
     return (ReviewLog.query
             .filter(ReviewLog.user_id == user_id,
                     ReviewLog.ts >= since)
+            .count())
+
+
+def _import_progress(user_id: int) -> int:
+    """今天 accept 的候选词数（CSV/extract/quick_add/reading 全走 WordCandidate）。"""
+    user = db.session.get(User, user_id)
+    if user is None:
+        return 0
+    since = today_local_start_utc(user.timezone or "Asia/Shanghai")
+    return (WordCandidate.query
+            .filter(WordCandidate.user_id == user_id,
+                    WordCandidate.status == "accepted",
+                    WordCandidate.created_at >= since)
             .count())
