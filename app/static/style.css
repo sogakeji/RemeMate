@@ -184,6 +184,58 @@
         height: 36px;
     }
 
+/* ---- 每日任务卡 ---- */
+.task-card {
+  margin: 16px 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.task-card-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.task-done-badge {
+  color: var(--success, #4caf50);
+  font-size: 14px;
+}
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.task-item {
+  padding: 10px 0;
+  border-top: 1px solid var(--border, #eee);
+}
+.task-item.done {
+  opacity: .55;
+}
+.task-item.done .task-title {
+  text-decoration: line-through;
+}
+.task-item a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+.task-progress {
+  font-size: 13px;
+  color: var(--text-secondary, #888);
+}
+.task-check {
+  color: var(--success, #4caf50);
+  margin-left: 8px;
+}
+
     .theme-toggle-btn svg {
         width: 18px;
         height: 18px;

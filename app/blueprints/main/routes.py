@@ -14,6 +14,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 from app.services import words as words_svc
+from app.services import tasks as tasks_svc
 
 bp = Blueprint("main", __name__)
 
@@ -58,7 +59,8 @@ def index():
                            lang_choices=words_svc._LANGUAGE_NAMES,
                            previous_available=_has_previous_review_word(
                                current_user.id, lang, word),
-                           stats=words_svc.get_stats(current_user.id))
+                           stats=words_svc.get_stats(current_user.id),
+                           task_card=tasks_svc.get_today_task_card(current_user.id))
 
 
 @bp.post("/language/switch")

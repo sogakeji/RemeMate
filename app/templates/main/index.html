@@ -2,6 +2,7 @@
 {% block title %}记搭 · 每个词都记得{% endblock %}
 {% block content %}
 <div class="container">
+  {% include "main/_task_card.html" %}
   {# 语言切换器现已移到 base.html 右上（主题钮左边），全局生效。 #}
   {% if current_language is none %}
     {# 未设语言：引导去设置（也可直接点右上切换器选语言）。 #}
