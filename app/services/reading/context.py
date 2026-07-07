@@ -27,18 +27,15 @@ def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
     i = 0
     n = len(text)
     # Track paired delimiter depth so we don't split inside (parens) etc.
-    depth = 0
     open_stack: list[str] = []
     while i < n:
         ch = text[i]
         # Track paired delimiter nesting
         if ch in _PAIRED_OPEN:
             open_stack.append(ch)
-            depth += 1
         elif open_stack and ch == _PAIRED_OPEN[open_stack[-1]]:
             open_stack.pop()
-            depth -= 1
-        if ch in boundaries and depth == 0:
+        if ch in boundaries and not open_stack:
             end = i + 1
             # Gobble consecutive boundary characters into this sentence
             # so that "..." or "!!" don't fragment into tiny sentences.
@@ -52,7 +49,7 @@ def split_sentences(text: str, language_code: str) -> list[dict[str, Any]]:
                 start += 1
             i = start
         elif ch == "\n" and i + 1 < n and text[i + 1] == "\n":
-            if depth == 0 and start < i:
+            if not open_stack and start < i:
                 s = _trim_sentence(text, start, i)
                 if s:
                     sentences.append({"text": s, "start": start, "end": i})
@@ -102,15 +99,7 @@ def _merge_tiny_sentences(
 
 
 def _trim_sentence(text: str, start: int, end: int) -> str:
-    raw = text[start:end]
-    # strip leading/trailing whitespace, but keep internal spaces
-    trimmed = raw.strip()
-    # also strip leading \n inside the segment (leftover from \n\n handling)
-    while trimmed.startswith("\n"):
-        trimmed = trimmed[1:].lstrip()
-    while trimmed.endswith("\n"):
-        trimmed = trimmed[:-1].rstrip()
-    return trimmed
+    return text[start:end].strip()
 
 
 def extract_context_sentence(

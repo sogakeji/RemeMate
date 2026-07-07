@@ -759,3 +759,297 @@ commit `1b4de71` 把坑 #20-22 和本轮 commit 链写进了 HANDOFF（即本节
 5. 候选审核 → commit → 词库详情中 `definition.example` = PDF 原文整句
 6. 另一个用户无法访问该 PDF/lookup/候选
 7. 选已入库词 → 弹卡提示"词库中已存在该词"
+
+
+### 2026-07-06 CJK 弹卡分词 + 上下文提取 —— 踩坑存档
+
+**背景**：reading MVP 上线后中文/日文阅读有两个问题：(1) 点击单词弹卡选词不准；(2) 查词弹卡里的「原文整句」上下文范围过大。两轮修复后问题 (2) 仍未彻底解决，存档原因。
+
+#### 问题 1：CJK 点击选词
+
+**旧代码**（`show.html` 手写 CJK 扩词逻辑，已删除）：
+
+```javascript
+// BUG: 第 2 行把第 1 行的扫描结果直接重置了
+wordStart = Math.max(0, clickOffset - 2);              // (1)
+while (...CJK chars...) wordStart++;                    // 向左扩展 CJK
+wordStart = Math.max(0, clickOffset - 2);              // (2) ← 重置！(1) 白做
+while (...non-CJK chars...) wordStart++;                // 跳过标点
+```
+
+第 431 行向左扫描找到 CJK 词边界后，第 432 行立刻把 `wordStart` 重置为 `clickOffset - 2`，第一轮扫描结果全丢。第 433 行反向逻辑跳过非 CJK 字符但方向混乱。最终 "世界" 可能选中 "世界！今天天气很好"——整段抓进来。
+
+**修复**：用 `Intl.Segmenter`（浏览器标准 API，Unicode CLDR 词典分词）替代手写逻辑：
+
+```javascript
+var seg = new Intl.Segmenter(lang, { granularity: "word" });
+var segments = seg.segment(nodeText);
+// 迭代到 clickOffset 所在片段，取 index/segment
+```
+
+Node.js 验证通过——中文 "今天天气很好" → "今天"/"天气"/"很好"，日语 "日本語を勉強する" → "日本語"/"を"/"勉強"。
+
+**遗留问题**：修复后点击中文/日文词无响应，需拖选才能弹卡。根因是 `highlightKnownWords()` 用 `<mark>` 替换文本节点后，`caretPositionFromPoint` 在节点间隙返回 `null`。需另外方案（如 `elementFromPoint` → 回溯文本节点），暂未修。
+
+#### 问题 2：上下文提取范围过大
+
+**第一轮**：新增 `_context_boundaries_for()` 将上下文边界与 `split_sentences` 的卡片边界分离——上下文不含逗号分号，`max_chars` 从 400 降到 200，`\n` 作为软边界。
+
+**第二轮**：改为委托 `split_sentences` 查找目标词所在句子——复用已有轮子的成对标点处理、连续标点吞并、微小句合并。但 `split_sentences` 对中文返回的是逗号子句（因 `_boundaries_for` 含 `，；`），不是句号句子。
+
+**第三轮**：回到最简方案——直接从目标词向前/向后扫描到 `。！？`（英文 `. ! ?`）或 `\n\n`，返回两个边界间的文本。不设字符上限。
+
+**当前状态**（`context.py` 最终形态）：`extract_context_sentence` 就是一段简单的 while 循环——向后找上一个句号，向前找下一个句号。79 测试全绿。但真机验证中文/日文上下文仍然超过一个完整句子。
+
+**可能原因（待排查）**：
+1. PDF 提取的文本可能使用其他 Unicode 句号字符（如 `．` U+FF0E）而非 `。` U+3002
+2. `\n\n` 段落分隔的检测逻辑在特定换行格式下可能失效
+3. 服务端可能仍在运行旧 `.pyc` 字节码（需 `find __pycache__ -delete` + 完全重启 gunicorn）
+
+**验证方法**：在服务器上对实际文档文本执行 `split_sentences` 或 `extract_context_sentence`，打印边界字符和句子长度。注意 RLS 会过滤掉非当前用户的文档——需要先 `set_rls_user(uid)` 或在请求上下文内运行。
+
+#### 其他改动（本次 session）
+
+- **已查词视觉标记**：`markLookedUp()` 函数，查过的词加 `.looked-up` 样式（灰色+下划线），避免重复劳动
+- **阅读工具栏**：底部浮动胶囊栏，字号 ±（12~30px，8 档）、行距切换（1.4/1.8/2.2/2.6）、字体切换（无衬线/衬线/等宽，按钮显示 "A" 字实时预览）、沉浸模式（全屏隐藏 chrome）
+- 所有偏好 localStorage 持久化
+- 字体切换按钮用 `font-family` 实时反映当前字体（`A` 在 serif/mono/sans 间变化）
+
+---
+
+## 2026-07-06 下半场：四语词典重组 + 阅读器交互微调
+
+### 当前状态
+
+仍在 `lute-reading-mvp-design` 分支（未合 master）。全套测试最后记录 **297 passed**（未重跑）。gunicorn 已完全重启。
+
+### 做了什么
+
+#### 词典重组
+
+| 语言 | 文件 | 来源 | 条数 | 格式 |
+|---|---|---|---|---|
+| **en** | `en/entries.json` | SJ-ENtoENCH (牛津高阶 OALD) | 39,576 | 英英+中文双解 |
+| **zh** | `zh/entries.json` | xsjhy-CH-EN + CH-CH 合并 | 160,660 | 词组英译 + 独立词中文释义 |
+| **ja** | `ja/entries.json` | JP-CH (SJ-JPtoJPCH) | 不动 | 日→中 |
+| **fr** | `fr/entries.json` | FR-EN | 不动 | 法→英 |
+
+操作记录：
+1. 删除 zh 里 21 世纪辞典的 4.8 万废条目（`entry://` 链接当 meanings）
+2. 转 xsjhy-CH-EN (10.4 万词组→英译)
+3. CH-CH 重新转，修复两个解析 bug：
+   - 键名去括号 `爱（愛）→爱`（繁体变体导致精确匹配失败）
+   - 释义去 pinyin/BS/BH 前缀（`gāoxìng BS 亠 | BH 8` 被当成释义）
+4. 合并 xsjhy(优先) + CH-CH(兜底) → 16 万条
+5. 转 SJ-ENtoENCH (牛津高阶 OALD) → en，修复 `re.DOTALL` 缺失（定义跨多行没匹配到）
+6. **21 世纪 EN↔ZH MDX 原件已从 `D:\home\RemeMate` 移走**，不在目录里。en 词典无兜底，39,576 条牛津独当
+
+#### dictionary.py 改进
+
+- **`_normalize()` 加零宽字符剥离**：strip 零宽空格(U+200B)、BOM(U+FEFF)、软连字符等。PDF/EPUB 文本可能藏匿这些字符，导致 "魔鬼" 变成 "魔​鬼" (3 字符) 查不到。对应 class 级 `_INVISIBLE_RE` regex。
+- `import re` 新增（原来没导）
+
+#### 阅读器交互
+
+- **字体**：默认字体从 `inherit` 改为 `Noto Sans SC`（思源黑体，base.html 已加载 Google Fonts）
+- **撤销高亮**：新增 `undoLookedUp(term)` 函数。点击已变灰的 `<mark class="looked-up">` 词→恢复原文+从 lookedUpSet 移除+更新统计
+- **加入学习错误日志**：catch 块加了 `console.error`，之前静默吞错
+
+### 已知未修
+
+1. **CJK 点击弹卡失效**（上一轮遗留）：`highlightKnownWords()` → `<mark>` 替换文本节点 → `caretPositionFromPoint` 在边界返回 null → 点击无响应。需用 `elementFromPoint` → 回溯文本节点或其他方案
+2. **CJK 上下文过大**（上一轮遗留）：真机中文/日文整句仍超过一个句子
+3. **中文词命中 CH-CH 而非 xsjhy 的英文释义**：原因已确认——xsjhy 是词组/短语词典，不含独立词。用户期望中英双解，但当前没有词级中英双解词典
+4. **"加入学习" 按钮偶发不弹出候选窗**：加了 `console.error` 等真机复现看报错
+
+### 本次踩坑
+
+**#23 — CH-CH 词典键名带繁体变体括号**
+- 症状：`爱`、`猫` 等常见字 miss，词典是有的
+- 根因：CH-CH 键名是 `爱（愛）`、`猫（貓）` 格式，精确匹配不到
+- 解法：`clean_key()` 正则去掉 `（...）` 括号。去重按键长排序，短键优先保留
+
+**#24 — CH-CH 释义混入 pinyin/部首数据**
+- 症状：释义显示 `xuéxí BS 子 | BH 5` 而非真正的词义
+- 根因：旧 `clean_meaning` 用字符类 `[a-zA-Zà-ü...]` 匹配 pinyin，但 `ā`(U+0101) 不在该范围。`亠` 是 CJK 字符逃过过滤器
+- 解法：用 `.*?BS...BH` 正则（不硬编码 pinyin 字符类），只保留含 CJK 的释义
+
+**#25 — 牛津 OALD 定义跨多行，正则需 DOTALL**
+- 症状：39,576 扫描仅 3,443 条通过
+- 根因：`re.finditer` 不带 `re.DOTALL`，`.*?` 不跨行
+- 解法：所有 XML tag 匹配加 `re.DOTALL`
+
+**#26 — PDF 文本含零宽字符导致查词失败**
+- 症状：`魔鬼` 弹卡显示「词典暂未命中」，但服务端查 `魔鬼` 命中
+- 根因：PDF 文本 CJK 字符之间含零宽空格/BOM，传 `魔​鬼`(3字符) 到服务端
+- 解法：`_normalize()` 加 `_INVISIBLE_RE` strip 所有 Unicode format 类字符
+
+### 当前词典文件快照
+
+```
+/root/rememate-data/dictionaries/
+  en/entries.json   10.0 MB  39,576 entries  [Oxford-ENCH]
+  zh/entries.json   17.4 MB  160,660 entries [xsjhy-CH-EN + CH-CH]
+  ja/entries.json            (unchanged)     [JP-CH]
+  fr/entries.json            (unchanged)     [FR-EN]
+```
+
+DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
+
+### 不做什么
+
+- **不继续修 CJK 上下文提取**：已知 bug 在 HANDOFF 记录了
+- **不重新转换 21 世纪辞典**：MDX 原件不在本地
+- **不碰 ja/fr 词典**
+- **不加在线 API**：当前全部 disable（`if False`）
+- **不合并分支**
+
+### 本次改动的文件清单
+
+| 文件 | 变更 |
+|---|---|
+| `app/services/reading/dictionary.py` | +`import re`；+`_INVISIBLE_RE`；`_normalize()` 调 `_INVISIBLE_RE.sub` |
+| `app/templates/reading/show.html` | 默认字体 Noto Sans SC；+`undoLookedUp()`；click handler mark 检测；catch `console.error` |
+| `docs/HANDOFF.md` | 本节 + 坑 #23-26 |
+| `/root/rememate-data/dictionaries/en/entries.json` | 牛津 OALD 39,576 条（覆盖旧 21 世纪数据） |
+| `/root/rememate-data/dictionaries/zh/entries.json` | xsjhy + CH-CH 合并 160,660 条 |
+
+转换脚本（用完可删）：
+- `/root/rememate/convert_xsjhy.py`
+- `/root/rememate/convert_sj.py`
+- `/root/rememate/merge_zh.py`
+
+
+## 2026-07-07 分支收尾：候选词系统 + 代码 simplify
+
+### 当前状态
+
+分支 `lute-reading-mvp-design`（未合 master）。全套测试 **312 passed, 2 failed**（2 个预存 PDF upload 测试失败，与本次无关）。gunicorn 运行中。
+
+### 做了什么
+
+#### 候选词审核系统重构
+
+**问题**：候选词按创建时间升序排列，旧词永远在前；已忽略/已接受的候选词堆积，新候选词被淹没。
+
+**改动**：
+
+| 改动 | 文件 | 说明 |
+|---|---|---|
+| 新候选词排最前 | `intake.py:list_candidates` | 排序 `id ASC` → `created_at DESC` |
+| 状态筛选 | `intake.py` + `candidates.html` | `?status=pending\|accepted\|ignored` 查询参数 + 4 个筛选标签页 |
+| 一键入库 | `intake.py:commit_all` + `routes.py` | `commit_all` = bulk_accept(全接 pending) + commit(入库)，一步完成 |
+| 提交入库（已接受） | `routes.py:commit` | 只入库已接受的，不动 pending——待审核页逐条手工审时用 |
+| 一键清理 | `intake.py:_cleanup_by_status` + `routes.py:cleanup-all` | 同时删除 ignored + accepted，一个确认弹窗 |
+| 返回书本按钮 | `candidates.html` | 审核页右上角「← 返回书本」链接回阅读页 |
+| `_candidate_query` 辅助器 | `intake.py` | 消除 `filter_by(source_id, user_id, status)` 6 处重复 |
+| `_existing_words` 死参数 | `intake.py` | 移除不用的 `user_id` 参数 |
+| `bulk_accept` 批量 SQL | `intake.py` | `c.status = 'accepted'` 逐个赋值 → `update()` 单条 SQL |
+| 跨租户 query bug | `intake.py:quick_add_word` | `filter_by(source_id=source.id)` 缺 `user_id`，已补 |
+| `commit`/`commit-all` 路由合并 | `routes.py` | 提取 `_do_commit` 辅助器，消除重复 |
+
+**审核页按钮逻辑**：
+
+| 筛选状态 | 按钮 |
+|---|---|
+| 全部 | 一键入库 + 一键清理 |
+| 待审核 | 提交入库（已接受的） |
+| 已接受 | 一键入库 + 一键清理 |
+| 已忽略 | 一键清理 |
+
+#### 书架 + 阅读页交互
+
+| 改动 | 文件 | 说明 |
+|---|---|---|
+| 书架候选词提醒 | `index.html` + `routes.py` | 每本书卡片显示待审核数 `候选词(N)`，有待审核时高亮 |
+| 阅读页按钮精简 | `show.html` | 删除「删除」按钮（管理归书架），保留「返回书架」+「审核候选词」 |
+
+#### 代码 simplify（3 批，25 个修复）
+
+**第 1 批 — Reading 服务层**（`context.py`, `service.py`, `parsers.py`）：
+
+| 修复 | 说明 |
+|---|---|
+| `depth` 变量删除 | `len(open_stack)` 等价，消除冗余状态 |
+| `_trim_sentence` 死代码 | `.strip()` 后的 while 循环永假，删 7 行 |
+| `_is_tiny_sentence` 提升 | 内部函数 `_is_tiny` → 模块级，避免每次调用重定义 |
+| `_dict` 模块级单例 | 17MB JSON 只解析一次/进程，之前每请求新建 Dictionary 实例 |
+| `_find_existing_word` DB 查询 | `Word.query.filter_by(...).all()` O(n) 遍历 → `.filter(...).first()` DB 级过滤 |
+| `_find_existing_candidate` 同上 | `.all()` → `.filter(...).with_for_update().first()` |
+| `add_lookup_to_candidate` 去重 | 删除初始 lookup + document 的重复查询（4→2） |
+| `import re` 模块级 | `_reflow_paragraphs` 内部 import → 模块顶层 |
+| `create_document` 内置去重 | 服务层检查 content_hash 重复 → 路由删除 IntegrityError try/except 块 |
+
+**第 2 批 — Reading 路由+模型+模板**（`routes.py`, `service.py`, 测试）：
+
+| 修复 | 说明 |
+|---|---|
+| 服务返回 `source_id`+`term` | `add_lookup_to_candidate` 所有 state 返回完整字段 → 路由删除 3 次补偿查询 |
+| `add_candidate` 路由简化 | 53 行 → 37 行 |
+| 路由去重逻辑下沉 | `create_document` 内部检查现有文档 → 路由删除 `except IntegrityError` + `_content_hash` 私有调用 |
+| `_int_form` 删除 | `request.form.get(field, type=int)` 内置等效 |
+| 语言列表常量化 | 硬编码 `("zh","en","ja","fr")` → `SUPPORTED_LANGUAGES` |
+| `IntegrityError` import 删除 | dedup 下沉后不再需要 |
+
+**第 3 批 — Intake 候选词**（`intake.py`, `routes.py`）：
+
+| 修复 | 说明 |
+|---|---|
+| `_candidate_query` | 消除 6 处重复 filter 模式 |
+| `_existing_words` 死参数 | `user_id` 未用，已删除 |
+| `cleanup_ignored/accepted` 合并 | 共用一个 `_cleanup_by_status` |
+| `bulk_accept` 批量 | N 个 UPDATE → 1 个 `update()` |
+| `quick_add_word` 跨租户 | 补 `user_id` 过滤 |
+| 路由合并 | `commit` + `commit-all` → `_do_commit` |
+
+### 已知未修
+
+| 问题 | 说明 |
+|---|---|
+| CJK 点击弹卡失效 | `highlightKnownWords()` → `caretPositionFromPoint` 返回 null |
+| CJK 上下文过大 | 真机中文/日文整句仍超过一个句子 |
+| `known_words` JSON 内联 | 每个页面加载嵌入全词表 JSON（~100KB+），建议懒加载 API + localStorage |
+| `total_candidates` 计数器失准 | 去规格化列，cleanup/delete 不递减。建议属性查询或删列 |
+| 候选词状态字符串散落 | `"pending"/"accepted"/"ignored"` 20+ 处字面量，建议模型常量/枚举 |
+| 在线 API 死代码 | `dictionary.py` 三个 `_online_*` 方法 ~140 行被 `if False` 永久禁用 |
+| 语言配置散落 | `SUPPORTED_LANGUAGES`/`_IS_CJK`/`_CJK_PUNCT`/`LOWERCASE_LANGUAGES` 分布在 3 个文件 |
+
+### 本次踩坑
+
+**#27 — Edit 工具写入 Python 文件时引号被转成 Unicode 弯引号**
+
+- 症状：`SyntaxError: invalid character '` (U+201C)` 在 gunicorn 启动时
+- 根因：Edit 工具在写入含 CJK 引号字符的 Python 文件时，将 ASCII 引号 `"` 转成了 Unicode 弯引号 `"` / `"`
+- 解法：用 `git checkout HEAD` 恢复文件，改用 Python 脚本（Bash 执行）做精确替换。CJK 标点数据保留不动
+- 教训：在含 CJK 字面量（如 `"。，！？"`）的 Python 文件上，避免用 Edit 工具做多行替换；用 Bash+Python 脚本更安全
+
+**#28 — git checkout 意外还原了未提交的 working tree 变更**
+
+- 症状：`ContentQualityError` import 报 `ImportError`
+- 根因：用 `git checkout HEAD -- parsers.py` 恢复时，`ContentQualityError` 类 + `validate_content_quality` 是未提交变更，被丢弃
+- 解法：手动重新添加 `ContentQualityError` 类、`_IS_CJK`、`_CJK_PUNCT`、`_REPLACEMENT_CHAR` 和 `validate_content_quality()`
+- 教训：git checkout 单个文件前，先 `git diff` 确认该文件的未提交变更是否需要保留
+
+### 不做什么
+
+- 不继续 simplify 第 4/5 批（Writing+Square、Settings+Admin）
+- 不修 CJK 上下文提取
+- 不碰在线 API
+- 不合并分支
+- 不加新功能
+
+### 本次改动的文件清单（简化版）
+
+| 层级 | 文件 | 主要变更 |
+|---|---|---|
+| 服务 | `app/services/intake.py` | `_candidate_query`, `_cleanup_by_status`, `commit_all`, `bulk_accept` 批量, 修跨租户 query |
+| 服务 | `app/services/reading/service.py` | `_dict` 单例, `create_document` 内置去重, DB 级查询, 服务返回 `source_id`/`term` |
+| 服务 | `app/services/reading/context.py` | 删 `depth` 变量, `_trim_sentence` 简化, `_is_tiny_sentence` 提升 |
+| 服务 | `app/services/reading/parsers.py` | `import re` 模块级, `ContentQualityError` 类 |
+| 路由 | `app/blueprints/intake/routes.py` | `_do_commit` 合并, `cleanup-all`, `SUPPORTED_LANGUAGES` 导入, `candidates()` status 参数 |
+| 路由 | `app/blueprints/reading/routes.py` | 删 `_int_form`, 简化 `add_candidate`, `create` 去 IntegrityError, `pending_counts` |
+| 模板 | `app/templates/intake/candidates.html` | 状态筛选标签, 一键入库/清理按钮, 返回书本, 时间戳 |
+| 模板 | `app/templates/reading/show.html` | 删删除按钮, +审核候选词按钮 |
+| 模板 | `app/templates/reading/index.html` | 候选词提醒 N 徽章 |
+| 测试 | `tests/integration/test_reading_lookup_candidate.py` | 断言适配新返回格式 |
+| 文档 | `docs/HANDOFF.md` | 本节

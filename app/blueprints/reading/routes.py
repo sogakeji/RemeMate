@@ -7,16 +7,20 @@ Task 10 范围：阅读位置保存 + 选词 JS。
 """
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
-from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models.reading import ReadingDocument, ReadingLookup
 from app.models.word import Word, WordList
+from app.models.intake import WordCandidate
 from app.services.reading import service as reading_svc
 from app.services.reading import parsers as reading_parsers
-from app.services.reading.parsers import EmptyPdfText, PdfParseError
+from app.services.reading.parsers import EmptyPdfText, PdfParseError, ContentQualityError
+from app.services.reading.dictionary import SUPPORTED_LANGUAGES
 
 bp = Blueprint("reading", __name__)
+
+
+from app.services import words as words_svc
 
 
 def _uid():
@@ -26,16 +30,33 @@ def _uid():
 @bp.get("/reading")
 @login_required
 def index():
-    """书架：展示当前用户的所有阅读材料（按最近更新倒序）。"""
-    documents = reading_svc.list_documents(_uid())
-    return render_template("reading/index.html", documents=documents)
+    """书架：展示当前用户在当前语言下的阅读材料（按最近更新倒序）。"""
+    lang = words_svc.get_current_language(_uid())
+    documents = reading_svc.list_documents(_uid(), language_code=lang)
+
+    # 为每本书查待审核候选词数
+    source_ids = [d.intake_source_id for d in documents if d.intake_source_id]
+    pending_counts = {}
+    if source_ids:
+        from sqlalchemy import func
+        rows = (db.session.query(
+                    WordCandidate.source_id,
+                    func.count(WordCandidate.id))
+                .filter(WordCandidate.source_id.in_(source_ids),
+                        WordCandidate.status == "pending")
+                .group_by(WordCandidate.source_id).all())
+        pending_counts = {row[0]: row[1] for row in rows}
+
+    return render_template("reading/index.html", documents=documents,
+                           pending_counts=pending_counts)
 
 
 @bp.get("/reading/new")
 @login_required
 def new():
-    """上传新阅读材料页面。"""
-    return render_template("reading/new.html")
+    """上传新阅读材料页面。语言选择器默认当前语言。"""
+    lang = words_svc.get_current_language(_uid()) or ""
+    return render_template("reading/new.html", current_lang=lang)
 
 
 @bp.post("/reading")
@@ -46,7 +67,7 @@ def create():
     验证语言、文件扩展名，调用 parser 提取文本，创建或去重文档。
     """
     language_code = request.form.get("language_code", "").strip()
-    if language_code not in ("zh", "en", "ja", "fr"):
+    if language_code not in SUPPORTED_LANGUAGES:
         flash("当前版本只支持中文、英文、日文、法文")
         return redirect(url_for("reading.new"))
 
@@ -76,27 +97,26 @@ def create():
     docs = []
     for parsed in chunks:
         try:
-            doc = reading_svc.create_document(
-                _uid(),
-                language_code=language_code,
-                title=parsed.title,
-                source_filename=file.filename,
-                content_text=parsed.text,
-                content_hash=None,
-                page_count=parsed.page_count,
-            )
-        except IntegrityError:
-            db.session.rollback()
-            existing = ReadingDocument.query.filter_by(
-                user_id=_uid(), content_hash=reading_svc._content_hash(parsed.text)
-            ).first()
-            if existing:
-                docs.append(existing)
-                continue
-            flash("上传失败，请稍后重试")
-            return redirect(url_for("reading.new"))
-        docs.append(doc)
+            reading_parsers.validate_content_quality(parsed.text, language_code)
+        except ContentQualityError as e:
+            flash(str(e))
+            continue
 
+        doc = reading_svc.create_document(
+            _uid(),
+            language_code=language_code,
+            title=parsed.title,
+            source_filename=file.filename,
+            content_text=parsed.text,
+            content_hash=None,
+            page_count=parsed.page_count,
+        )
+        if doc not in docs:
+            docs.append(doc)
+
+    if not docs:
+        flash("所有部分均未通过内容质量检查，请确认 PDF 为文本型文档")
+        return redirect(url_for("reading.new"))
     if len(docs) == 1:
         return redirect(url_for("reading.show", doc_id=docs[0].id))
     return redirect(url_for("reading.index"))
@@ -138,7 +158,7 @@ def update_position(doc_id):
     document = reading_svc.get_document(_uid(), doc_id)
     if document is None:
         abort(404)
-    char_offset = _int_form("char_offset", default=-1)
+    char_offset = request.form.get("char_offset", type=int)
     scroll_ratio_raw = request.form.get("scroll_ratio")
     if char_offset is None or scroll_ratio_raw is None:
         abort(400, "missing char_offset or scroll_ratio")
@@ -154,17 +174,6 @@ def update_position(doc_id):
     return "", 200
 
 
-def _int_form(field, *, default=None):
-    """Parse an int form field; return default if missing/invalid."""
-    raw = request.form.get(field)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
-
-
 @bp.post("/reading/<int:doc_id>/lookup")
 @login_required
 def lookup(doc_id):
@@ -177,8 +186,8 @@ def lookup(doc_id):
         abort(404)
 
     term = (request.form.get("term") or "").strip()
-    selection_start = _int_form("selection_start")
-    selection_end = _int_form("selection_end")
+    selection_start = request.form.get("selection_start", type=int)
+    selection_end = request.form.get("selection_end", type=int)
     if not term or selection_start is None or selection_end is None:
         abort(400, "missing term or selection offsets")
 
@@ -196,7 +205,7 @@ def lookup(doc_id):
 @bp.post("/reading/lookups/<int:lookup_id>/add-candidate")
 @login_required
 def add_candidate(lookup_id):
-    """加入学习：把 lookup 转成 WordCandidate，跳到候选审核页。
+    """加入学习：把 lookup 转成 WordCandidate。
 
     幂等：重复调用返回同一 source 的候选审核页。
     """
@@ -205,7 +214,7 @@ def add_candidate(lookup_id):
     except reading_svc.ReadingNotFound:
         abort(404)
 
-    state = result.get("state")
+    state = result["state"]
     source_id = result.get("source_id")
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -213,36 +222,20 @@ def add_candidate(lookup_id):
         if is_ajax:
             return {"ok": False, "state": "existing-word", "message": "词库中已存在该词"}
         flash("词库中已存在该词")
-        lookup_row = ReadingLookup.query.filter_by(
-            id=lookup_id, user_id=_uid()
-        ).first()
-        if lookup_row is not None and lookup_row.document.intake_source_id:
-            return redirect(url_for("intake.candidates",
-                                    source_id=lookup_row.document.intake_source_id))
+        if source_id:
+            return redirect(url_for("intake.candidates", source_id=source_id))
         return redirect(url_for("reading.index"))
 
-    if source_id is None:
-        from app.models.intake import WordCandidate
-        cand = WordCandidate.query.filter_by(
-            id=result.get("candidate_id"), user_id=_uid()
-        ).first()
-        if cand is not None:
-            source_id = cand.source_id
-
     if is_ajax:
-        lookup_row = ReadingLookup.query.filter_by(
-            id=lookup_id, user_id=_uid()
-        ).first()
-        term = lookup_row.term if lookup_row else ""
         return {
             "ok": True,
             "state": state,
-            "term": term,
+            "term": result.get("term", ""),
             "source_id": source_id,
             "candidate_id": result.get("candidate_id"),
         }
 
     flash("已加入候选，可在候选页审核")
-    if source_id is None:
-        return redirect(url_for("reading.index"))
-    return redirect(url_for("intake.candidates", source_id=source_id))
+    if source_id:
+        return redirect(url_for("intake.candidates", source_id=source_id))
+    return redirect(url_for("reading.index"))

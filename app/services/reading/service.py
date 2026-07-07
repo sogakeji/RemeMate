@@ -14,6 +14,10 @@ from app.services.reading.context import extract_context_sentence
 from app.services.reading.dictionary import Dictionary, SUPPORTED_LANGUAGES
 
 
+# Module-level singleton so the 17 MB JSON is parsed once per process
+_dict = Dictionary()
+
+
 class ReadingNotFound(ValueError):
     pass
 
@@ -38,13 +42,20 @@ def create_document(
     if page_count < 0:
         raise ValueError("page_count must be nonnegative")
 
+    content_hash = content_hash or _content_hash(content_text)
+    existing = ReadingDocument.query.filter_by(
+        user_id=user_id, content_hash=content_hash
+    ).first()
+    if existing is not None:
+        return existing
+
     document = ReadingDocument(
         user_id=user_id,
         language_code=language_code,
         title=title[:200],
         source_filename=source_filename[:255],
         content_text=content_text,
-        content_hash=content_hash or _content_hash(content_text),
+        content_hash=content_hash,
         page_count=page_count,
     )
     db.session.add(document)
@@ -56,13 +67,11 @@ def get_document(user_id: int, document_id: int) -> ReadingDocument | None:
     return ReadingDocument.query.filter_by(id=document_id, user_id=user_id).first()
 
 
-def list_documents(user_id: int) -> list[ReadingDocument]:
-    return (
-        ReadingDocument.query
-        .filter_by(user_id=user_id)
-        .order_by(ReadingDocument.updated_at.desc(), ReadingDocument.id.desc())
-        .all()
-    )
+def list_documents(user_id: int, *, language_code: str | None = None) -> list[ReadingDocument]:
+    q = ReadingDocument.query.filter_by(user_id=user_id)
+    if language_code:
+        q = q.filter_by(language_code=language_code)
+    return q.order_by(ReadingDocument.updated_at.desc(), ReadingDocument.id.desc()).all()
 
 
 def delete_document(user_id: int, document_id: int) -> bool:
@@ -99,7 +108,7 @@ def lookup_term(
     if not 0 <= selection_start < selection_end <= len(document.content_text or ""):
         raise ValueError("selection offsets out of range")
 
-    dictionary = dictionary or Dictionary()
+    dictionary = dictionary or _dict
     result = dictionary.lookup(document.language_code, term)
     context = extract_context_sentence(
         document.content_text or "",
@@ -126,12 +135,6 @@ def lookup_term(
 
 
 def add_lookup_to_candidate(user_id: int, lookup_id: int) -> dict[str, Any]:
-    initial_lookup = ReadingLookup.query.filter_by(id=lookup_id, user_id=user_id).first()
-    if initial_lookup is None:
-        raise ReadingNotFound("reading lookup not found")
-    initial_document = _require_document(user_id, initial_lookup.document_id)
-    word_list = words_svc.get_or_create_language_list(user_id, initial_document.language_code)
-
     lookup = (
         ReadingLookup.query
         .filter_by(id=lookup_id, user_id=user_id)
@@ -141,28 +144,33 @@ def add_lookup_to_candidate(user_id: int, lookup_id: int) -> dict[str, Any]:
     if lookup is None:
         raise ReadingNotFound("reading lookup not found")
     document = _locked_document(user_id, lookup.document_id)
+    word_list = words_svc.get_or_create_language_list(user_id, document.language_code)
 
     if lookup.candidate_id:
-        return {"state": "already-candidate", "candidate_id": lookup.candidate_id}
+        return {"state": "already-candidate", "candidate_id": lookup.candidate_id,
+                "source_id": document.intake_source_id, "term": lookup.term}
 
     # Check existing committed word BEFORE creating any source, so we don't
     # leave a dangling source row if the term is already in the word list.
     existing_word = _find_existing_word(word_list.id, lookup.normalized_term or lookup.term)
     if existing_word is not None:
-        return {"state": "existing-word", "word_id": existing_word.id}
+        return {"state": "existing-word", "word_id": existing_word.id,
+                "source_id": document.intake_source_id, "term": lookup.term}
 
     source = _source_for_document(user_id, document, word_list.id)
     existing_candidate = _find_existing_candidate(source.id, user_id, lookup.normalized_term or lookup.term)
     if existing_candidate is not None:
         lookup.candidate_id = existing_candidate.id
         db.session.commit()
-        return {"state": "already-candidate", "candidate_id": existing_candidate.id}
+        return {"state": "already-candidate", "candidate_id": existing_candidate.id,
+                "source_id": source.id, "term": lookup.term}
 
     candidate = _create_candidate(user_id, source, _candidate_item(document, lookup))
     source.total_candidates = WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).count()
     lookup.candidate_id = candidate.id
     db.session.commit()
-    return {"state": "created", "candidate_id": candidate.id, "source_id": source.id}
+    return {"state": "created", "candidate_id": candidate.id, "source_id": source.id,
+            "term": lookup.term}
 
 
 def _validate_position(position: Any, content_length: int) -> dict[str, float | int]:
@@ -236,21 +244,17 @@ def _find_existing_candidate(source_id: int, user_id: int, term: str) -> WordCan
     normalized = (term or "").strip().lower()
     if not normalized:
         return None
-    candidates = (
+    return (
         WordCandidate.query
         .filter(
             WordCandidate.source_id == source_id,
             WordCandidate.user_id == user_id,
             WordCandidate.status.in_(["pending", "accepted"]),
+            db.func.lower(WordCandidate.word) == normalized,
         )
-        .order_by(WordCandidate.id)
         .with_for_update()
-        .all()
+        .first()
     )
-    for candidate in candidates:
-        if candidate.word.strip().lower() == normalized:
-            return candidate
-    return None
 
 
 def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[str, Any]:
@@ -274,15 +278,12 @@ def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[st
 
 
 def _find_existing_word(word_list_id: int, term: str):
-    from app.models.word import Word
-
     normalized = (term or "").strip().lower()
     if not normalized:
         return None
-    for word in Word.query.filter_by(list_id=word_list_id).all():
-        if word.word.strip().lower() == normalized:
-            return word
-    return None
+    return Word.query.filter_by(list_id=word_list_id).filter(
+        db.func.lower(Word.word) == normalized
+    ).first()
 
 
 def _locked_document(user_id: int, document_id: int) -> ReadingDocument:

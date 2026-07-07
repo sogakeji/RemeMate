@@ -69,11 +69,11 @@ def test_unsupported_language_raises_clear_exception():
 def test_missing_dictionary_returns_not_found(tmp_path):
     dictionary = Dictionary(data_dir=tmp_path)
 
-    result = dictionary.lookup("en", "apple")
+    result = dictionary.lookup("en", "zzz_test_nonexistent_word_12345")
 
     assert result.found is False
-    assert result.term == "apple"
-    assert result.normalized_term == "apple"
+    assert result.term == "zzz_test_nonexistent_word_12345"
+    assert result.normalized_term == "zzz_test_nonexistent_word_12345"
     assert result.language_code == "en"
     assert result.part_of_speech is None
     assert result.meanings == []
@@ -98,10 +98,10 @@ def test_malformed_dictionary_json_returns_not_found(tmp_path):
     (dictionary_dir / "entries.json").write_text("{not valid json", encoding="utf-8")
     dictionary = Dictionary(data_dir=tmp_path)
 
-    result = dictionary.lookup("en", "apple")
+    result = dictionary.lookup("en", "zzz_test_nonexistent_word_12345")
 
     assert result.found is False
-    assert result.normalized_term == "apple"
+    assert result.normalized_term == "zzz_test_nonexistent_word_12345"
     assert result.meanings == []
 
 

@@ -8,13 +8,9 @@
     <h1>{{ document.title }}</h1>
     <div style="display:flex;gap:8px;">
       <a class="btn secondary" href="{{ url_for('reading.index') }}">返回书架</a>
-      <form method="post" action="{{ url_for('reading.delete', doc_id=document.id) }}" style="display:inline;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn secondary"
-                onclick="return confirm('确定删除这篇阅读材料吗？');">
-          删除
-        </button>
-      </form>
+      {% if document.intake_source_id %}
+      <a class="btn primary" href="{{ url_for('intake.candidates', source_id=document.intake_source_id) }}">审核候选词</a>
+      {% endif %}
     </div>
   </div>
 
@@ -25,7 +21,25 @@
   </div>
 
   <div id="reader-content" style="max-height:75vh;overflow:auto;">
-    <pre id="reader-text" style="white-space:pre-wrap;font-size:16px;line-height:1.8;margin:0;">{{ document.content_text }}</pre>
+    <div class="reader-progress" id="reader-progress" style="position:sticky;top:0;z-index:10;height:3px;background:var(--border,#ddd);">
+      <div id="reader-progress-fill" style="height:100%;width:0%;background:var(--accent,#4a90d9);transition:width 0.1s linear;"></div>
+    </div>
+    <pre id="reader-text" style="white-space:pre-wrap;font-size:var(--reader-font-size, 16px);line-height:var(--reader-line-height, 1.8);font-family:var(--reader-font-family, inherit);margin:0;">{{ document.content_text }}</pre>
+  </div>
+
+  {# 阅读工具栏：字号 / 行距 / 字体 / 沉浸模式 #}
+  <div class="reader-toolbar" id="reader-toolbar">
+    <button type="button" class="tb-btn" id="tb-font-down" title="缩小字号">A-</button>
+    <span class="tb-label" id="tb-font-label">16px</span>
+    <button type="button" class="tb-btn" id="tb-font-up" title="加大字号">A+</button>
+    <span class="tb-sep"></span>
+    <button type="button" class="tb-btn" id="tb-line-height" title="切换行距">↕</button>
+    <span class="tb-sep"></span>
+    <button type="button" class="tb-btn" id="tb-font-family" title="切换字体">A</button>
+    <span class="tb-sep"></span>
+    <button type="button" class="tb-btn tb-immersive" id="tb-immersive" title="阅读模式">⛶</button>
+    <span class="tb-sep"></span>
+    <span class="tb-label" id="tb-stats" title="已查 / 已加学习">--</span>
   </div>
 </div>
 </div>{# end .reader-main #}
@@ -49,6 +63,13 @@
 var KNOWN_WORDS = {{ known_words | tojson }};
 </script>
 <script>
+// Global card closer — callable from any IIFE or inline onclick
+function _closeLookupCard() {
+  var el = document.getElementById('lookup-card-layer');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+</script>
+<script>
 var ReaderAddCandidate = (function () {
   var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   var sidebar = document.getElementById('candidate-sidebar');
@@ -57,7 +78,6 @@ var ReaderAddCandidate = (function () {
   var emptyHint = document.getElementById('candidate-empty-hint');
   var reviewLink = document.getElementById('candidate-review-link');
   var lookupLayer = document.getElementById('lookup-card-layer');
-  var savedSourceId = null;
   var countNum = 0;
 
   function add(btn) {
@@ -79,18 +99,17 @@ var ReaderAddCandidate = (function () {
       if (data.ok) {
         _addItem(term);
         if (data.source_id) {
-          savedSourceId = data.source_id;
           reviewLink.href = '/intake/' + data.source_id + '/candidates';
           reviewLink.style.display = '';
         }
-        lookupLayer.style.display = 'none';
-        lookupLayer.innerHTML = '';
+        _closeLookupCard();
       } else {
         btn.textContent = data.message || '词库中已存在';
         setTimeout(function () { btn.disabled = false; btn.textContent = '加入学习'; }, 1500);
       }
     })
-    .catch(function () {
+    .catch(function (err) {
+      console.error('add-candidate failed:', err);
       btn.disabled = false;
       btn.textContent = '加入学习';
     });
@@ -105,6 +124,7 @@ var ReaderAddCandidate = (function () {
     li.className = 'candidate-item';
     li.textContent = term;
     list.appendChild(li);
+    if (window._readerStatsAdd) window._readerStatsAdd();
   }
 
   return { add: add };
@@ -195,6 +215,169 @@ var ReaderAddCandidate = (function () {
 
   var fullText = readerText.textContent || '';
 
+  // ---- 阅读工具栏控制 ----
+  var FONT_SIZES = [12, 14, 16, 18, 20, 22, 26, 30];
+  var LINE_HEIGHTS = [1.4, 1.8, 2.2, 2.6];
+  var FONT_FAMILIES = [
+    { title: '无衬线', css: '"Noto Sans SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, sans-serif', preview: '"Noto Sans SC", sans-serif' },
+    { title: '衬线', css: '"Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", serif', preview: '"Noto Serif SC", Georgia, serif' },
+    { title: '等宽', css: '"JetBrains Mono", "Noto Sans Mono SC", "SF Mono", Consolas, monospace', preview: '"JetBrains Mono", "SF Mono", Consolas, monospace' }
+  ];
+
+  var statsEl = document.getElementById('tb-stats');
+  var addedCount = 0;
+  function updateStats() {
+    var looked = lookedUpSet.size;
+    if (looked || addedCount) {
+      statsEl.textContent = '查 ' + looked + ' · 加 ' + addedCount;
+    }
+  }
+  window._readerStatsAdd = function () { addedCount++; updateStats(); };
+
+  function _loadPref(key, fallback) {
+    try { var v = localStorage.getItem('reader:' + key); return v !== null ? v : fallback; }
+    catch (_) { return fallback; }
+  }
+  function _savePref(key, val) {
+    try { localStorage.setItem('reader:' + key, val); } catch (_) {}
+  }
+
+  var fontIndex = parseInt(_loadPref('fontIndex', '2')); // default 16px = index 2
+  var lineIndex = parseInt(_loadPref('lineIndex', '1')); // default 1.8 = index 1
+  var familyIndex = parseInt(_loadPref('familyIndex', '0')); // default sans
+  var immersive = _loadPref('immersive', '0') === '1';
+
+  function applyFontSize() {
+    var size = FONT_SIZES[fontIndex];
+    readerText.style.setProperty('--reader-font-size', size + 'px');
+    document.getElementById('tb-font-label').textContent = size + 'px';
+    _savePref('fontIndex', fontIndex);
+  }
+  function applyLineHeight() {
+    var lh = LINE_HEIGHTS[lineIndex];
+    readerText.style.setProperty('--reader-line-height', lh);
+    _savePref('lineIndex', lineIndex);
+  }
+  function applyFontFamily() {
+    var fam = FONT_FAMILIES[familyIndex];
+    readerText.style.setProperty('--reader-font-family', fam.css);
+    var btn = document.getElementById('tb-font-family');
+    btn.style.fontFamily = fam.preview;
+    btn.title = '字体：' + fam.title;
+    _savePref('familyIndex', familyIndex);
+  }
+  function applyImmersive() {
+    if (immersive) {
+      document.body.classList.add('reader-immersive');
+      document.getElementById('tb-immersive').textContent = '✕';
+    } else {
+      document.body.classList.remove('reader-immersive');
+      document.getElementById('tb-immersive').textContent = '⛶';
+    }
+    _savePref('immersive', immersive ? '1' : '0');
+  }
+
+  document.getElementById('tb-font-down').addEventListener('click', function () {
+    if (fontIndex > 0) { fontIndex--; applyFontSize(); }
+  });
+  document.getElementById('tb-font-up').addEventListener('click', function () {
+    if (fontIndex < FONT_SIZES.length - 1) { fontIndex++; applyFontSize(); }
+  });
+  document.getElementById('tb-line-height').addEventListener('click', function () {
+    lineIndex = (lineIndex + 1) % LINE_HEIGHTS.length;
+    applyLineHeight();
+  });
+  document.getElementById('tb-font-family').addEventListener('click', function () {
+    familyIndex = (familyIndex + 1) % FONT_FAMILIES.length;
+    applyFontFamily();
+  });
+  document.getElementById('tb-immersive').addEventListener('click', function () {
+    immersive = !immersive;
+    applyImmersive();
+  });
+
+  // apply saved preferences
+  applyFontSize();
+  applyLineHeight();
+  applyFontFamily();
+  applyImmersive();
+
+  // ---- Looked-up word tracking ----
+  var lookedUpSet = new Set();
+
+  function markLookedUp(term) {
+    if (lookedUpSet.has(term)) return;
+    lookedUpSet.add(term);
+    updateStats();
+
+    var isLatin = (lang === 'en' || lang === 'fr');
+    var walker = document.createTreeWalker(readerText, NodeFilter.SHOW_TEXT);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    for (var i = 0; i < textNodes.length; i++) {
+      var node = textNodes[i];
+      var text = node.nodeValue;
+      var frag = document.createDocumentFragment();
+      var lastEnd = 0;
+
+      if (isLatin) {
+        var escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('\\b' + escaped + '\\b', 'gi');
+        var match;
+        while ((match = regex.exec(text)) !== null) {
+          if (match.index > lastEnd) {
+            frag.appendChild(document.createTextNode(text.slice(lastEnd, match.index)));
+          }
+          var mark = document.createElement('mark');
+          mark.className = 'looked-up';
+          mark.textContent = match[0];
+          frag.appendChild(mark);
+          lastEnd = match.index + match[0].length;
+        }
+      } else {
+        var pos = 0;
+        while (pos < text.length) {
+          var idx = text.indexOf(term, pos);
+          if (idx === -1) break;
+          if (idx > lastEnd) {
+            frag.appendChild(document.createTextNode(text.slice(lastEnd, idx)));
+          }
+          var mark = document.createElement('mark');
+          mark.className = 'looked-up';
+          mark.textContent = term;
+          frag.appendChild(mark);
+          pos = idx + term.length;
+          lastEnd = pos;
+        }
+      }
+
+      if (lastEnd < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+      }
+      if (frag.childNodes.length > 0) {
+        node.parentNode.replaceChild(frag, node);
+      }
+    }
+  }
+
+  function undoLookedUp(term) {
+    if (!lookedUpSet.has(term)) return;
+    lookedUpSet.delete(term);
+    updateStats();
+
+    var marks = readerText.querySelectorAll('mark.looked-up');
+    var parents = [];
+    for (var i = 0; i < marks.length; i++) {
+      var mark = marks[i];
+      if (mark.textContent === term) {
+        var parent = mark.parentNode;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        if (parents.indexOf(parent) < 0) parents.push(parent);
+      }
+    }
+    for (var p = 0; p < parents.length; p++) parents[p].normalize();
+  }
   function getGlobalOffset(textNode, offsetWithinNode) {
     var offset = 0;
     var walker = document.createTreeWalker(readerText, NodeFilter.SHOW_TEXT);
@@ -208,6 +391,32 @@ var ReaderAddCandidate = (function () {
     return -1;
   }
 
+  // Shared drag infra (registered once, reused across cards)
+  var _dragCard = null, _dragDragging = false;
+  var _dsx, _dsy, _dst, _dsl;
+  function _dragStart(ev) {
+    if (ev.target.tagName === 'BUTTON') return;
+    _dragDragging = true; _dragCard.style.cursor = 'grabbing';
+    var pt = ev.touches ? ev.touches[0] : ev;
+    _dsx = pt.clientX; _dsy = pt.clientY;
+    _dsl = parseInt(layer.style.left); _dst = parseInt(layer.style.top);
+    ev.preventDefault();
+  }
+  function _dragMove(ev) {
+    if (!_dragDragging) return;
+    var pt = ev.touches ? ev.touches[0] : ev;
+    layer.style.left = (_dsl + pt.clientX - _dsx) + 'px';
+    layer.style.top = (_dst + pt.clientY - _dsy) + 'px';
+  }
+  function _dragEnd() {
+    if (_dragDragging) { _dragDragging = false; if (_dragCard) _dragCard.style.cursor = 'grab'; }
+  }
+  document.addEventListener('mousemove', _dragMove);
+  document.addEventListener('touchmove', _dragMove, {passive: false});
+  document.addEventListener('mouseup', _dragEnd);
+  document.addEventListener('touchend', _dragEnd);
+
+
   function showLookupCard(term, start, end, x, y) {
     if (end <= start || start < 0 || end > fullText.length) return;
     if (fullText.substring(start, end) !== term) {
@@ -217,6 +426,8 @@ var ReaderAddCandidate = (function () {
       end = idx + term.length;
     }
 
+    markLookedUp(term);
+
     var form = new FormData();
     form.append('csrf_token', csrf);
     form.append('term', term);
@@ -225,7 +436,7 @@ var ReaderAddCandidate = (function () {
 
     fetch('/reading/' + docId + '/lookup', { method: 'POST', body: form })
       .then(function (r) {
-        if (!r.ok) { layer.style.display = 'none'; return; }
+        if (!r.ok) { _closeLookupCard(); return; }
         return r.text();
       })
       .then(function (html) {
@@ -244,11 +455,33 @@ var ReaderAddCandidate = (function () {
         layer.style.top = top + 'px';
         layer.style.left = left + 'px';
         layer.style.display = 'block';
+
+        // Card drag: share handlers at module level, just bind to this card
+        _dragCard = card;
+        card.style.cursor = 'grab';
+        card.addEventListener('mousedown', _dragStart);
+        card.addEventListener('touchstart', _dragStart, {passive: false});
       });
   }
 
+  // Cached segmenter for CJK word boundary detection
+  var _segmenter = null;
+  try {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      _segmenter = new Intl.Segmenter(lang, { granularity: 'word' });
+    }
+  } catch (_) {}
+
   // ---- Click-to-lookup ----
   readerText.addEventListener('click', function (e) {
+    // Click on already-looked-up word -> undo highlight
+    var markEl = e.target.closest("mark.looked-up");
+    if (markEl) {
+      var markTerm = markEl.textContent;
+      undoLookedUp(markTerm);
+      _closeLookupCard();
+      return;
+    }
     var range;
     if (document.caretPositionFromPoint) {
       var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
@@ -276,15 +509,41 @@ var ReaderAddCandidate = (function () {
       while (wordStart > 0 && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordStart - 1])) wordStart--;
       while (wordEnd < nodeText.length && /[a-zA-ZÀ-ÿ'-]/.test(nodeText[wordEnd])) wordEnd++;
     } else {
-      wordStart = Math.max(0, clickOffset - 2);
-      wordEnd = Math.min(nodeText.length, clickOffset + 3);
-      while (wordStart < clickOffset && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
-      wordStart = Math.max(0, clickOffset - 2);
-      while (wordStart < clickOffset && !/[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordStart])) wordStart++;
-      if (wordStart >= clickOffset) wordStart = Math.max(0, clickOffset - 1);
-      while (wordEnd > clickOffset && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordEnd])) wordEnd--;
-      if (wordEnd <= clickOffset) wordEnd = Math.min(nodeText.length, clickOffset + 2);
-      while (wordEnd < nodeText.length && /[一-鿿㐀-䶿ｦ-ﾟ぀-ゟ゠-ヿ]/.test(nodeText[wordEnd])) wordEnd++;
+      // Use Intl.Segmenter (browser-native, Unicode CLDR dictionary-based)
+      // for proper CJK word segmentation.
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        try {
+          var seg = new Intl.Segmenter(lang, { granularity: 'word' });
+          var segments = seg.segment(nodeText);
+          var found = null;
+          var it = segments[Symbol.iterator]();
+          var cur;
+          while (!(cur = it.next()).done) {
+            var s = cur.value;
+            if (s.index <= clickOffset && s.index + s.segment.length > clickOffset) {
+              found = s;
+              break;
+            }
+          }
+          if (found) {
+            // For CJK the Segmenter may mark single chars as non-word-like;
+            // accept all non-whitespace segments.  isWordLike filter is only
+            // useful for Latin scripts where we already have the regex branch.
+            var t = found.segment.trim();
+            if (t && t.length > 0 && !/^[\s.,;:!?，。！？、；：]+$/.test(t)) {
+              wordStart = found.index;
+              wordEnd = found.index + found.segment.length;
+            }
+          }
+        } catch (_) {}
+      }
+      // Fallback: for CJK without whitespace, use a fixed window
+      // (2 chars left, 2 chars right) rather than expanding to
+      // punctuation — that would grab the entire clause.
+      if (wordEnd <= wordStart) {
+        wordStart = Math.max(0, clickOffset - 2);
+        wordEnd = Math.min(nodeText.length, clickOffset + 2);
+      }
     }
 
     if (wordEnd <= wordStart) return;
@@ -320,7 +579,26 @@ var ReaderAddCandidate = (function () {
     layer.style.display = 'none';
   });
 
+  // 快捷键：Esc 关卡、Enter 加入学习
+  document.addEventListener('keydown', function (e) {
+    if (layer.style.display !== 'block') return;
+    if (e.key === 'Escape') { layer.style.display = 'none'; return; }
+    if (e.key === 'Enter') {
+      var addBtn = layer.querySelector('button[data-lookup-id]');
+      if (addBtn && !addBtn.disabled) addBtn.click();
+    }
+  });
+
   // ---- 保存阅读位置 ----
+  var progressFill = document.getElementById('reader-progress-fill');
+  function updateProgress() {
+    var maxScroll = reader.scrollHeight - reader.clientHeight;
+    var ratio = maxScroll > 0 ? reader.scrollTop / maxScroll : 0;
+    progressFill.style.width = Math.round(ratio * 100) + '%';
+    if (ratio > 0.95) progressFill.style.background = 'var(--success, #4caf50)';
+    else progressFill.style.background = 'var(--accent, #4a90d9)';
+  }
+
   var saveTimer = null;
   function savePosition() {
     var ratio = reader.scrollTop ? reader.scrollTop / (reader.scrollHeight - reader.clientHeight) : 0;
@@ -335,6 +613,7 @@ var ReaderAddCandidate = (function () {
     );
   }
   reader.addEventListener('scroll', function () {
+    updateProgress();
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(savePosition, 2000);
   });
@@ -349,6 +628,7 @@ var ReaderAddCandidate = (function () {
     }
   })();
   {% endif %}
+  updateProgress();
 })();
 </script>
 {% endblock %}

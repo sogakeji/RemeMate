@@ -210,7 +210,7 @@ def process_source(user_id, source_id):
         return
 
     # 重处理（如上一次 SSE 被中断、status 仍为 processing）前清掉旧候选，避免累积
-    WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).delete()
+    _candidate_query(user_id, source.id).delete(synchronize_session=False)
     db.session.commit()
 
     remaining = quota_svc.import_remaining(user_id)
@@ -320,7 +320,7 @@ def quick_add(user_id, language_code, word, meaning=None):
     source.status = "done"
     source.total_candidates = 1
     db.session.commit()
-    candidate = WordCandidate.query.filter_by(source_id=source.id).first()
+    candidate = _candidate_query(user_id, source.id).first()
     return source, candidate
 
 
@@ -361,21 +361,30 @@ def get_source(user_id, source_id) -> IntakeSource | None:
     return IntakeSource.query.filter_by(id=source_id, user_id=user_id).first()
 
 
-def _existing_words(user_id, word_list_id) -> set:
+def _candidate_query(user_id, source_id, status=None):
+    q = WordCandidate.query.filter_by(source_id=source_id, user_id=user_id)
+    if status is not None:
+        q = q.filter_by(status=status)
+    return q
+
+
+def _existing_words(word_list_id) -> set:
     rows = (Word.query.with_entities(Word.word)
             .filter(Word.list_id == word_list_id).all())
     return {r[0].strip().lower() for r in rows}
 
 
-def list_candidates(user_id, source_id):
-    """返回候选词列表，每条标注是否与目标词表已有词重复（去重提示）。"""
+def list_candidates(user_id, source_id, status=None):
+    """返回候选词列表，每条标注是否与目标词表已有词重复（去重提示）。
+
+    默认按创建时间倒序（新在前）。可通过 status 过滤（'pending'/'accepted'/'ignored'）。
+    """
     source = get_source(user_id, source_id)
     if source is None:
         return None, []
-    existing = _existing_words(user_id, source.word_list_id)
-    cands = (WordCandidate.query
-             .filter_by(source_id=source_id, user_id=user_id)
-             .order_by(WordCandidate.id).all())
+    existing = _existing_words(source.word_list_id)
+    q = _candidate_query(user_id, source_id, status if status in ("pending", "accepted", "ignored") else None)
+    cands = q.order_by(WordCandidate.created_at.desc()).all()
     out = [(c, c.word.strip().lower() in existing) for c in cands]
     return source, out
 
@@ -409,15 +418,10 @@ def ignore_candidate(user_id, candidate_id) -> bool:
 
 def bulk_accept(user_id, source_id) -> int:
     """一键接受该 source 下所有 pending 候选词。"""
-    source = get_source(user_id, source_id)
-    if source is None:
-        return 0
-    cands = WordCandidate.query.filter_by(
-        source_id=source_id, user_id=user_id, status="pending").all()
-    for c in cands:
-        c.status = "accepted"
+    count = _candidate_query(user_id, source_id, status="pending").update(
+        {"status": "accepted"}, synchronize_session=False)
     db.session.commit()
-    return len(cands)
+    return count
 
 
 def commit_intake_source(user_id, source_id) -> int:
@@ -425,9 +429,8 @@ def commit_intake_source(user_id, source_id) -> int:
     source = get_source(user_id, source_id)
     if source is None:
         return 0
-    accepted = WordCandidate.query.filter_by(
-        source_id=source_id, user_id=user_id, status="accepted").all()
-    existing = _existing_words(user_id, source.word_list_id)
+    accepted = _candidate_query(user_id, source_id, status="accepted").all()
+    existing = _existing_words(source.word_list_id)
 
     committed = 0
     for c in accepted:
@@ -450,3 +453,24 @@ def commit_intake_source(user_id, source_id) -> int:
     source.completed_at = utc_now()
     db.session.commit()
     return committed
+
+
+def commit_all(user_id, source_id) -> int:
+    """一键入库：先全部接受 pending，再写入 words + definitions。"""
+    bulk_accept(user_id, source_id)
+    return commit_intake_source(user_id, source_id)
+
+
+def _cleanup_by_status(user_id, source_id, status) -> int:
+    count = _candidate_query(user_id, source_id, status=status).delete(
+        synchronize_session=False)
+    db.session.commit()
+    return count
+
+
+def cleanup_ignored(user_id, source_id) -> int:
+    return _cleanup_by_status(user_id, source_id, "ignored")
+
+
+def cleanup_accepted(user_id, source_id) -> int:
+    return _cleanup_by_status(user_id, source_id, "accepted")

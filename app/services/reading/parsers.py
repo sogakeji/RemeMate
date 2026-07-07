@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -27,6 +28,32 @@ class TooManyPages(PdfParseError):
 
 class EmptyPdfText(PdfParseError):
     """Raised when a PDF contains no extractable text."""
+
+
+class ContentQualityError(PdfParseError):
+    """Raised when extracted text fails the quality check."""
+
+
+_IS_CJK = {"zh", "ja"}
+_CJK_PUNCT = "。，！？；：、"
+_REPLACEMENT_CHAR = "�"
+
+
+def validate_content_quality(text: str, language_code: str) -> None:
+    stripped = text.strip()
+    if not stripped:
+        raise ContentQualityError("PDF 提取文本全空，可能是扫描件或图片型 PDF")
+    replacement_ratio = stripped.count(_REPLACEMENT_CHAR) / max(len(stripped), 1)
+    if replacement_ratio > 0.05:
+        raise ContentQualityError(
+            f"PDF 提取文本乱码比例过高（{replacement_ratio:.0%}），可能是编码不兼容或非文本型 PDF"
+        )
+    if len(stripped) < 50:
+        raise ContentQualityError(f"PDF 提取文本仅 {len(stripped)} 字符，内容过短")
+    if language_code in _IS_CJK and not any(ch in stripped for ch in _CJK_PUNCT):
+        raise ContentQualityError(
+            "PDF 提取文本中缺少中文标点（。，！？等），可能不是中文/日文文档"
+        )
 
 
 @dataclass(frozen=True)
@@ -129,8 +156,6 @@ def _reflow_paragraphs(text: str) -> str:
     - 段间用 ``\\n\\n`` 重新拼接。
     返回重排后的纯文本，offset 仍按单一字符串计算，下游不变。
     """
-    import re
-
     if not text:
         return ""
     # 统一换行

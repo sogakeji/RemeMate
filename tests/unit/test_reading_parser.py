@@ -5,11 +5,13 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 import app.services.reading.parsers as parsers
 from app.services.reading.parsers import (
+    ContentQualityError,
     EmptyPdfText,
     PdfParseError,
     PdfTooLarge,
     parse_pdf_bytes,
     parse_pdf_bytes_multi,
+    validate_content_quality,
 )
 
 
@@ -121,6 +123,49 @@ def test_multi_small_pdf_returns_single():
     assert len(docs) == 1
     assert docs[0].title == "Small PDF"
     assert "Hello reader" in docs[0].text
+
+
+# ---- validate_content_quality ----
+
+
+def test_quality_empty_text_raises():
+    with pytest.raises(ContentQualityError, match="全空"):
+        validate_content_quality("   ", "zh")
+
+
+def test_quality_garbled_text_raises():
+    # >5% replacement chars should trigger the garbled check (>50 chars required)
+    garbled = "Hello World. " * 5 + "�" * 6  # ~80 chars, ~7% replacement
+    with pytest.raises(ContentQualityError, match="乱码"):
+        validate_content_quality(garbled, "en")
+
+
+def test_quality_too_short_raises():
+    with pytest.raises(ContentQualityError, match="过短"):
+        validate_content_quality("Hi.", "en")
+
+
+def test_quality_cjk_no_punctuation_raises():
+    # Chinese text without any CJK punctuation
+    text = "这是一段没有标点符号的中文文本" * 5
+    assert len(text) >= 50
+    with pytest.raises(ContentQualityError, match="缺少中文标点"):
+        validate_content_quality(text, "zh")
+
+
+def test_quality_cjk_with_punctuation_passes():
+    text = "这是一段有标点的中文文本。" * 5
+    validate_content_quality(text, "zh")  # does not raise
+
+
+def test_quality_english_passes():
+    text = "This is a valid English paragraph with proper content. " * 5
+    validate_content_quality(text, "en")  # does not raise
+
+
+def test_quality_japanese_with_punctuation_passes():
+    text = "これは日本語のテキストです。ちゃんと句読点もあります。" * 5
+    validate_content_quality(text, "ja")  # does not raise
 
 
 def _make_pdf_bytes_lines(*, lines: list[str], title: str | None = None) -> bytes:

@@ -12,10 +12,10 @@
         <label class="form-label" for="language_code">语言</label>
         <select name="language_code" id="language_code" class="form-control" required>
           <option value="">请选择语言</option>
-          <option value="zh">中文</option>
-          <option value="en">英文</option>
-          <option value="ja">日文</option>
-          <option value="fr">法文</option>
+          <option value="zh" {% if current_lang == 'zh' %}selected{% endif %}>中文</option>
+          <option value="en" {% if current_lang == 'en' %}selected{% endif %}>英文</option>
+          <option value="ja" {% if current_lang == 'ja' %}selected{% endif %}>日文</option>
+          <option value="fr" {% if current_lang == 'fr' %}selected{% endif %}>法文</option>
         </select>
       </div>
 

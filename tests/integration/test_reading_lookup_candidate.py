@@ -179,7 +179,8 @@ def test_retry_after_linked_candidate_commit_returns_already_candidate(app):
 
         retry = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
 
-        assert retry == {"state": "already-candidate", "candidate_id": candidate.id}
+        assert retry["state"] == "already-candidate"
+        assert retry["candidate_id"] == candidate.id
 
 
 def test_candidate_edit_cannot_override_final_definition_example(app):
@@ -287,7 +288,8 @@ def test_separate_lookup_for_same_term_reuses_existing_candidate(app):
         second = reading_svc.add_lookup_to_candidate(user_id, second_lookup.id)
 
         assert first["state"] == "created"
-        assert second == {"state": "already-candidate", "candidate_id": first["candidate_id"]}
+        assert second["state"] == "already-candidate"
+        assert second["candidate_id"] == first["candidate_id"]
         assert WordCandidate.query.filter_by(user_id=user_id, word="cat").count() == 1
         assert ReadingLookup.query.get(second_lookup.id).candidate_id == first["candidate_id"]
 
@@ -304,7 +306,8 @@ def test_existing_word_in_same_language_returns_existing_word_state(app):
         lookup = _lookup(user_id)
         result = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
 
-        assert result == {"state": "existing-word", "word_id": existing.id}
+        assert result["state"] == "existing-word"
+        assert result["word_id"] == existing.id
         # No IntakeSource should have been created (existing-word check now
         # happens before source creation).
         assert IntakeSource.query.filter_by(user_id=user_id).count() == 0
@@ -351,7 +354,8 @@ def test_create_reading_candidate_uses_normalized_term_for_dedup(app):
         second = reading_svc.add_lookup_to_candidate(user_id, lookup_cat.id)
 
         assert first["state"] == "created"
-        assert second == {"state": "already-candidate", "candidate_id": first["candidate_id"]}
+        assert second["state"] == "already-candidate"
+        assert second["candidate_id"] == first["candidate_id"]
         assert WordCandidate.query.filter_by(user_id=user_id).count() == 1
         candidate = db_candidate(first["candidate_id"])
         assert candidate.word == "cat"  # normalized form, not surface form
