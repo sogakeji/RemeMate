@@ -52,29 +52,43 @@ DEFAULT_GOALS = {
 
 def get_today_task_card(user_id: int) -> TaskCard:
     """返回今日任务卡。Tasks 2-5 逐步填充每项进度。"""
+    goals = _goals_for(user_id)
     items = [
         TaskItem(slug="review", title="复习单词",
-                 goal=DEFAULT_GOALS["review"],
+                 goal=goals["review"],
                  progress=_review_progress(user_id),
                  href=url_for("words.review")),
         TaskItem(slug="import", title="导入单词",
-                 goal=DEFAULT_GOALS["import"],
+                 goal=goals["import"],
                  progress=_import_progress(user_id),
                  href=url_for("intake.quick_add_page")),
         TaskItem(slug="read", title="阅读 1%",
-                 goal=DEFAULT_GOALS["read"],
+                 goal=goals["read"],
                  progress=_read_progress(user_id),
                  href=url_for("reading.index")),
         TaskItem(slug="sentence", title="造一句句子",
-                 goal=DEFAULT_GOALS["sentence"],
+                 goal=goals["sentence"],
                  progress=_writing_progress(user_id, diary=False),
                  href=url_for("write.compose")),
         TaskItem(slug="diary", title="写三行日记",
-                 goal=DEFAULT_GOALS["diary"],
+                 goal=goals["diary"],
                  progress=_writing_progress(user_id, diary=True),
                  href=url_for("write.compose")),
     ]
     return TaskCard(items=items)
+
+
+def _goals_for(user_id: int) -> dict[str, int]:
+    """读用户自定义目标量，覆盖 DEFAULT_GOALS 的单项。"""
+    user = db.session.get(User, user_id)
+    if user is None or not getattr(user, "settings", None):
+        return dict(DEFAULT_GOALS)
+    cfg = user.settings.daily_task_config or {}
+    out = dict(DEFAULT_GOALS)
+    for k, v in cfg.items():
+        if k in out and isinstance(v, int) and v >= 1:
+            out[k] = v
+    return out
 
 
 def _review_progress(user_id: int) -> int:

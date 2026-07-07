@@ -198,3 +198,27 @@ def test_all_done_and_href_routes(app, bypass_engine):
             assert t.href.startswith("/")
             # 反查 url_for 解析这些 href 应不抛 BuildError
         assert url_for("words.review") in [t.href for t in card.items]
+
+
+def test_custom_goal_overrides_default(app, bypass_engine):
+    """UserSettings.daily_task_config 覆盖 DEFAULT_GOALS 的单项目标。"""
+    from flask import g
+    from app.extensions import db
+    from app.models.user import UserSettings
+    from app.services.tasks import get_today_task_card
+    from tests.helpers import provision_user
+
+    uid = provision_user(app, email="cfg@t.com")
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        st = UserSettings.query.get(uid)
+        if st is None:
+            st = UserSettings(user_id=uid)
+        st.daily_task_config = {"review": 3}  # 复习目标 3 而非 10
+        db.session.add(st)
+        db.session.commit()
+        card = get_today_task_card(uid)
+    review = next(t for t in card.items if t.slug == "review")
+    assert review.goal == 3
+    imp = next(t for t in card.items if t.slug == "import")
+    assert imp.goal == 5  # 未覆盖仍默认
