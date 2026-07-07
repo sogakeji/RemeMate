@@ -26,6 +26,21 @@ INTAKE_MAX_CSV_BYTES = 256 * 1024
 INTAKE_BATCH_SIZE = 20
 QUICK_ADD_MAX_CHARS = 140
 
+_CSV_HEADER_ALIASES = {
+    "word": ("word", "term", "单词", "词", "词语"),
+    "part_of_speech": ("part_of_speech", "part of speech", "pos", "词性"),
+    "meaning": ("meaning", "definition", "translation", "释义", "解释", "定义"),
+    "example": ("example", "sentence", "例句", "句子"),
+    "note": ("note", "notes", "笔记", "备注"),
+    "marked": ("marked", "is_marked", "starred", "favorite", "是否标注", "是否收藏"),
+}
+_CSV_HEADER_ALIAS_TO_CANONICAL = {
+    alias.strip().lower().replace(" ", "_").replace("-", "_"): canonical
+    for canonical, aliases in _CSV_HEADER_ALIASES.items()
+    for alias in aliases
+}
+_CSV_REQUIRED_HINT = "CSV 表头必须包含词和释义列；支持 word/单词 和 meaning/definition/释义"
+
 
 class DocumentTooLong(Exception):
     pass
@@ -43,6 +58,41 @@ def _language_word_list(user_id, language_code) -> WordList | None:
     if language_code not in words_svc._LANGUAGE_NAMES:
         return None
     return words_svc.get_or_create_language_list(user_id, language_code)
+
+
+def _canonical_csv_header(header):
+    normalized = (header or "").strip().lower().replace(" ", "_").replace("-", "_")
+    return _CSV_HEADER_ALIAS_TO_CANONICAL.get(normalized, normalized)
+
+
+def _canonicalize_csv_row(row):
+    norm = {}
+    for key, value in row.items():
+        if key is None:
+            continue
+        canonical = _canonical_csv_header(key)
+        if not canonical:
+            continue
+        val = (value or "").strip()
+        if canonical not in norm or (val and not norm[canonical]):
+            norm[canonical] = val
+    return norm
+
+
+def _merge_csv_original_fields(rows, items):
+    if len(rows) != len(items):
+        return items
+    merged = []
+    for row, item in zip(rows, items):
+        if not isinstance(item, dict):
+            merged.append(item)
+            continue
+        it = dict(item)
+        for field in ("word", "part_of_speech", "meaning", "example", "note"):
+            if row.get(field) and not it.get(field):
+                it[field] = row[field]
+        merged.append(it)
+    return merged
 
 
 # ---- 入口 1：CSV ----
@@ -63,13 +113,13 @@ def prepare_csv(user_id, language_code, file_bytes, filename):
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames is None:
         raise CsvFormatError("CSV 为空或缺少表头")
-    cols = {c.strip().lower() for c in reader.fieldnames}
+    cols = {_canonical_csv_header(c) for c in reader.fieldnames}
     if "word" not in cols or "meaning" not in cols:
-        raise CsvFormatError("CSV 表头必须包含 word 和 meaning 列")
+        raise CsvFormatError(_CSV_REQUIRED_HINT)
 
     rows = []
     for row in reader:
-        norm = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
+        norm = _canonicalize_csv_row(row)
         if not norm.get("word"):
             continue
         rows.append(norm)
@@ -138,8 +188,8 @@ def _normalize_csv_batch(rows, language_code, feedback_language_code="zh"):
     feedback_lang = _feedback_lang_name(feedback_language_code)
     system = (f"你是{lang}词条整理助手。对每个词补全释义/词性/例句（已有则保留），"
               f"meaning 字段必须使用{feedback_lang}解释。"
-              "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\"}]}，"
-              "数量与输入一致，不要新增或删除词。")
+              "只输出 JSON：{\"items\":[{\"word\",\"part_of_speech\",\"meaning\",\"example\",\"note\"}]}，"
+              "数量与输入一致，不要新增或删除词；note 字段已有则保留。")
     user = json.dumps(rows, ensure_ascii=False)
     try:
         res = llm.chat([{"role": "system", "content": system},
@@ -261,6 +311,8 @@ def process_source(user_id, source_id):
                 return
             if not items:                      # LLM 失败 → 用原始列值兜底
                 items = rows
+            else:
+                items = _merge_csv_original_fields(rows, items)
             n = _write_candidates(user_id, source, items)
             created += n
             quota_svc.record_import(user_id, count=n,

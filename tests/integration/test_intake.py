@@ -43,6 +43,49 @@ def test_csv_bad_header_blocked(app, client, bypass_engine, fake_extract):
     assert _count(bypass_engine, "intake_sources", uid) == 0
 
 
+def test_csv_chinese_headers_are_canonicalized(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    csv_body = "单词,词性,释义,例句,笔记,是否标注\nbonjour,名词,你好,Bonjour!,问候,1\n"
+    data = io.BytesIO(csv_body.encode("utf-8"))
+
+    r = client.post("/intake/import", content_type="multipart/form-data",
+                    data={"language_code": "fr", "file": (data, "cn.csv")})
+
+    assert r.status_code == 302
+    with bypass_engine.connect() as c:
+        raw = c.execute(text(
+            "SELECT sg.raw_text FROM source_segments sg "
+            "JOIN intake_sources src ON src.id=sg.source_id "
+            "WHERE src.user_id=:u"
+        ), {"u": uid}).scalar()
+    assert '"word": "bonjour"' in raw
+    assert '"part_of_speech": "名词"' in raw
+    assert '"meaning": "你好"' in raw
+    assert '"example": "Bonjour!"' in raw
+    assert '"note": "问候"' in raw
+
+
+def test_csv_aisten_headers_are_canonicalized(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    csv_body = "word,definition,sentence,note\nbonjour,hello,Bonjour!,greeting\n"
+    data = io.BytesIO(csv_body.encode("utf-8"))
+
+    r = client.post("/intake/import", content_type="multipart/form-data",
+                    data={"language_code": "fr", "file": (data, "aisten.csv")})
+
+    assert r.status_code == 302
+    with bypass_engine.connect() as c:
+        raw = c.execute(text(
+            "SELECT sg.raw_text FROM source_segments sg "
+            "JOIN intake_sources src ON src.id=sg.source_id "
+            "WHERE src.user_id=:u"
+        ), {"u": uid}).scalar()
+    assert '"word": "bonjour"' in raw
+    assert '"meaning": "hello"' in raw
+    assert '"example": "Bonjour!"' in raw
+    assert '"note": "greeting"' in raw
+
+
 def test_csv_too_many_rows_blocked(app, client, bypass_engine, fake_extract):
     uid, lid = _setup(app, client, bypass_engine)
     rows = "word,meaning\n" + "".join(f"w{i},m{i}\n" for i in range(600))
@@ -50,6 +93,29 @@ def test_csv_too_many_rows_blocked(app, client, bypass_engine, fake_extract):
     client.post("/intake/import", content_type="multipart/form-data",
                 data={"language_code": "fr", "file": (big, "big.csv")})
     assert _count(bypass_engine, "intake_sources", uid) == 0
+
+
+def test_csv_note_survives_llm_normalization(app, client, bypass_engine, fake_extract):
+    uid, lid = _setup(app, client, bypass_engine)
+    fake_extract["content"] = (
+        '{"items":[{"word":"bonjour","part_of_speech":"interj",'
+        '"meaning":"你好","example":"Bonjour."}]}'
+    )
+    csv_body = "word,definition,sentence,note\nbonjour,hello,Bonjour!,greeting\n"
+    data = io.BytesIO(csv_body.encode("utf-8"))
+    client.post("/intake/import", content_type="multipart/form-data",
+                data={"language_code": "fr", "file": (data, "aisten.csv")})
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+
+    body = client.get(f"/intake/{sid}/process").get_data(as_text=True)
+    assert "done" in body
+    with bypass_engine.connect() as c:
+        note = c.execute(text(
+            "SELECT note FROM word_candidates WHERE user_id=:u"
+        ), {"u": uid}).scalar()
+    assert note == "greeting"
 
 
 # ---- 抽词 + 审核 + commit ----
