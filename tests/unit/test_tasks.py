@@ -78,3 +78,25 @@ def test_import_progress_counts_today_accepted_candidates(app, bypass_engine):
     assert imp.goal == 5
     assert imp.progress == 1
     assert not imp.done
+
+
+def test_read_progress_counts_documents_touched_today(app, bypass_engine):
+    """阅读进度 = 今天 updated_at 落今天的文档中 scroll_ratio>=0.01 的数。"""
+    from flask import g
+    from app.services.tasks import get_today_task_card
+    from app.services.reading import service as reading_svc
+    from tests.helpers import provision_user
+
+    uid = provision_user(app, email="rd@t.com")
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        doc = reading_svc.create_document(
+            uid, language_code="en", title="T",
+            source_filename="t.pdf", content_text="x" * 1000, page_count=1)
+        reading_svc.update_last_position(uid, doc.id,
+            {"char_offset": 50, "scroll_ratio": 0.05})
+        card = get_today_task_card(uid)
+    read = next(t for t in card.items if t.slug == "read")
+    assert read.goal == 1
+    assert read.progress == 1
+    assert read.done

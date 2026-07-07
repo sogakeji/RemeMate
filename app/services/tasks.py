@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.word import ReviewLog
 from app.models.intake import WordCandidate
+from app.models.reading import ReadingDocument
 from app.services.timeutil import today_local_start_utc
 
 
@@ -56,7 +57,8 @@ def get_today_task_card(user_id: int) -> TaskCard:
                  goal=DEFAULT_GOALS["import"],
                  progress=_import_progress(user_id), href="/intake/quick-add"),
         TaskItem(slug="read", title="阅读 1%",
-                 goal=DEFAULT_GOALS["read"], progress=0, href="/reading"),
+                 goal=DEFAULT_GOALS["read"],
+                 progress=_read_progress(user_id), href="/reading"),
         TaskItem(slug="sentence", title="造一句句子",
                  goal=DEFAULT_GOALS["sentence"], progress=0, href="/write"),
         TaskItem(slug="diary", title="写三行日记",
@@ -88,3 +90,19 @@ def _import_progress(user_id: int) -> int:
                     WordCandidate.status == "accepted",
                     WordCandidate.created_at >= since)
             .count())
+
+
+def _read_progress(user_id: int) -> int:
+    """今天碰过的文档中，已读 ≥1% 的篇数。"""
+    user = db.session.get(User, user_id)
+    if user is None:
+        return 0
+    since = today_local_start_utc(user.timezone or "Asia/Shanghai")
+    docs = (ReadingDocument.query
+            .filter(ReadingDocument.user_id == user_id,
+                    ReadingDocument.updated_at >= since)
+            .all())
+    return sum(
+        1 for d in docs
+        if (d.last_position or {}).get("scroll_ratio", 0) >= 0.01
+    )
