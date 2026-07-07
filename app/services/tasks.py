@@ -7,6 +7,8 @@ app.services.timeutil.today_local_start_utc）。
 from __future__ import annotations
 from dataclasses import dataclass
 
+from flask import url_for
+
 from app.extensions import db
 from app.models.user import User
 from app.models.word import ReviewLog
@@ -53,19 +55,24 @@ def get_today_task_card(user_id: int) -> TaskCard:
     items = [
         TaskItem(slug="review", title="复习单词",
                  goal=DEFAULT_GOALS["review"],
-                 progress=_review_progress(user_id), href="/review"),
+                 progress=_review_progress(user_id),
+                 href=url_for("words.review")),
         TaskItem(slug="import", title="导入单词",
                  goal=DEFAULT_GOALS["import"],
-                 progress=_import_progress(user_id), href="/intake/quick-add"),
+                 progress=_import_progress(user_id),
+                 href=url_for("intake.quick_add_page")),
         TaskItem(slug="read", title="阅读 1%",
                  goal=DEFAULT_GOALS["read"],
-                 progress=_read_progress(user_id), href="/reading"),
+                 progress=_read_progress(user_id),
+                 href=url_for("reading.index")),
         TaskItem(slug="sentence", title="造一句句子",
                  goal=DEFAULT_GOALS["sentence"],
-                 progress=_writing_progress(user_id, diary=False), href="/write"),
+                 progress=_writing_progress(user_id, diary=False),
+                 href=url_for("write.compose")),
         TaskItem(slug="diary", title="写三行日记",
                  goal=DEFAULT_GOALS["diary"],
-                 progress=_writing_progress(user_id, diary=True), href="/write"),
+                 progress=_writing_progress(user_id, diary=True),
+                 href=url_for("write.compose")),
     ]
     return TaskCard(items=items)
 
