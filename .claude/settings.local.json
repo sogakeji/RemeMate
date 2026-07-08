@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Workflow(code-review)",
-      "Bash(git config *)"
-    ]
-  }
-}
