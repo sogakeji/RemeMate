@@ -54,13 +54,21 @@
     </div>
   {% elif current_language %}
     <div class="word-library-tools">
-      <div class="search-box">
-        <input type="search" id="word-search" class="search-input"
-               placeholder="搜索单词、释义、例句或笔记">
-        <button type="button" id="clear-word-search" class="clear-search-btn"
-                title="清空搜索" aria-label="清空搜索">×</button>
+      <div class="word-sort-actions" aria-label="生词本排序">
+        <a class="word-sort-link {% if current_sort == 'recent' %}active{% endif %}"
+           href="{{ url_for('words.lists', sort='recent') }}">按最近导入排序</a>
+        <a class="word-sort-link {% if current_sort == 'lapses' %}active{% endif %}"
+           href="{{ url_for('words.lists', sort='lapses') }}">按遗忘度排序</a>
       </div>
-      <span id="word-search-status" class="word-search-status"></span>
+      <div class="word-library-search">
+        <div class="search-box">
+          <input type="search" id="word-search" class="search-input"
+                 placeholder="搜索单词、释义、例句或笔记">
+          <button type="button" id="clear-word-search" class="clear-search-btn"
+                  title="清空搜索" aria-label="清空搜索">×</button>
+        </div>
+        <span id="word-search-status" class="word-search-status"></span>
+      </div>
     </div>
     <div class="table-container word-library">
       <table class="word-table word-rich-table">

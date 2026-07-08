@@ -247,10 +247,14 @@ def delete_word(word_id):
 @bp.get("/words")
 @login_required
 def lists():
-    lang, ws = words_svc.get_words_for_current_language(_uid())
+    sort = request.args.get("sort", "due")
+    if sort not in {"due", "recent", "lapses"}:
+        sort = "due"
+    lang, ws = words_svc.get_words_for_current_language(_uid(), sort=sort)
     return render_template("words/list.html", words=ws,
                            current_language=lang,
-                           lang_name=words_svc._language_name(lang) if lang else None)
+                           lang_name=words_svc._language_name(lang) if lang else None,
+                           current_sort=sort)
 
 
 @bp.get("/words/<int:list_id>")

@@ -1172,3 +1172,18 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 - `pytest tests/integration/test_add_center.py tests/integration/test_intake.py tests/integration/test_words_list_implicit.py tests/integration/test_settings_language.py -q` -> 49 passed
 - `pytest -q` -> 340 passed, 16 warnings
 - `flask doctor --strict` -> 全 OK，migration head `2e79a6ececcc`
+
+### 2026-07-08 补充收口：生词本搜索与排序
+
+在生词本已有搜索/删除闭环基础上，补了两个轻量排序入口，便于闭测用户快速整理词库：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 最近导入排序 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | `/words?sort=recent` 按 `Word.id desc` 展示，作为当前无 `created_at` 字段时的最近导入代理 |
+| 遗忘度排序 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | `/words?sort=lapses` 按 `lapses desc, due_date asc, id desc` 展示，优先找最容易忘的词 |
+| 搜索框右置 | `app/templates/words/list.html`, `app/static/style.css` | 排序按钮放工具栏左侧，搜索框放右侧；窄屏自动换行，避免横向溢出 |
+
+验证：
+
+- `pytest tests/integration/test_words_list_implicit.py -q` -> 8 passed
+

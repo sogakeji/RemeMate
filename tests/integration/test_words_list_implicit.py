@@ -79,7 +79,36 @@ def test_words_page_has_search_and_delete_action(app, client, bypass_engine):
 
     assert "搜索单词、释义、例句或笔记" in page
     assert "word-search" in page
+    assert "按最近导入排序" in page
+    assert "按遗忘度排序" in page
+    assert 'href="/words?sort=recent"' in page
+    assert 'href="/words?sort=lapses"' in page
     assert "删除单词" in page
+
+
+def test_words_page_sort_buttons_change_order(app, client, bypass_engine):
+    uid = provision_user(app, "wl-sort@t.com", PW)
+    login(client, "wl-sort@t.com", PW)
+    _switch(client, "fr")
+    csrf = _csrf_add(client)
+    client.post("/words/add", json={"language_code": "fr", "word": "motancienxyz",
+                                    "definitions": [{"meaning": "old"}]},
+                headers={"X-CSRFToken": csrf})
+    client.post("/words/add", json={"language_code": "fr", "word": "motrecentxyz",
+                                    "definitions": [{"meaning": "new"}]},
+                headers={"X-CSRFToken": csrf})
+
+    with bypass_engine.begin() as c:
+        c.execute(text(
+            "UPDATE words SET lapses=5 WHERE word='motancienxyz' AND list_id IN "
+            "(SELECT id FROM word_lists WHERE user_id=:u AND language_code='fr')"
+        ), {"u": uid})
+
+    recent_page = client.get("/words?sort=recent").get_data(as_text=True)
+    lapses_page = client.get("/words?sort=lapses").get_data(as_text=True)
+
+    assert recent_page.index("motrecentxyz") < recent_page.index("motancienxyz")
+    assert lapses_page.index("motancienxyz") < lapses_page.index("motrecentxyz")
 
 
 def test_delete_word_removes_only_current_users_word(app, client, bypass_engine):

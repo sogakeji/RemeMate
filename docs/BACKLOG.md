@@ -110,3 +110,6 @@
 - **gunicorn timeout 与 SSE**（review 2026-06-23 L11）
   `timeout=60`；长流式端点（造句批改改流式 / 输入管道）慢网络可能被 arbiter 杀 worker。
   SSE 端点单独放宽或加心跳。
+
+- **Global ignored words / do-not-suggest-again** (user feedback 2026-07-08)
+  Current WordCandidate.status=ignored only applies to one intake_source. New text extract, CSV import, and reading intake tasks do not auto-filter historical ignored candidates. If we add permanent ignore later, create a separate per-user ignore table keyed by user_id + language_code + normalized word, and keep UI wording separate: ignore this batch vs never suggest again. Do not reuse current ignored semantics as global ignore.
