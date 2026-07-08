@@ -74,7 +74,8 @@ def submit():
     except writing_svc.SentenceTooLong:
         abort(400)
     except writing_svc.DiaryFormatError:
-        abort(400)
+        session.pop("pending", None)
+        return render_template("write/_diary_format_error.html")
     except writing_svc.SentenceLanguageMismatch:
         return render_template("write/_language_mismatch.html")
     if result is None:

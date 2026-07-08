@@ -237,6 +237,18 @@ class TestReadingShow:
         assert "Chapter One" in page
         assert "dark and stormy night" in page
 
+    def test_reader_known_word_click_does_not_depend_on_caret_api(self, app, client):
+        uid = _user(app, "reader-known-click@t.com")
+        _login(client, "reader-known-click@t.com")
+        doc_id = _create_doc(app, uid, content_hash="reader-known-click-hash",
+                             content_text="猫喜欢睡觉。")
+
+        page = client.get(f"/reading/{doc_id}").get_data(as_text=True)
+
+        assert "function showLookupForMark" in page
+        assert 'e.target.closest("mark.known-word")' in page
+        assert "showLookupForMark(knownMarkEl" in page
+
     def test_user_b_gets_404_for_user_a_document(self, app, client):
         uid_a = _user(app, "show-owner@t.com")
         _user(app, "show-other@t.com")
@@ -305,7 +317,7 @@ class TestReadingUpload:
         csrf = _csrf(client, "/reading/new")
 
         pdf = _make_pdf_bytes(
-            texts=["Hello world. This is a test document."],
+            texts=["Hello world. This is a complete text document with enough extractable words for upload."],
             title="My PDF",
         )
         resp = client.post(
@@ -393,7 +405,7 @@ class TestReadingUpload:
         uid = _user(app, "up-dup@t.com")
         _login(client, "up-dup@t.com")
 
-        pdf = _make_pdf_bytes(texts=["Unique content for dedup test."])
+        pdf = _make_pdf_bytes(texts=["Unique content for dedup test with enough readable words to pass quality checks."])
 
         # First upload
         csrf1 = _csrf(client, "/reading/new")

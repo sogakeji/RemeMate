@@ -1052,4 +1052,59 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 | 模板 | `app/templates/reading/show.html` | 删删除按钮, +审核候选词按钮 |
 | 模板 | `app/templates/reading/index.html` | 候选词提醒 N 徽章 |
 | 测试 | `tests/integration/test_reading_lookup_candidate.py` | 断言适配新返回格式 |
-| 文档 | `docs/HANDOFF.md` | 本节
+| 文档 | `docs/HANDOFF.md` | 本节 |
+
+## 2026-07-08 lute 合并前收口：闭测修复 + 阅读 CJK 小修
+
+### 当前状态
+
+- 分支：`lute-reading-mvp-design`
+- 基准判断：本分支准备合入 `master`，`master` 当前停在闭测版修复 commit `7e645ba`
+- 本轮原则：只收口已经验证的小修，不同步线上，不继续做 Daily Task Card v2
+- 验证结果：`pytest -q` -> 331 passed, 15 warnings；`flask doctor --strict` 全 OK；migration head 为 `2e79a6ececcc`
+
+### 本轮做了什么
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 停掉 Daily Task Card | `app/blueprints/main/routes.py`, `app/templates/main/index.html`, `tests/integration/test_home_task_card.py` | 首页不再注入/渲染任务卡；任务卡代码和迁移仍保留为 dormant code，闭测入口不展示 |
+| 造句/三行日记批改体验 | `app/blueprints/write/routes.py`, `app/templates/write/_diary_format_error.html`, `app/static/style.css`, `tests/integration/test_write.py` | 三行日记格式错误不再 400；HTMX loading 提示默认隐藏，只在请求中显示 |
+| CSV 导入兼容 | `app/services/intake.py`, `tests/integration/test_intake.py` | 支持中文表头 `单词,词性,释义,例句,笔记,是否标注`；支持 Aisten `word,definition,sentence,note`；AI 不可用时 CSV 走本地 raw fallback，不再整批失败 |
+| 阅读 CJK PDF 清理 | `app/blueprints/reading/routes.py`, `app/services/reading/parsers.py`, `tests/unit/test_reading_parser.py` | 仅对 `zh/ja` 合并 CJK 字符间 PDF 换行/空格；其他语言保持原逻辑 |
+| 阅读已知词点击 | `app/templates/reading/show.html`, `tests/integration/test_reading_routes.py` | 点击 `mark.known-word` 不再依赖 caret API，直接用 DOM range 定位弹卡 |
+| CJK 词典匹配 | `app/services/reading/dictionary.py`, `tests/unit/test_reading_dictionary.py` | 仅对 `zh/ja` 去除 CJK 字符间空格，英文短语不受影响 |
+
+### 合并判断
+
+- 可以进入合并阶段：先提交本轮收口改动，再把 `lute-reading-mvp-design` 合入 `master`，合并后重新跑 `pytest -q` 和 `flask doctor --strict`
+- Daily Task Card v2 不进入本次合并范围；当前只是关闭首页展示，避免闭测用户接触未定稿功能
+- 线上闭测版先不同步，等 master 对齐后再一次性部署，避免线上/本地两边来回修
+
+### 已知未修
+
+| 问题 | 说明 |
+|---|---|
+| CJK 上下文过大 | 本轮只修 PDF 抽文本中的 CJK 空格/换行污染，不重写上下文提取算法 |
+| 已上传旧文档不会自动重排 | 新解析逻辑只影响新上传/重新上传的文档；旧 `ReadingDocument.content` 不会自动改写 |
+| `known_words` JSON 内联 | 仍是页面内嵌词表，后续可改懒加载/缓存 |
+| Task Card v2 | 需求未定稿，代码保持关闭，不继续推进 |
+
+### 本次踩坑
+
+**#29 — 不要并行跑 integration 测试**
+
+- 症状：并行跑 `tests/integration` 容易在 `rememate_test` 清库/事务上互相卡住
+- 解法：本项目全量验证用单进程 `pytest -q`
+- 教训：如果要加速，先隔离数据库或给每个 worker 独立 test DB，否则并发测试会制造假问题
+
+**#30 — CJK PDF 的视觉换行会污染选词**
+
+- 症状：中文/日文 PDF 抽文本后字与字之间混入空格，词典匹配和点击选词不准
+- 解法：只在 `language_code in {"zh", "ja"}` 时合并 CJK 字符间换行/空格；英语、法语等继续保留空格
+- 教训：这个修复必须按语言守卫，不能全局去空格
+
+**#31 — 8891 旧 gunicorn/pidfile 会造成“重启了但没生效”**
+
+- 症状：`/tmp/gunicorn.pid` 指向的进程和实际占用 8891 的进程不一致，浏览器还在访问旧服务
+- 解法：必要时用 `fuser -k 8891/tcp` 清掉旧进程，再用 `0.0.0.0:8891` 重新托管
+- 教训：WSL 真机测试优先访问 `http://<WSL_IP>:8891/`，不要只看 `127.0.0.1`

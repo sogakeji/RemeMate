@@ -237,7 +237,8 @@ def test_diary_requires_three_lines(app, client, bypass_engine, fake_llm):
         "diary": "Bonjour.\nDeux lignes seulement.",
     })
 
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    assert "正好写满 3 行" in resp.get_data(as_text=True)
 
 
 def test_chinese_write_uses_french_feedback_language(app, client, bypass_engine, fake_llm):

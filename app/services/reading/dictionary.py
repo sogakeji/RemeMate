@@ -16,6 +16,11 @@ except ImportError:
 
 SUPPORTED_LANGUAGES = frozenset({"zh", "en", "ja", "fr"})
 LOWERCASE_LANGUAGES = frozenset({"en", "fr"})
+_CJK_SPACE_RE = re.compile(
+    r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"
+    r"[ \t\u00a0\u3000]+"
+    r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"
+)
 
 # Simple suffix-stripping rules for English lemmatization fallback.
 # Order matters: longer suffixes first to avoid partial matches.
@@ -311,6 +316,8 @@ class Dictionary:
 
     def _normalize(self, language_code: str, term: str) -> str:
         normalized = self._INVISIBLE_RE.sub("", term).strip()
+        if language_code in {"zh", "ja"}:
+            normalized = _CJK_SPACE_RE.sub(r"\1\2", normalized)
         if language_code in LOWERCASE_LANGUAGES:
             return normalized.lower()
         return normalized

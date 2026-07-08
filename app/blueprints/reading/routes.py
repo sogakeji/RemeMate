@@ -83,7 +83,8 @@ def create():
     file_bytes = file.read()
 
     try:
-        chunks = reading_parsers.parse_pdf_bytes_multi(file_bytes, file.filename)
+        chunks = reading_parsers.parse_pdf_bytes_multi(
+            file_bytes, file.filename, language_code=language_code)
     except EmptyPdfText:
         flash("这个 PDF 可能是扫描件，当前版本暂不支持 OCR")
         return redirect(url_for("reading.new"))

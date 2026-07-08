@@ -192,6 +192,24 @@ def test_reflow_merges_wrapped_lines_into_paragraph():
     assert "\n\n" in out
 
 
+def test_reflow_joins_cjk_wrapped_lines_without_space_for_chinese_and_japanese():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    zh = _reflow_paragraphs("我喜欢学\n习中文。魔\n鬼来了。", language_code="zh")
+    ja = _reflow_paragraphs("日本\n語を読\nむ。", language_code="ja")
+
+    assert zh == "我喜欢学习中文。魔鬼来了。"
+    assert ja == "日本語を読む。"
+
+
+def test_reflow_keeps_spaces_for_non_cjk_languages():
+    from app.services.reading.parsers import _reflow_paragraphs
+
+    out = _reflow_paragraphs("The quick\nbrown fox.", language_code="en")
+
+    assert out == "The quick brown fox."
+
+
 def test_reflow_handles_hyphenated_line_break():
     from app.services.reading.parsers import _reflow_paragraphs
 

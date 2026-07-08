@@ -1190,6 +1190,15 @@ textarea.form-control {
     animation: pulse 1.5s infinite;
 }
 
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: inline-block;
+}
+
 .word-appear {
     animation: fadeIn 0.5s ease-out;
 }
@@ -1765,4 +1774,3 @@ textarea.form-control {
         font-size: 14px;
     }
 }
-

@@ -25,6 +25,20 @@ def test_lookup_hits_chinese_fixture():
     assert result.as_json()["found"] is True
 
 
+def test_lookup_removes_cjk_inner_spaces_only_for_chinese_and_japanese():
+    dictionary = Dictionary(data_dir=FIXTURE_DIR)
+
+    zh = dictionary.lookup("zh", "学 习")
+    ja = dictionary.lookup("ja", "日本 語")
+    en = dictionary.lookup("en", "ice cream")
+
+    assert zh.found is True
+    assert zh.normalized_term == "学习"
+    assert ja.found is True
+    assert ja.normalized_term == "日本語"
+    assert en.normalized_term == "ice cream"
+
+
 def test_lookup_hits_english_fixture_with_lowercase_normalization():
     dictionary = Dictionary(data_dir=FIXTURE_DIR)
 

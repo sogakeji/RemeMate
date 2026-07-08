@@ -37,6 +37,12 @@ class ContentQualityError(PdfParseError):
 _IS_CJK = {"zh", "ja"}
 _CJK_PUNCT = "。，！？；：、"
 _REPLACEMENT_CHAR = "�"
+_CJK_CHAR_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
+_CJK_INNER_SPACE_RE = re.compile(
+    r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"
+    r"[ \t\u00a0\u3000]+"
+    r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"
+)
 
 
 def validate_content_quality(text: str, language_code: str) -> None:
@@ -67,6 +73,7 @@ def parse_pdf_bytes(
     file_bytes: bytes,
     filename: str,
     *,
+    language_code: str | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> ParsedDocument:
@@ -77,7 +84,7 @@ def parse_pdf_bytes(
     """
     reader = _open_pdf(file_bytes, filename, max_bytes=max_bytes)
     title = _document_title(reader, filename)
-    pages = _extract_pages(reader, filename)
+    pages = _extract_pages(reader, filename, language_code=language_code)
     chunks = list(_split_pages(pages, max_chars=max_chars, filename=filename))
     if not chunks:
         raise EmptyPdfText(f"PDF '{filename}' contains no extractable text")
@@ -93,6 +100,7 @@ def parse_pdf_bytes_multi(
     file_bytes: bytes,
     filename: str,
     *,
+    language_code: str | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> list[ParsedDocument]:
@@ -103,7 +111,7 @@ def parse_pdf_bytes_multi(
     """
     reader = _open_pdf(file_bytes, filename, max_bytes=max_bytes)
     title = _document_title(reader, filename)
-    pages = _extract_pages(reader, filename)
+    pages = _extract_pages(reader, filename, language_code=language_code)
     chunks = list(_split_pages(pages, max_chars=max_chars, filename=filename))
     if not chunks:
         raise EmptyPdfText(f"PDF '{filename}' contains no extractable text")
@@ -133,19 +141,19 @@ def _open_pdf(file_bytes, filename, *, max_bytes=DEFAULT_MAX_BYTES):
         raise PdfParseError(f"无法解析 PDF '{filename}'") from exc
 
 
-def _extract_pages(reader, filename):
+def _extract_pages(reader, filename, *, language_code: str | None = None):
     pages = []
     try:
         for page in reader.pages:
             text = page.extract_text() or ""
             if text.strip():
-                pages.append(_reflow_paragraphs(text).strip())
+                pages.append(_reflow_paragraphs(text, language_code=language_code).strip())
     except (PdfReadError, KeyError, TypeError, ValueError) as exc:
         raise PdfParseError(f"无法从 PDF '{filename}' 提取文本") from exc
     return pages
 
 
-def _reflow_paragraphs(text: str) -> str:
+def _reflow_paragraphs(text: str, *, language_code: str | None = None) -> str:
     """把 PDF 版式行重排成自然段。
 
     PDF 文本抽取出来的硬换行是版式行（页面宽度折行），不是语义段落。
@@ -153,6 +161,7 @@ def _reflow_paragraphs(text: str) -> str:
     - 统一换行符。
     - 按 blank-line（≥2 个换行 / 全空白行）切成段。
     - 段内单换行合并成空格；处理行尾断词连字符（拉丁字母词）。
+      中文/日文段内 CJK 字符之间的版式换行直接拼接，不插空格。
     - 段间用 ``\\n\\n`` 重新拼接。
     返回重排后的纯文本，offset 仍按单一字符串计算，下游不变。
     """
@@ -176,13 +185,23 @@ def _reflow_paragraphs(text: str) -> str:
                 # 断词连字符：merged 以「字母-」结尾、ln 以字母开头 → 去连字符拼接
                 if len(merged) >= 2 and merged[-1] == "-" and merged[-2].isalpha() and ln[:1].isalpha():
                     merged = merged[:-1] + ln
+                elif _join_cjk_without_space(merged, ln, language_code):
+                    merged = merged + ln
                 else:
                     merged = merged + " " + ln
             else:
                 merged = ln
         if merged:
+            if language_code in _IS_CJK:
+                merged = _CJK_INNER_SPACE_RE.sub(r"\1\2", merged)
             paragraphs.append(merged)
     return "\n\n".join(paragraphs)
+
+
+def _join_cjk_without_space(left: str, right: str, language_code: str | None) -> bool:
+    if language_code not in _IS_CJK:
+        return False
+    return bool(left and right and _CJK_CHAR_RE.match(left[-1]) and _CJK_CHAR_RE.match(right[0]))
 
 
 def _split_pages(pages, *, max_chars, filename):

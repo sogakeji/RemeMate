@@ -391,6 +391,17 @@ var ReaderAddCandidate = (function () {
     return -1;
   }
 
+  function showLookupForMark(markEl, x, y) {
+    var textNode = markEl.firstChild;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return false;
+    var term = markEl.textContent.trim();
+    if (!term) return false;
+    var start = getGlobalOffset(textNode, 0);
+    if (start < 0) return false;
+    showLookupCard(term, start, start + term.length, x, y);
+    return true;
+  }
+
   // Shared drag infra (registered once, reused across cards)
   var _dragCard = null, _dragDragging = false;
   var _dsx, _dsy, _dst, _dsl;
@@ -482,6 +493,12 @@ var ReaderAddCandidate = (function () {
       _closeLookupCard();
       return;
     }
+
+    var knownMarkEl = e.target.closest("mark.known-word");
+    if (knownMarkEl && readerText.contains(knownMarkEl)) {
+      if (showLookupForMark(knownMarkEl, e.clientX, e.clientY)) return;
+    }
+
     var range;
     if (document.caretPositionFromPoint) {
       var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
