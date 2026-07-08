@@ -21,8 +21,10 @@ def test_lookup_hits_chinese_fixture():
     assert result.meanings == ["learning; study"]
     assert result.examples == ["我喜欢学习。"]
     assert result.source == "fixture:zh"
+    assert result.pronunciation == "xué xí"
     assert result.confidence == 0.91
     assert result.as_json()["found"] is True
+    assert result.as_json()["pronunciation"] == "xué xí"
 
 
 def test_lookup_removes_cjk_inner_spaces_only_for_chinese_and_japanese():
@@ -58,7 +60,23 @@ def test_lookup_hits_japanese_fixture_adapter_path():
     assert result.found is True
     assert result.normalized_term == "日本語"
     assert result.meanings == ["Japanese language"]
+    assert result.pronunciation == "にほんご"
     assert result.source == "fixture:ja"
+
+
+def test_lookup_prefers_dictionary_pronunciation_field(tmp_path):
+    dictionary_dir = tmp_path / "zh"
+    dictionary_dir.mkdir()
+    (dictionary_dir / "entries.json").write_text(
+        '{"重行":{"pronunciation":"custom reading","meanings":["fixture"]}}',
+        encoding="utf-8",
+    )
+    dictionary = Dictionary(data_dir=tmp_path)
+
+    result = dictionary.lookup("zh", "重行")
+
+    assert result.found is True
+    assert result.pronunciation == "custom reading"
 
 
 def test_lookup_hits_french_fixture_with_lowercase_normalization():

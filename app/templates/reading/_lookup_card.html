@@ -10,6 +10,12 @@
     {% endif %}
   </div>
 
+  {% if lookup.dictionary_result_json and lookup.dictionary_result_json.pronunciation %}
+  <div style="font-size:14px;color:var(--text-secondary);margin:-2px 0 10px 0;">
+    {{ lookup.dictionary_result_json.pronunciation }}
+  </div>
+  {% endif %}
+
   {% if lookup.dictionary_result_json and lookup.dictionary_result_json.found %}
   <div style="margin-bottom:12px;">
     {% for meaning in lookup.dictionary_result_json.meanings or [] %}

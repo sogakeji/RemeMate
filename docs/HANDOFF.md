@@ -1108,3 +1108,27 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 - 症状：`/tmp/gunicorn.pid` 指向的进程和实际占用 8891 的进程不一致，浏览器还在访问旧服务
 - 解法：必要时用 `fuser -k 8891/tcp` 清掉旧进程，再用 `0.0.0.0:8891` 重新托管
 - 教训：WSL 真机测试优先访问 `http://<WSL_IP>:8891/`，不要只看 `127.0.0.1`
+
+### 2026-07-08 补充收口：中日阅读选词 + 发音标注
+
+合并 `lute-reading-mvp-design` 前又补了两个阅读模块小修：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 拖选优先于单击分词 | `app/templates/reading/show.html` | 用户鼠标选中 3/4 字词语、成语时，`mouseup` 负责按完整选区查词；随后的 `click` 如果检测到阅读区选区会直接退出，避免又按 CJK Segmenter 弹出两字词 |
+| 选区 offset 修正 | `app/templates/reading/show.html` | 拖选时如果带到前后空白，前端同步修正 `selection_start/end`，避免后端校验失败后回退到全文第一个同词位置 |
+| 中文拼音 | `app/services/reading/dictionary.py`, `requirements.txt` | 新增 `pypinyin`，中文查词结果生成 `pronunciation`，例如 `学习 -> xué xí` |
+| 日文假名 | `app/services/reading/dictionary.py`, `requirements.txt` | 新增 `pykakasi`，日文查词结果生成假名，优先使用词典自带 `pronunciation/reading/kana/furigana` 字段 |
+| 查词卡展示读音 | `app/templates/reading/_lookup_card.html` | 查词卡在词头下显示拼音/假名；即使词典释义未命中，也可显示读音 |
+| 候选词保留读音 | `app/services/reading/service.py` | 阅读查词加入学习时，把拼音/假名写入候选词 note 第一行，避免进入词库后丢失 |
+
+验证：
+
+- `pytest tests/unit/test_reading_dictionary.py tests/integration/test_reading_routes.py tests/integration/test_reading_lookup_candidate.py -q` -> 68 passed, 15 warnings
+- `pytest -q` -> 334 passed, 16 warnings
+- `flask doctor --strict` -> 全 OK，migration head `2e79a6ececcc`
+
+注意：
+
+- 这次没有新增数据库列；`pronunciation` 只在 `dictionary_result_json` 和候选词 note 中落地，后续如果要在词库 UI 独立展示读音，再做正式字段迁移
+- 日文假名由 `pykakasi` 生成，适合闭测阶段基础读音提示；专名、多音词、上下文读音仍可能需要后续专门改进

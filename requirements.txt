@@ -27,5 +27,9 @@ requests>=2.31
 # PDF parsing
 pypdf>=5.0,<6.0
 
+# Chinese/Japanese reading annotations
+pypinyin>=0.53,<1.0
+pykakasi>=2.3,<3.0
+
 # 测试
 pytest>=8.0

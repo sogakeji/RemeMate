@@ -34,6 +34,23 @@ class StubDictionary:
         )
 
 
+class PronunciationDictionary(StubDictionary):
+    def lookup(self, language_code, term):
+        result = super().lookup(language_code, term)
+        return DictionaryResult(
+            term=result.term,
+            normalized_term=result.normalized_term,
+            language_code=result.language_code,
+            part_of_speech=result.part_of_speech,
+            meanings=result.meanings,
+            examples=result.examples,
+            source=result.source,
+            pronunciation="xué xí",
+            confidence=result.confidence,
+            found=result.found,
+        )
+
+
 def _user(app, email="reader@example.com"):
     return provision_user(app, email, PW)
 
@@ -71,6 +88,18 @@ def _lookup(user_id, document=None, term="cat"):
         start,
         start + len(term),
         dictionary=StubDictionary(),
+    )
+
+
+def _lookup_with_dictionary(user_id, document, term, dictionary):
+    start = document.content_text.index(term)
+    return reading_svc.lookup_term(
+        user_id,
+        document.id,
+        term,
+        start,
+        start + len(term),
+        dictionary=dictionary,
     )
 
 
@@ -165,6 +194,25 @@ def test_add_lookup_creates_candidate_with_example_and_source_example(app):
         assert candidate.context_start == lookup.context_start
         assert candidate.context_end == lookup.context_end
         assert candidate.note == "来自《reader.pdf》"
+
+
+def test_add_lookup_preserves_pronunciation_in_candidate_note(app):
+    user_id = _user(app)
+
+    with _rls_context(app, user_id):
+        document = _document(
+            user_id,
+            language_code="zh",
+            content_text="我喜欢学习。",
+            content_hash="hash-reader-pronunciation",
+        )
+        lookup = _lookup_with_dictionary(
+            user_id, document, "学习", PronunciationDictionary(),
+        )
+        result = reading_svc.add_lookup_to_candidate(user_id, lookup.id)
+
+        candidate = db_candidate(result["candidate_id"])
+        assert candidate.note == "xué xí\n来自《reader.pdf》"
 
 
 def test_retry_after_linked_candidate_commit_returns_already_candidate(app):

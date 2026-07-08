@@ -248,6 +248,8 @@ class TestReadingShow:
         assert "function showLookupForMark" in page
         assert 'e.target.closest("mark.known-word")' in page
         assert "showLookupForMark(knownMarkEl" in page
+        assert "function hasReaderSelection" in page
+        assert "if (hasReaderSelection()) return;" in page
 
     def test_user_b_gets_404_for_user_a_document(self, app, client):
         uid_a = _user(app, "show-owner@t.com")
@@ -512,6 +514,30 @@ class TestReadingLookup:
         assert "fox" in page
         # PDF original sentence must appear in the card
         assert "The quick brown fox jumps over the lazy dog." in page
+
+    def test_lookup_card_shows_chinese_pronunciation(self, app, client):
+        uid = _user(app, "lookup-pinyin@t.com")
+        _login(client, "lookup-pinyin@t.com")
+        doc_id = _create_doc(
+            app, uid,
+            language_code="zh",
+            content_text="我喜欢学习。",
+            content_hash="lookup-pinyin-hash",
+        )
+
+        csrf = _csrf(client, f"/reading/{doc_id}")
+        resp = client.post(
+            f"/reading/{doc_id}/lookup",
+            data={
+                "csrf_token": csrf,
+                "term": "学习",
+                "selection_start": 3,
+                "selection_end": 5,
+            },
+        )
+
+        assert resp.status_code == 200
+        assert "xué xí" in resp.get_data(as_text=True)
 
     def test_lookup_rejects_cross_user(self, app, client):
         """User B cannot lookup on user A's document."""

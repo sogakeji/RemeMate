@@ -8,6 +8,20 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from pypinyin import Style, lazy_pinyin
+    _HAS_PYPINYIN = True
+except ImportError:
+    Style = None
+    lazy_pinyin = None
+    _HAS_PYPINYIN = False
+
+try:
+    import pykakasi
+    _KAKASI = pykakasi.kakasi()
+except ImportError:
+    _KAKASI = None
+
+try:
     import lemminflect  # noqa: F401
     _HAS_LEMMINFLECT = True
 except ImportError:
@@ -21,6 +35,8 @@ _CJK_SPACE_RE = re.compile(
     r"[ \t\u00a0\u3000]+"
     r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"
 )
+_HAN_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+_JAPANESE_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
 
 # Simple suffix-stripping rules for English lemmatization fallback.
 # Order matters: longer suffixes first to avoid partial matches.
@@ -68,6 +84,7 @@ class DictionaryResult:
     meanings: list[str] = field(default_factory=list)
     examples: list[str] = field(default_factory=list)
     source: str | None = None
+    pronunciation: str | None = None
     confidence: float = 0.0
     found: bool = False
 
@@ -80,6 +97,7 @@ class DictionaryResult:
             "meanings": list(self.meanings),
             "examples": list(self.examples),
             "source": self.source,
+            "pronunciation": self.pronunciation,
             "confidence": self.confidence,
             "found": self.found,
         }
@@ -126,6 +144,7 @@ class Dictionary:
             meanings=list(meanings) if isinstance(meanings, list) else [],
             examples=list(examples) if isinstance(examples, list) else [],
             source=entry.get("source"),
+            pronunciation=self._pronunciation(language_code, normalized_term, entry),
             confidence=self._coerce_confidence(entry.get("confidence", 0.0)),
             found=True,
         )
@@ -306,6 +325,7 @@ class Dictionary:
             term=term, normalized_term=normalized, language_code="ja",
             part_of_speech=", ".join(sorted(pos_set)[:4]) if pos_set else None,
             meanings=meanings[:10],
+            pronunciation=self._pronunciation("ja", normalized, {}),
             source="Jisho.org API", confidence=0.5, found=True,
         )
 
@@ -345,10 +365,52 @@ class Dictionary:
         except (TypeError, ValueError):
             return 0.0
 
+    def _pronunciation(self, language_code: str, term: str, entry: dict[str, Any]) -> str | None:
+        from_entry = self._pronunciation_from_entry(entry)
+        if from_entry:
+            return from_entry
+        if language_code == "zh":
+            return self._pinyin(term)
+        if language_code == "ja":
+            return self._kana(term)
+        return None
+
+    def _pronunciation_from_entry(self, entry: dict[str, Any]) -> str | None:
+        for key in ("pronunciation", "reading", "kana", "furigana", "pinyin", "phonetic"):
+            value = entry.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    def _pinyin(self, term: str) -> str | None:
+        if not _HAS_PYPINYIN or lazy_pinyin is None or Style is None:
+            return None
+        if not _HAN_RE.search(term):
+            return None
+        syllables = lazy_pinyin(term, style=Style.TONE, errors="ignore")
+        pronunciation = " ".join(s for s in syllables if s).strip()
+        return pronunciation or None
+
+    def _kana(self, term: str) -> str | None:
+        if _KAKASI is None or not _JAPANESE_RE.search(term):
+            return None
+        converted = _KAKASI.convert(term)
+        pieces = []
+        for item in converted:
+            hira = (item.get("hira") or "").strip()
+            orig = (item.get("orig") or "").strip()
+            if hira:
+                pieces.append(hira)
+            elif orig:
+                pieces.append(orig)
+        pronunciation = "".join(pieces).strip()
+        return pronunciation or None
+
     def _not_found(self, language_code: str, term: str, normalized_term: str) -> DictionaryResult:
         return DictionaryResult(
             term=term,
             normalized_term=normalized_term,
             language_code=language_code,
+            pronunciation=self._pronunciation(language_code, normalized_term, {}),
             found=False,
         )

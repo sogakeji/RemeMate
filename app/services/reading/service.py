@@ -261,6 +261,10 @@ def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[st
     dictionary_result = lookup.dictionary_result_json or {}
     meaning = _first(dictionary_result.get("meanings"))
     source_example = lookup.context_sentence
+    pronunciation = (dictionary_result.get("pronunciation") or "").strip()
+    note = f"来自《{document.source_filename or document.title}》"
+    if pronunciation:
+        note = f"{pronunciation}\n{note}"
     # Use normalized_term (or term) as the candidate word so that dedup
     # (_find_existing_candidate) compares the same normalized value that
     # the dictionary lookup already produced.  If two lookups produce the
@@ -273,7 +277,7 @@ def _candidate_item(document: ReadingDocument, lookup: ReadingLookup) -> dict[st
         "source_example": source_example,
         "context_start": lookup.context_start,
         "context_end": lookup.context_end,
-        "note": f"来自《{document.source_filename or document.title}》",
+        "note": note,
     }
 
 

@@ -402,6 +402,14 @@ var ReaderAddCandidate = (function () {
     return true;
   }
 
+  function hasReaderSelection() {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+    var range = sel.getRangeAt(0);
+    if (!readerText.contains(range.commonAncestorContainer)) return false;
+    return !!sel.toString().trim();
+  }
+
   // Shared drag infra (registered once, reused across cards)
   var _dragCard = null, _dragDragging = false;
   var _dsx, _dsy, _dst, _dsl;
@@ -485,6 +493,11 @@ var ReaderAddCandidate = (function () {
 
   // ---- Click-to-lookup ----
   readerText.addEventListener('click', function (e) {
+    // Drag-select lookup is handled by mouseup.  Without this guard the
+    // following click event may also run CJK segmentation and overwrite
+    // a selected 3-4 character term with a shorter 1-2 character lookup.
+    if (hasReaderSelection()) return;
+
     // Click on already-looked-up word -> undo highlight
     var markEl = e.target.closest("mark.looked-up");
     if (markEl) {
@@ -578,7 +591,8 @@ var ReaderAddCandidate = (function () {
   readerText.addEventListener('mouseup', function (e) {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return;
-    var term = sel.toString().trim();
+    var rawTerm = sel.toString();
+    var term = rawTerm.trim();
     if (!term) return;
 
     var range = sel.getRangeAt(0);
@@ -586,6 +600,10 @@ var ReaderAddCandidate = (function () {
     var end = getGlobalOffset(range.endContainer, range.endOffset);
 
     if (start < 0 || end < 0) return;
+    var leading = rawTerm.length - rawTerm.replace(/^\s+/, '').length;
+    var trailing = rawTerm.length - rawTerm.replace(/\s+$/, '').length;
+    start += leading;
+    end -= trailing;
 
     showLookupCard(term, start, end, e.clientX, e.clientY);
   });
