@@ -513,6 +513,25 @@ h1 {
     color: var(--text-secondary);
 }
 
+.word-library-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 14px;
+    flex-wrap: wrap;
+}
+
+.word-library-tools .search-box {
+    width: min(360px, 100%);
+}
+
+.word-search-status {
+    min-height: 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 @media (max-width: 860px) {
     .word-intake-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -863,6 +882,15 @@ h1 {
 
 .row-actions {
     flex-wrap: wrap;
+}
+
+.action-icon-btn.danger {
+    color: var(--danger-color);
+}
+
+.action-icon-btn.danger:hover {
+    border-color: var(--danger-color);
+    background: rgba(230, 76, 92, 0.08);
 }
 
 .definition-head {

@@ -1154,3 +1154,21 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 
 - 只改信息架构和文案，不改阅读器能力、不改路由、不改数据库
 - 后续阅读相关只建议修 bug，不建议继续追 Lumina/Lute 类专业阅读器能力
+
+### 2026-07-08 补充收口：生词本管理闭环
+
+在“阅读收词归入词库”后，又补了几个闭测前可见的小口子：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 手动加词支持中文 | `app/blueprints/words/forms.py` | `LANG_CHOICES` 补 `zh/中文`，和设置页 `正在学` 支持语言保持一致 |
+| 词库菜单顺序 | `app/templates/base.html` | 词库下拉改为：生词本、手动加词、文本抽词、阅读收词、CSV 导入 |
+| 生词本搜索 | `app/templates/words/list.html`, `app/static/style.css` | 生词本页增加本地搜索框，按单词、释义、例句、笔记过滤 |
+| 词条删除 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | 生词本词条操作栏增加删除按钮；服务层按用户归属校验后删除词和复习日志 |
+| 清理重复入口 | `app/templates/words/add.html`, `app/templates/intake/import.html`, `app/templates/intake/extract.html` | 删除手动加词底部、CSV/文本抽词顶部的互跳入口，入口统一放在词库菜单和生词本页 |
+
+验证：
+
+- `pytest tests/integration/test_add_center.py tests/integration/test_intake.py tests/integration/test_words_list_implicit.py tests/integration/test_settings_language.py -q` -> 49 passed
+- `pytest -q` -> 340 passed, 16 warnings
+- `flask doctor --strict` -> 全 OK，migration head `2e79a6ececcc`

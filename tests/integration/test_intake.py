@@ -26,6 +26,26 @@ def _count(bypass_engine, table, uid):
                          {"u": uid}).scalar()
 
 
+def test_intake_pages_follow_learning_languages_and_do_not_duplicate_entry_links(
+    app, client, bypass_engine,
+):
+    provision_user(app, "intake-zh@t.com", PW)
+    login(client, "intake-zh@t.com", PW)
+    client.post("/settings", data={"languages": ["zh"]})
+
+    import_page = client.get("/intake/import").get_data(as_text=True)
+    extract_page = client.get("/intake/extract").get_data(as_text=True)
+
+    assert "中文" in import_page
+    assert ('selected value="zh"' in import_page) or ('value="zh" selected' in import_page)
+    assert "中文" in extract_page
+    assert ('selected value="zh"' in extract_page) or ('value="zh" selected' in extract_page)
+    assert "快速加词" not in import_page
+    assert "快速加词" not in extract_page
+    assert 'style="display:inline;padding:2px 6px;">文本抽词' not in import_page
+    assert 'style="display:inline;padding:2px 6px;">CSV 导入' not in extract_page
+
+
 # ---- 前置上限拦截（绝不烧 token）----
 
 def test_extract_too_long_blocked_no_source(app, client, bypass_engine, fake_extract):

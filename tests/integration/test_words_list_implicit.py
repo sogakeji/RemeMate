@@ -67,6 +67,57 @@ def test_words_page_groups_word_collection_entry_points(app, client, bypass_engi
     assert "/reading" in page
 
 
+def test_words_page_has_search_and_delete_action(app, client, bypass_engine):
+    provision_user(app, "wl-search-delete@t.com", PW)
+    login(client, "wl-search-delete@t.com", PW)
+    _switch(client, "fr")
+    client.post("/words/add", json={"language_code": "fr", "word": "soleil",
+                                    "definitions": [{"meaning": "太阳"}]},
+                headers={"X-CSRFToken": _csrf_add(client)})
+
+    page = client.get("/words").get_data(as_text=True)
+
+    assert "搜索单词、释义、例句或笔记" in page
+    assert "word-search" in page
+    assert "删除单词" in page
+
+
+def test_delete_word_removes_only_current_users_word(app, client, bypass_engine):
+    uid = provision_user(app, "wl-delete@t.com", PW)
+    other_uid = provision_user(app, "wl-delete-other@t.com", PW)
+    login(client, "wl-delete@t.com", PW)
+    _switch(client, "fr")
+    client.post("/words/add", json={"language_code": "fr", "word": "soleil",
+                                    "definitions": [{"meaning": "太阳"}]},
+                headers={"X-CSRFToken": _csrf_add(client)})
+    with bypass_engine.connect() as c:
+        word_id = c.execute(text(
+            "SELECT w.id FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u AND w.word='soleil'"
+        ), {"u": uid}).scalar()
+        other_list_id = c.execute(text(
+            "INSERT INTO word_lists (user_id, name, language_code, created_at) "
+            "VALUES (:u, '法语', 'fr', now()) RETURNING id"
+        ), {"u": other_uid}).scalar()
+        other_word_id = c.execute(text(
+            "INSERT INTO words (list_id, word, marked, due_date, interval, ease, reps, lapses) "
+            "VALUES (:l, 'lune', false, now(), 1, 2.5, 0, 0) RETURNING id"
+        ), {"l": other_list_id}).scalar()
+        c.commit()
+
+    resp = client.post(f"/words/{word_id}/delete",
+                       data={"csrf_token": _csrf_add(client)})
+
+    assert resp.status_code == 302
+    with bypass_engine.connect() as c:
+        own_count = c.execute(text("SELECT count(*) FROM words WHERE id=:w"),
+                              {"w": word_id}).scalar()
+        other_count = c.execute(text("SELECT count(*) FROM words WHERE id=:w"),
+                                {"w": other_word_id}).scalar()
+    assert own_count == 0
+    assert other_count == 1
+
+
 def test_words_detail_no_embedded_add_form(app, client, bypass_engine):
     """词表详情页不再内嵌加词表单（加词移到加词中心）。"""
     provision_user(app, "wl4@t.com", PW)

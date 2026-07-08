@@ -432,6 +432,21 @@ def update_word(user_id: int, word_id: int, word: str, definitions: list[dict]) 
     return w
 
 
+def delete_word(user_id: int, word_id: int) -> bool:
+    """Delete one word owned by user_id.
+
+    ReviewLog has no model relationship/ondelete cascade in this branch, so
+    delete logs explicitly before deleting the word row.
+    """
+    w = get_word(user_id, word_id)
+    if w is None:
+        return False
+    ReviewLog.query.filter_by(word_id=w.id).delete()
+    db.session.delete(w)
+    db.session.commit()
+    return True
+
+
 def toggle_marked(user_id: int, word_id: int) -> Word | None:
     """切换星标；不属于该用户返回 None。"""
     w = get_word(user_id, word_id)

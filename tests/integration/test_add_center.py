@@ -60,6 +60,28 @@ def test_add_center_handcrafts_multidef(app, client, bypass_engine):
     assert [d[0] for d in defs] == ["n.", "v."]
 
 
+def test_manual_add_supports_chinese_current_language(app, client, bypass_engine):
+    _auth(client, app)
+    client.post("/language/switch", data={
+        "language_code": "zh",
+        "csrf_token": _csrf(client),
+    })
+
+    page = client.get("/words/add").get_data(as_text=True)
+
+    assert "中文" in page
+    assert ('selected value="zh"' in page) or ('value="zh" selected' in page)
+
+
+def test_manual_add_page_does_not_duplicate_collection_entry_points(app, client, bypass_engine):
+    _auth(client, app)
+
+    page = client.get("/words/add").get_data(as_text=True)
+
+    assert "其它收词方式" not in page
+    assert "随手加一个" not in page
+
+
 def test_add_center_rejects_bad_payload(app, client, bypass_engine):
     """缺词/缺释义/非法语言 → 400。"""
     _auth(client, app)

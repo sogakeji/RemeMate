@@ -4,9 +4,7 @@
 <div class="container">
   <div class="header-section">
     <h1>文本抽词</h1>
-    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词
-      · <a class="nav-link" href="{{ url_for('intake.import_page') }}" style="display:inline;padding:2px 6px;">CSV 导入</a>
-      · <a class="nav-link" href="{{ url_for('intake.quick_add_page') }}" style="display:inline;padding:2px 6px;">快速加词</a></small></p>
+    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词</small></p>
   </div>
 
   {% if not available_languages %}
