@@ -2,26 +2,78 @@
 {% block title %}候选词审核 · 记搭{% endblock %}
 {% block content %}
 <div class="container">
-  <div class="header-section">
-    <h1>候选词审核</h1>
-    <p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h1>候选词审核</h1>
+      <p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+    </div>
+    {% if document %}
+    <a class="btn secondary" href="{{ url_for('reading.show', doc_id=document.id) }}">← 返回书本</a>
+    {% endif %}
   </div>
 
-  <div class="action-bar" style="margin-bottom:20px;">
-    <form method="post" action="{{ url_for('intake.bulk_accept', source_id=source.id) }}" style="display:inline">
+  <div class="action-bar" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <div style="display:flex;gap:4px;">
+      <a href="{{ url_for('intake.candidates', source_id=source.id) }}"
+         class="btn {{ 'primary' if not current_status else 'secondary' }}" style="font-size:13px;">全部</a>
+      <a href="{{ url_for('intake.candidates', source_id=source.id, status='pending') }}"
+         class="btn {{ 'primary' if current_status == 'pending' else 'secondary' }}" style="font-size:13px;">待审核</a>
+      <a href="{{ url_for('intake.candidates', source_id=source.id, status='accepted') }}"
+         class="btn {{ 'primary' if current_status == 'accepted' else 'secondary' }}" style="font-size:13px;">已接受</a>
+      <a href="{{ url_for('intake.candidates', source_id=source.id, status='ignored') }}"
+         class="btn {{ 'primary' if current_status == 'ignored' else 'secondary' }}" style="font-size:13px;">已忽略</a>
+    </div>
+  </div>
+
+  {% if not current_status %}
+  <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
+    <form method="post" action="{{ url_for('intake.commit_all', source_id=source.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn success">全部接受</button>
+      <button type="submit" class="btn primary">一键入库</button>
     </form>
+    <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
+          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn secondary">一键清理</button>
+    </form>
+  </div>
+  {% elif current_status == 'pending' %}
+  <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn primary">提交入库（已接受的）</button>
     </form>
   </div>
+  {% elif current_status == 'accepted' %}
+  <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
+    <form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn primary">一键入库</button>
+    </form>
+    <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
+          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn secondary">一键清理</button>
+    </form>
+  </div>
+  {% elif current_status == 'ignored' %}
+  <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
+    <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
+          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn secondary">一键清理</button>
+    </form>
+  </div>
+  {% endif %}
 
   {% for c, is_dup in candidates %}
   <div class="word-card" id="cand-{{ c.id }}" style="padding:16px 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <strong>{{ c.word }}</strong>
+      <small style="color:var(--text-secondary);">{{ c.created_at.strftime('%m-%d %H:%M') if c.created_at else '' }}</small>
+    </div>
     {% if c.status != 'pending' %}
-      <span>{{ c.word }} — {{ '已接受' if c.status == 'accepted' else '已忽略' }}</span>
+      <span class="badge">{{ '已接受' if c.status == 'accepted' else '已忽略' }}</span>
     {% else %}
       <form hx-post="{{ url_for('intake.accept', candidate_id=c.id) }}"
             hx-target="#cand-{{ c.id }}" hx-swap="innerHTML" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -38,5 +90,9 @@
     {% endif %}
   </div>
   {% endfor %}
+
+  {% if not candidates %}
+  <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">暂无候选词</p>
+  {% endif %}
 </div>
 {% endblock %}

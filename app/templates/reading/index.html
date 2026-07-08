@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}阅读收词 · 记搭{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <h1>阅读收词</h1>
+    <a class="btn primary" href="{{ url_for('reading.new') }}">上传 PDF 收词</a>
+  </div>
+
+  {% if not documents %}
+  <div class="word-card">
+    <p style="text-align:center;color:var(--text-secondary);margin-bottom:16px;">
+      还没有阅读材料。上传一篇 PDF，阅读时顺手把遇到的词加入候选词。
+    </p>
+  </div>
+  {% else %}
+  <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px;">
+    {% for doc in documents %}
+    {% set pc = pending_counts.get(doc.intake_source_id, 0) %}
+    <div class="word-card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <a class="nav-link" href="{{ url_for('reading.show', doc_id=doc.id) }}" style="font-size:18px;font-weight:600;">
+          {{ doc.title }}
+        </a>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+          <span>{{ doc.language_code | upper }}</span>
+          <span style="margin-left:12px;">{{ doc.page_count }} 页</span>
+          {% set progress = (doc.last_position or {}).get('scroll_ratio', 0) %}
+          {% if progress and progress >= 0.95 %}
+          <span style="margin-left:8px;color:var(--success,#4caf50);font-weight:500;">已读完</span>
+          {% elif progress and progress > 0 %}
+          <span style="margin-left:8px;color:var(--text-secondary);">{{ (progress * 100) | int }}%</span>
+          {% endif %}
+          <span style="margin-left:12px;">{{ doc.updated_at.strftime('%Y-%m-%d %H:%M') if doc.updated_at else '' }}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        {% if doc.intake_source_id %}
+        <a class="btn {{ 'primary' if pc else 'secondary' }}" href="{{ url_for('intake.candidates', source_id=doc.intake_source_id) }}" style="font-size:13px;">
+          候选词{% if pc %} ({{ pc }}){% endif %}
+        </a>
+        {% endif %}
+        <form method="post" action="{{ url_for('reading.delete', doc_id=doc.id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn secondary" style="font-size:13px;"
+                  onclick="return confirm('确定删除这篇阅读材料吗？');">
+            删除
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

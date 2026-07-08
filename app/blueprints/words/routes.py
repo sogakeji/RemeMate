@@ -233,15 +233,28 @@ def toggle_marked(word_id):
     return redirect(url_for("words.lists"))
 
 
+@bp.post("/words/<int:word_id>/delete")
+@login_required
+def delete_word(word_id):
+    if not words_svc.delete_word(_uid(), word_id):
+        abort(404)
+    flash("词条已删除")
+    return redirect(url_for("words.lists"))
+
+
 # ---- 词库 / 词表 / 复习 / 统计（既有） ----
 
 @bp.get("/words")
 @login_required
 def lists():
-    lang, ws = words_svc.get_words_for_current_language(_uid())
+    sort = request.args.get("sort", "due")
+    if sort not in {"due", "recent", "lapses"}:
+        sort = "due"
+    lang, ws = words_svc.get_words_for_current_language(_uid(), sort=sort)
     return render_template("words/list.html", words=ws,
                            current_language=lang,
-                           lang_name=words_svc._language_name(lang) if lang else None)
+                           lang_name=words_svc._language_name(lang) if lang else None,
+                           current_sort=sort)
 
 
 @bp.get("/words/<int:list_id>")

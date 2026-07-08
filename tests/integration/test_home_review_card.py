@@ -139,8 +139,9 @@ def test_nav_has_no_review_entry(app, client, bypass_engine):
     provision_user(app, "h4@t.com", PW)
     login(client, "h4@t.com", PW)
     page = client.get("/").get_data(as_text=True)
-    # nav 里不应再有独立的「复习」链接（首页就是复习）
-    assert 'href="{{ url_for' not in page       # jinja 已渲染，nav 链接都是 href="/..."
-    # 复习入口已并入首页，nav 不单列
-    nav_review_marker = 'href="/review"'
-    assert nav_review_marker not in page
+    # 任务卡里的复习链接是卡片功能，不是nav入口。
+    # 只检查 nav 元素内部不含 /review 链接。
+    import re
+    nav_match = re.search(r"<nav[^>]*>.*?</nav>", page, re.DOTALL)
+    assert nav_match is not None, "page should have a <nav>"
+    assert 'href="/review"' not in nav_match.group(0)

@@ -26,6 +26,26 @@ def _count(bypass_engine, table, uid):
                          {"u": uid}).scalar()
 
 
+def test_intake_pages_follow_learning_languages_and_do_not_duplicate_entry_links(
+    app, client, bypass_engine,
+):
+    provision_user(app, "intake-zh@t.com", PW)
+    login(client, "intake-zh@t.com", PW)
+    client.post("/settings", data={"languages": ["zh"]})
+
+    import_page = client.get("/intake/import").get_data(as_text=True)
+    extract_page = client.get("/intake/extract").get_data(as_text=True)
+
+    assert "中文" in import_page
+    assert ('selected value="zh"' in import_page) or ('value="zh" selected' in import_page)
+    assert "中文" in extract_page
+    assert ('selected value="zh"' in extract_page) or ('value="zh" selected' in extract_page)
+    assert "快速加词" not in import_page
+    assert "快速加词" not in extract_page
+    assert 'style="display:inline;padding:2px 6px;">文本抽词' not in import_page
+    assert 'style="display:inline;padding:2px 6px;">CSV 导入' not in extract_page
+
+
 # ---- 前置上限拦截（绝不烧 token）----
 
 def test_extract_too_long_blocked_no_source(app, client, bypass_engine, fake_extract):
@@ -116,6 +136,39 @@ def test_csv_note_survives_llm_normalization(app, client, bypass_engine, fake_ex
             "SELECT note FROM word_candidates WHERE user_id=:u"
         ), {"u": uid}).scalar()
     assert note == "greeting"
+
+
+def test_csv_ai_down_imports_raw_rows(app, client, bypass_engine, fake_extract):
+    from app.services import llm
+
+    uid, lid = _setup(app, client, bypass_engine)
+    csv_body = "单词,词性,释义,例句,笔记\nconquis,动词,征服,Il a conquis la France.,漫画征服法国读者\n"
+    data = io.BytesIO(csv_body.encode("utf-8"))
+    client.post("/intake/import", content_type="multipart/form-data",
+                data={"language_code": "fr", "file": (data, "cn.csv")})
+    with bypass_engine.connect() as c:
+        sid = c.execute(text("SELECT id FROM intake_sources WHERE user_id=:u"),
+                        {"u": uid}).scalar()
+
+    llm.set_registry({"extract": []})
+    body = client.get(f"/intake/{sid}/process").get_data(as_text=True)
+
+    assert "done" in body
+    assert "AI 暂不可用" not in body
+    with bypass_engine.connect() as c:
+        status, imports_today = c.execute(text(
+            "SELECT s.status, q.imports_today "
+            "FROM intake_sources s JOIN user_quota q ON q.user_id=s.user_id "
+            "WHERE s.id=:s"
+        ), {"s": sid}).one()
+        word, meaning, example, note = c.execute(text(
+            "SELECT word, meaning, example, note FROM word_candidates "
+            "WHERE source_id=:s AND user_id=:u"
+        ), {"s": sid, "u": uid}).one()
+    assert status == "done"
+    assert imports_today == 1
+    assert (word, meaning, example, note) == (
+        "conquis", "征服", "Il a conquis la France.", "漫画征服法国读者")
 
 
 # ---- 抽词 + 审核 + commit ----

@@ -171,6 +171,23 @@ def register_commands(app):
         else:
             warn("LLM nsfw", "no provider configured")
 
+        # 阅读词典数据目录检查
+        from pathlib import Path
+        dict_dir = current_app.config.get("DICTIONARY_DATA_DIR")
+        READING_LANGS = ["zh", "en", "ja", "fr"]
+        if not dict_dir:
+            warn("reading dictionaries", "DICTIONARY_DATA_DIR not set")
+        else:
+            d = Path(dict_dir)
+            if not d.is_dir():
+                warn("reading dictionaries", f"DICTIONARY_DATA_DIR not a directory: {dict_dir}")
+            else:
+                missing = [lc for lc in READING_LANGS if not (d / lc).is_dir()]
+                if missing:
+                    warn("reading dictionaries", f"missing languages: {', '.join(missing)}")
+                else:
+                    ok("reading dictionaries", f"zh/en/ja/fr present in {dict_dir}")
+
         for level, name, detail in checks:
             marker = {"ok": "OK", "warn": "WARN", "fail": "FAIL"}[level]
             click.echo(f"[{marker}] {name}: {detail}")

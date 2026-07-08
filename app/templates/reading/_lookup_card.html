@@ -1,0 +1,40 @@
+{# Task 9: 选词弹卡 HTMX 片段。显示词典释义 + PDF 原文整句 + 加入学习按钮。 #}
+<div class="lookup-card" id="lookup-card" style="border:1px solid var(--border, #ddd);border-radius:12px;padding:16px;background:var(--card-bg, #fff);box-shadow:0 4px 12px rgba(0,0,0,0.08);position:relative;cursor:grab;">
+  <button type="button" onclick="_closeLookupCard()" style="position:absolute;top:8px;right:10px;border:none;background:none;font-size:18px;cursor:pointer;color:var(--text-secondary);line-height:1;padding:0;z-index:1;">&times;</button>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+    <h3 style="margin:0;font-size:20px;">{{ lookup.term }}</h3>
+    {% if lookup.dictionary_result_json and lookup.dictionary_result_json.found %}
+    <span style="font-size:13px;color:var(--text-secondary);">{{ lookup.dictionary_result_json.part_of_speech or '' }}</span>
+    {% else %}
+    <span style="font-size:13px;color:var(--text-secondary);">词典暂未命中</span>
+    {% endif %}
+  </div>
+
+  {% if lookup.dictionary_result_json and lookup.dictionary_result_json.pronunciation %}
+  <div style="font-size:14px;color:var(--text-secondary);margin:-2px 0 10px 0;">
+    {{ lookup.dictionary_result_json.pronunciation }}
+  </div>
+  {% endif %}
+
+  {% if lookup.dictionary_result_json and lookup.dictionary_result_json.found %}
+  <div style="margin-bottom:12px;">
+    {% for meaning in lookup.dictionary_result_json.meanings or [] %}
+    <p style="margin:4px 0;">• {{ meaning }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if lookup.context_sentence %}
+  <div style="background:var(--surface, #f7f7f9);border-radius:8px;padding:10px;margin-bottom:12px;">
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">原文整句</div>
+    <p style="margin:0;font-size:14px;line-height:1.6;">{{ lookup.context_sentence }}</p>
+  </div>
+  {% endif %}
+
+  <button type="button" class="btn primary" style="width:100%;"
+          data-lookup-id="{{ lookup.id }}"
+          data-term="{{ lookup.term }}"
+          onclick="ReaderAddCandidate.add(this)">
+    加入学习
+  </button>
+</div>

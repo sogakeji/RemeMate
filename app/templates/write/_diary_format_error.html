@@ -1,0 +1,7 @@
+<div class="word-card" style="margin-top:15px;">
+  <p style="color:var(--warning-color);">⚠ 三行日记需要正好写满 3 行，每行不超过 100 个字符。</p>
+  <div class="button-group" style="margin-top:18px;">
+    <button class="btn default" hx-post="{{ url_for('write.discard') }}" hx-target="#write-result"
+            hx-swap="innerHTML">重写</button>
+  </div>
+</div>

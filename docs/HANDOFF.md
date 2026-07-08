@@ -470,3 +470,720 @@ git status -s
 - WSL/PowerShell 中复杂命令的 `$()`、管道和引号经常被 PowerShell 抢先解析。复杂操作优先写临时 Python 脚本在 WSL 内跑，跑完删除。
 - `8891` 上偶尔会残留游离 gunicorn 旧进程，导致新代码未生效或设置页 500。处理方式：先 `ps -ef | grep gunicorn` 查 PID，精确 kill 旧 master/workers，再用 `tmux new-session -d -s rememate '.venv/bin/gunicorn -c gunicorn.conf.py wsgi:app'` 重托管。
 - `datetime.utcnow()` / DB `now()` 时钟坑仍需避免。造测试到期词时用应用侧 UTC 表盘，不要混用 DB 本地时钟。
+---
+
+## 2026-07-04 Lute-style PDF 阅读 MVP 分支（lute-reading-mvp-design）
+
+### 当前状态一句话
+
+分支：`lute-reading-mvp-design`。从 master 切出，独立于 `sentence-square-mvp`（闭测部署分支）和 `ui-rescope`（UI 职责纠偏分支）。**此分支尚未合并 master**，测试 260 passed（13 个 settings 失败来自无关的 `settings.html` dirty 改动，非本分支引入）。
+
+### 产品目标
+
+在 RemeMate 现有基座上新增一个 **PDF 阅读学语言** MVP：用户上传文本型 PDF，进入阅读器边读边选词；选词后弹出本地词典卡片；点击"加入学习"后，词进入 RemeMate 现有候选审核与入库链路，并把 PDF 原文中包含该词的整句写入词库例句字段。
+
+核心设计原则：
+- **阅读器优先，不是导入器优先**
+- 所有入库必须走现有 `WordCandidate` / intake commit 链路，**不直接写 `words`**
+- PDF 原文整句写入 `WordCandidate.source_example`，commit 后 `Definition.example` 必须是 PDF 原文整句
+- 词表对用户不可见（隐式词表口径，延续 ui-rescope 决策）
+
+### 关键设计决策
+
+| 决策 | 选择 | 原因 |
+|---|---|---|
+| PDF parser | `pypdf`（BSD-style） | PyMuPDF 官方 PyPI 为 AGPL/commercial 双许可，闭测/商业不可接受 |
+| 词典 | 本地离线 adapter | 接口 `dictionary.lookup(language_code, term)`，数据外置，不进 git |
+| 首批语言 | `zh/en/ja/fr` | 只允许这四种语言上传和查词；其他语言后续再开 |
+| AI 查词 | 不进 MVP 主路径 | 弹卡只走本地词典，AI 不在阅读器查词路径上 |
+| 词典数据源 | Kaikki/Wiktionary (zh/en/fr) + JMdict (ja) | 全部外置到 `DICTIONARY_DATA_DIR`，仓库只放最小测试 fixture |
+| 阅读材料 | 持久保存 | 有书架、可复读、记录最后位置 |
+| 文档格式 | 只做文本型 PDF | EPUB/TXT/MD 不做；不做 OCR/扫描件 |
+| 显示 | 纯文本渲染 | 不还原版式，不 tokenize 全篇 |
+
+### 已完成（切片 1-4）
+
+**Slice 1：设计与依赖确认**
+- 设计文档 `docs/superpowers/specs/2026-07-03-lute-reading-mvp-design.md`
+- 第三方许可决策 `docs/THIRD_PARTY.md`（PyMuPDF 拒绝为默认，Kaikki/JMdict 批准）
+- 实现计划 `docs/superpowers/plans/2026-07-03-lute-reading-mvp.md`
+
+**Slice 2：PDF 阅读材料 + 数据模型**
+- commits `fba4eac3` → `4f51bcb`（5 commits）
+- `app/models/reading.py`：`ReadingDocument` / `ReadingLookup`
+- `app/models/intake.py`：`WordCandidate.source_example`
+- migrations：新建两表 + RLS（fail-closed 表达式 `NULLIF(current_setting...`）+ composite owner FK + repair-before-constraint
+- `tests/conftest.py` 清理顺序更新
+- tests：19 passed（模型约束 + RLS 隔离）
+
+**Slice 3：查词基础能力**
+- `app/services/reading/context.py`：句子边界抽取（zh/ja/en/fr 标点 + offset 校验 + 超长截断）
+- `app/services/reading/dictionary.py`：本地 JSON adapter + `DictionaryResult` + 日语/英法 normalize 预留
+- `app/services/reading/parsers.py`：`pypdf` parser adapter（文本型 PDF 提取 + size/page/char 限制 + 懒加载页树异常为 typed exception）
+- `requirements.txt`：加 `pypdf>=5.0,<6.0`
+- tests：context 8 passed、dictionary 9 passed、parser 6 passed
+
+**Slice 4：候选桥接（本轮核心 + 最耗时）**
+- commits `7a6c572` → `28f00f7`（3 commits）
+- `app/services/reading/service.py`：document CRUD、lookup、last-position、**`add_lookup_to_candidate`**（文档级 IntakeSource 复用、lookup 锁/幂等、normalized-term 去重、existing-word 前移防 dangling source）
+- `app/services/intake.py`：commit 用 `c.source_example or c.example` 保护 PDF 原文例句
+
+### 进行中（切片 5：页面+路由）
+
+- **已做**：shelf + reader + upload（Task 7 + 8，共 21 tests）
+- **已做**：上传表单 + 文件校验 + 去重 + 错误提示
+- **未做**：lookup card API（`POST /reading/<doc_id>/lookup` + `_lookup_card.html` + add-candidate action）（Task 9）
+- **未做**：reader JS 选词 offset 计算 + 位置上报（Task 10）
+- **未做**：doctor 词典检查 + config 补全（Task 11）
+- **未做**：全线 validation + handoff 更新（Task 12）
+
+### 当前 commit 链（最近 20）
+
+```
+f6fcd90 fix: harden reading upload security and integration
+206f067 feat: upload PDFs into reading shelf
+0db7ca5 fix: harden reading UI and tests
+e1587be feat: add reading shelf and reader pages
+28f00f7 fix: make reading candidate bridge idempotent
+48269ad fix: harden reading lookup candidate bridge
+7a6c572 feat: bridge reading lookups to candidates
+fbcc79c fix: wrap PDF page tree parse errors
+b7217a3 feat: add text PDF parser adapter
+9d37bc6 fix: harden reading dictionary adapter
+bf17f13 feat: add reading dictionary adapter
+2419ced fix: harden reading context extraction
+b7a3d52 feat: add reading context extraction
+4f51bcb fix: repair reading ownership before constraints
+a801539 fix: preserve reading set-null ownership fks
+84f310f fix: harden reading persistence mappings
+fba4eac feat: add reading document persistence
+fc1d367 docs: record reading MVP third-party license decisions
+fef8db8 docs: plan Lute-style PDF reading MVP implementation
+f5c51d3 docs: design Lute-style PDF reading MVP for RemeMate
+```
+
+### 本轮踩坑（本分支特有）
+
+**#13 — `pypdf` 懒解析 page tree 会漏出原始异常**
+- **症状**：`len(reader.pages)` 在 pypdf 内是懒解析属性；PDF 损坏或格式异常时，抛出的 `pypdf` 原生异常会绕过 adapter 的 `PdfParseError` 边界，直接 500 给用户。
+- **解法**：包 `len(reader.pages)` 进 try/except，捕获相关 pypdf/Python 异常后 raise `PdfParseError`。已在 `fbcc79c` 修好。
+- **How to apply**：parser adapter 入口不信任第三方库的"正常构造=一定能读"——page tree 解析也属"extraction"，要包进 typed exception。
+
+**#14 — `add_lookup_to_candidate` 幂等性和并发风险是 Task 6 trivially 引入了 5 个真实 bug**
+- **症状**：
+  1. `WordCandidate.example` 存 raw term 而非 normalized term → 去重失效
+  2. existing-word 检查在 source 创建之后 → 已入库词查新 lookup 会留下孤 dangling source
+  3. `_write_candidates()` 后按"最新 candidate"回查 → 并发可串号
+  4. `source.total_candidates = before + created` → 并发丢增量
+  5. `document.intake_source_id` 为空时并发 add → 同一个 document 可能创多个 `reading_pdf` source
+- **根因**：MVP service 函数看似简单，但涉及 IntakeSource 复用、candidate 去重、row lock、existing-word 短路——每一步都要考虑"这条数据是否可能被同一用户另一请求并发创建"。第一版写的时候忽略了并发/幂等场景。
+- **解法（282f 系列 fix）**：前移 existing-word 检查到 source 创建前；candidate word 使用 normalized_term；source 创建走 `with_for_update()` + flush 原子化；去重检查已存在 pending/accepted candidate；total_candidates 事务内从库实时 count。
+- **How to apply**：任何"find-or-create"函数，不能靠 Python 级幂等保证——必须用 `SELECT ... FOR UPDATE` + 数据库唯一约束 + 事务内 validate-before-write。单线程测试能过不等于并发安全。
+
+**#15 — 模板 `confirm()` 内插用户文本 = 存储型 XSS**
+- **症状**：`index.html` / `show.html` 的删除按钮用 `onclick="return confirm('确定删除《{{ doc.title }}》吗？')"`。Jinja2 的 `{{ }}` 自动 HTML 转义，但 HTML 实体在属性值内被浏览器解回 → 单引号、`</script>` 或恶意代码可注入 JavaScript 字符串。法语标题 `L'étranger` 就能崩，恶意标题可执行代码。
+- **解法**：删掉用户文本插值，改用通用文案 `'确定删除这篇阅读材料吗？'`。已在 `0db7ca5` 修好。
+- **How to apply**：**永不在 inline 事件处理器（onclick/onmouseover 等）内插用户文本**。`|tojson` filter 是安全入口，换成 `<button data-...>` + 绑定事件比裸 onclick 更安全。
+
+**#16 — Task 6 质量审查反复卡在同一子代理，循环 6+ 轮才过**
+- **症状**：Task 6 子代理实现 → quality review → fix → 再 review → 再 fix，一轮比一轮拖，最后一次只修了 2 个点又要再修。总耗时是其他 task 的 3-4 倍。
+- **根因**：Task 6 的 `add_lookup_to_candidate` 是最集成、最敏感的函数（触 IntakeSource、WordCandidate、ReadingLookup、Word 四张表），但子代理在实现时没有做"并发/幂等场景压力测试"就报 DONE。每一轮 review 都抓到新的幂等/竞态问题，子代理只修当前指出的点，不会主动回顾其他同类风险。
+- **解法**：最后我直接在主会话修了最后的 2 个点（existing-word 前移 + normalized_term candidate word），不再派回子代理。2 分钟修好，比继续和子代理来回收发快得多。
+- **How to apply**：函数复杂度超过一张 JOIN 或两表 find-or-create 时，**不要交给同一子代理死磕**——review 一轮后如果还有 2+ 个 issue，直接在主会话修，不要追求"子代理闭环"。子代理擅长写简单绿 field 代码，不擅长并发/幂等全链路推演。
+
+**#17 — replace_all 批量断言替换污染了无关测试**
+- **症状**：在 Task 8 的 review fix 里，我用 `.venv/bin/python -m pytest` 的 replace_all 把所有 `assert resp.status_code == 302` 替换成 `assert resp.status_code == 302 AND /reading/new in location`。结果 login-required 测试（redirect 到 `/login`）和成功上传测试（redirect 到 `/reading/<id>`）全被污染成错误断言。
+- **根因**：replace_all 不区分上下文——所有 "302" 都被替换，包括不应该加 `/reading/new` 的。
+- **解法**：手动逐条修复每个受影响的测试：login-required 删掉 `/reading/new` 断言、成功上传断言删掉 `/reading/new`。
+- **How to apply**：**永远不要用 replace_all 替换测试断言**。测试断言字符串可以出现在多个类/多个测试场景中，语义完全不同。只做精确单次 replace。
+
+### 接手下一步
+
+### 2026-07-04 收盘状态（Task 10-12 收尾）
+
+Task 10-12 已全部完成，本分支 Lute MVP 所有 code commits 已落地。
+
+- **Task 10** (`72c3517` + `de24ad7`)：阅读器选词 JS + 位置保存/恢复。TreeWalker 偏移计算、scroll 位置 throttle + beforeunload 上报、lookup 弹卡注入、页面加载恢复上次位置。
+- **Task 11** (`d967a5e`)：doctor 词典检查。`DICTIONARY_DATA_DIR` 配置、`zh/en/ja/fr` 子目录存在性检查、`--strict` 失败语义、`.env.example` 补全。
+- **Task 12**（最后验证）：定向 105 passed / 全套 275 passed（13 settings 已知失败与本分支无关）、DB head `e76e0424`。
+
+### 当前 commit 链（最新 5）
+
+```
+d967a5e feat: add reading dictionary doctor checks
+de24ad7 fix: make reader content scrollable for position tracking
+72c3517 feat: wire reader selection and progress
+ad530e4 fix: tighten reading add-candidate test and collapse flash
+8391e90 feat: add reading lookup card actions
+```
+
+### 验收标准（spec §12）
+
+1-12 全路径在 dev DB 测试中通过（路由 + service + candidate/commit + RBAC），真机验证尚未执行（需上传文本型 PDF 走一遍完整 UI 流程）。真机步骤见下文。
+
+1. `cd /root/rememate && git checkout lute-reading-mvp-design`
+2. `.venv/bin/python -m pytest -q` — 应 260 passed（13 个 settings 失败是已知的无关问题）
+3. 继续 Task 9：lookup card API + add-candidate action
+   - 新增 `POST /reading/<doc_id>/lookup` 和 `POST /reading/lookups/<id>/add-candidate`
+   - 模板 `_lookup_card.html`
+   - 测试覆盖 lookup 返回卡片 + 加入候选 + 已有词状态
+4. 然后 Task 10（reader JS + position）、Task 11（doctor/config）、Task 12（validation + handoff）
+5. 改代码后 `kill -HUP` gunicorn master（常为 pid 1614）真机验证
+6. 真机流程：上传 PDF → 书架看到 → 打开阅读器 → 选词弹卡 → 加入学习 → 候选审核 → commit，词库 example 必须是 PDF 原文整句
+
+
+### 2026-07-05 真机验证 debug：选词整句错位修复（commit 13bbc90）
+
+真机验证发现选词弹卡的"原文整句"不正确：同一单词第二次出现时显示第一次的整句；文档向后翻以后选中词语出现的整句中竟然没有该词。
+
+根因是两个相关 bug：
+
+1. **`_find_in_window` 找第一个匹配而非最近的**（`app/services/reading/context.py`）：当 JS 传来的 offset 不精确触发 fallback 搜索时，`text.find()` 返回窗口内第一个匹配，重复词会解析到最早出现的位置。
+2. **JS `fullText()`/`offsetInNode()` 丢失 `\n\n` 段落分隔符**（`app/templates/reading/show.html`）：模板按 `\n\n` 分段渲染成 `<p>` 元素，但 JS 的 `TreeWalker(SHOW_TEXT)` 只遍历文本节点，`<p>` 之间的 `\n\n` 不在任何文本节点里。导致 JS 端 `textContent` 比 Python 端 `content_text` 短，offset 按段落数累积偏移，段落越多偏移越大。
+
+修复：`_find_in_window` 遍历窗口内所有匹配选离 `selection_start` 最近的；`fullText()`/`offsetInNode()` 按 `<p>` 子元素遍历，段落间补 `\n\n`。新增 3 个回归测试。修复后全套 297 passed / 0 failed。
+
+**#18 — 段落渲染与 JS offset 不一致**
+- **症状**：`show.html` 把 `content_text` 按 `\n\n` 分段渲染成多个 `<p>`，JS `fullText()` 用 `TreeWalker(SHOW_TEXT)` 只遍历文本节点拼接，丢失段落间的 `\n\n`。JS 端 `textContent` 比 Python 端 `content_text` 短，offset 按段落数累积偏移。向后翻（段落多）后选词 offset 完全错位，抽出的整句里没有选中的词。
+- **根因**：DOM 元素之间的分隔符（`\n\n`）不在任何文本节点里，`TreeWalker(SHOW_TEXT)` 看不到。
+- **解法**：`fullText()` 和 `offsetInNode()` 改为按 `<p>` 子元素遍历，段落间手动补 `\n\n`。
+- **How to apply**：任何把字符串按分隔符拆成多个 DOM 元素渲染的场景，JS 端重建文本时必须补回分隔符，否则 offset 全部错位。
+
+**#19 — `_find_in_window` 找第一个而非最近的匹配**
+- **症状**：offset 不精确触发 fallback 搜索时，`text.find()` 返回窗口内第一个匹配，而非离 selection 最近的。重复词会解析到错误位置，抽出第一次出现的整句。
+- **根因**：`text.find()` 只返回第一个匹配，不考虑距离。
+- **解法**：遍历窗口内所有匹配，选离 `selection_start` 绝对距离最近的。
+- **How to apply**：fallback 搜索不能假设第一个匹配就是正确的——必须按距离选最近。
+
+### 当前 commit 链（最新 5）
+
+```
+13bbc90 fix: correct reader context sentence for repeated words and paragraph offsets
+c99f26b docs: finalize Lute MVP handoff with Task 10-12 recap
+d967a5e feat: add reading dictionary doctor checks
+de24ad7 fix: make reader content scrollable for position tracking
+72c3517 feat: wire reader selection and progress
+```
+
+### 当前测试状态
+
+- 定向测试 114 passed / 0 failed
+- 全套测试 297 passed / 0 failed（settings.html dirty 改动已清理，13 个 settings 失败消失）
+- DB head `e76e0424`
+
+
+### 2026-07-05 真机验证 debug 续：JS 语法错误 + offset 重写 + 句子边界修复
+
+接上文（commit 13bbc90），真机验证又发现一系列问题，逐个修复：
+
+**commit cf789a0 — JS 字符串字面量裸换行导致语法错误**
+- 症状：选词不弹卡，阅读位置不恢复
+- 根因：上轮修复 show.html 时 Python 脚本把 `\n\n` 写成了实际换行符，JS 字符串 `out += '` 里有裸换行，整个 IIFE 崩溃
+- 解法：把 JS 字符串里的裸换行改回 `\n\n` 转义序列
+
+**commit dceee7f — 重写 reader JS offset 计算**
+- 症状：cf789a0 修复后仍不弹卡（Jinja 模板缓存未清）
+- 根因：旧 `fullText()`/`offsetInNode()` 用 `TreeWalker(SHOW_TEXT)` 遍历，逻辑复杂且脆弱
+- 解法：重写为 `getElementsByTagName('p')` + `textContent` 拼接，`globalOffset()` 按 `<p>` 遍历用 `_contains()` 判断选区所在段落，增加 `indexOf` fallback
+
+**commit 481d9cc — 移除 \n 避免句子在段落分隔处提前截断**
+- 症状：法语正确，但中文整句没到句号就截断了
+- 根因：`_boundaries_for` 把 `\n` 包含在句子边界字符里，`_sentence_bounds` 向后搜索时遇到 `\n\n` 的第一个 `\n` 就停止
+- 解法：从 `_boundaries_for` 移除 `\n`，只保留标点符号 `.!?` 和 `。！？`
+
+**commit aa5a78f — \n\n 段落分隔作为句子边界**
+- 症状：移除 `\n` 后，没有句号的中文段落会跨段落抽取整段
+- 根因：`_sentence_bounds` 没有段落边界概念，找不到标点就搜到文本末尾
+- 解法：`_sentence_bounds` 遇到 `\n\n` 时作为边界停止（向前和向后都检查），但不包含 `\n` 本身
+
+**commit 57c7a65 — 中文逗号分号作为句子边界**
+- 症状：中文 PDF 提取后常缺少句号 `。`，只有逗号 `，` 分隔分句，整段被当作一个句子返回
+- 根因：`_boundaries_for` 中文只含 `。！？`，没有逗号分号；中文 PDF 文本里句号可能被版式折行丢失或根本不存在
+- 解法：中文边界改为 `。！？，；`，在逗号处也能正确分段
+- 修复思路：中文不像英文那样每个句子都以句号结束，很多中文 PDF 提取出来的文本段内只有逗号没有句号。把逗号 `，` 和分号 `；` 加入边界集后，`_sentence_bounds` 会在逗号处停止，返回当前分句而非整段。这是中文 NLP 的常见做法——中文分句不能只靠句号，必须考虑逗号。
+
+**#20 — Python 脚本写 JS 文件时 \n\n 转义陷阱**
+- 症状：Python 三引号字符串里 `\n\n` 被解释成实际换行符，写到 JS 文件后字符串字面量里有裸换行，JS 语法错误
+- 根因：Python `'''\n'''` → 文件内容 `
+`（实际换行）→ JS 字符串里裸换行 → 语法错误
+- 解法：用 `write_to_file` 在 Windows 侧写脚本再从 WSL 执行，或用 `chr(92)` 构造反斜杠
+- How to apply：跨语言生成代码时，转义字符的层数要仔细计算——Python 一层、文件内容一层、目标语言一层
+
+**#21 — Jinja 模板缓存导致 HUP 不生效**
+- 症状：`kill -HUP` gunicorn 后模板改动不生效
+- 根因：Flask 生产模式默认 `TEMPLATES_AUTO_RELOAD = False`，HUP 重载 worker 但模板缓存可能未清
+- 解法：完全重启 gunicorn（`pkill` + 重新 `--daemon` 启动）
+- How to apply：改模板后要完全重启 gunicorn，不能只 HUP
+
+**#22 — 中文句子边界不能只靠句号**
+- 症状：中文 PDF 选词后整段作为上下文
+- 根因：中文 PDF 提取后常缺少句号 `。`，只有逗号 `，`；`_boundaries_for` 只含 `。！？`
+- 解法：中文边界加逗号 `，` 和分号 `；`
+- How to apply：中文分句必须考虑逗号，不能照搬英文只靠句号
+
+### 当前 commit 链（最新 7）
+
+```
+57c7a65 fix: add Chinese comma and semicolon as sentence boundaries for context extraction
+aa5a78f fix: handle \n\n paragraph breaks as sentence boundaries in context extraction
+481d9cc fix: remove newline from sentence boundaries to avoid premature truncation
+dceee7f fix: rewrite reader JS with robust offset calc and indexOf fallback
+cf789a0 fix: escape \n\n in JS string literal to prevent syntax error
+af09726 docs: record reader context sentence fix and pitfalls #18-19 in handoff
+13bbc90 fix: correct reader context sentence for repeated words and paragraph offsets
+```
+
+### 当前测试状态
+
+- 定向测试 44 passed / 0 failed（context + routes）
+- 全套测试 297 passed / 0 failed
+- DB head `e76e0424`
+- 真机验证：弹卡正确、位置恢复正确、法语上下文正确、中文上下文待最终确认
+
+
+### 2026-07-05 收尾验证（297 passed，无回归）
+
+commit `1b4de71` 把坑 #20-22 和本轮 commit 链写进了 HANDOFF（即本节前一段）。本段只做收尾验证，未改代码。
+
+**验证结果**：
+- 全套：`297 passed / 0 failed`
+- DB head：`e76e0424`（head）
+- Doctor：所有核心检查 OK（app/dispatch/migrate DB、migrations、SECRET_KEY、DATA_ENCRYPTION_KEY、admin account=2 active）。3 个预期 WARN：LLM correction/nsfw 未配、`DICTIONARY_DATA_DIR` 未设（本地词典数据外置）。
+- gunicorn 完全重启（非 HUP），`/healthz` OK
+
+**真机验证清单（待你执行）**：
+1. 上传一个文本型 PDF（含中文、法文文本）→ 书架出现
+2. 打开阅读器 → 正文按段落渲染、无 PDF 硬换行残留
+3. 选词 → 弹卡在选区附近以 fixed 浮层出现，显示词典释义（或"词典暂未命中"）+ PDF 原文整句
+4. 点击"加入学习" → 跳转候选审核页
+5. 候选审核 → commit → 词库详情中 `definition.example` = PDF 原文整句
+6. 另一个用户无法访问该 PDF/lookup/候选
+7. 选已入库词 → 弹卡提示"词库中已存在该词"
+
+
+### 2026-07-06 CJK 弹卡分词 + 上下文提取 —— 踩坑存档
+
+**背景**：reading MVP 上线后中文/日文阅读有两个问题：(1) 点击单词弹卡选词不准；(2) 查词弹卡里的「原文整句」上下文范围过大。两轮修复后问题 (2) 仍未彻底解决，存档原因。
+
+#### 问题 1：CJK 点击选词
+
+**旧代码**（`show.html` 手写 CJK 扩词逻辑，已删除）：
+
+```javascript
+// BUG: 第 2 行把第 1 行的扫描结果直接重置了
+wordStart = Math.max(0, clickOffset - 2);              // (1)
+while (...CJK chars...) wordStart++;                    // 向左扩展 CJK
+wordStart = Math.max(0, clickOffset - 2);              // (2) ← 重置！(1) 白做
+while (...non-CJK chars...) wordStart++;                // 跳过标点
+```
+
+第 431 行向左扫描找到 CJK 词边界后，第 432 行立刻把 `wordStart` 重置为 `clickOffset - 2`，第一轮扫描结果全丢。第 433 行反向逻辑跳过非 CJK 字符但方向混乱。最终 "世界" 可能选中 "世界！今天天气很好"——整段抓进来。
+
+**修复**：用 `Intl.Segmenter`（浏览器标准 API，Unicode CLDR 词典分词）替代手写逻辑：
+
+```javascript
+var seg = new Intl.Segmenter(lang, { granularity: "word" });
+var segments = seg.segment(nodeText);
+// 迭代到 clickOffset 所在片段，取 index/segment
+```
+
+Node.js 验证通过——中文 "今天天气很好" → "今天"/"天气"/"很好"，日语 "日本語を勉強する" → "日本語"/"を"/"勉強"。
+
+**遗留问题**：修复后点击中文/日文词无响应，需拖选才能弹卡。根因是 `highlightKnownWords()` 用 `<mark>` 替换文本节点后，`caretPositionFromPoint` 在节点间隙返回 `null`。需另外方案（如 `elementFromPoint` → 回溯文本节点），暂未修。
+
+#### 问题 2：上下文提取范围过大
+
+**第一轮**：新增 `_context_boundaries_for()` 将上下文边界与 `split_sentences` 的卡片边界分离——上下文不含逗号分号，`max_chars` 从 400 降到 200，`\n` 作为软边界。
+
+**第二轮**：改为委托 `split_sentences` 查找目标词所在句子——复用已有轮子的成对标点处理、连续标点吞并、微小句合并。但 `split_sentences` 对中文返回的是逗号子句（因 `_boundaries_for` 含 `，；`），不是句号句子。
+
+**第三轮**：回到最简方案——直接从目标词向前/向后扫描到 `。！？`（英文 `. ! ?`）或 `\n\n`，返回两个边界间的文本。不设字符上限。
+
+**当前状态**（`context.py` 最终形态）：`extract_context_sentence` 就是一段简单的 while 循环——向后找上一个句号，向前找下一个句号。79 测试全绿。但真机验证中文/日文上下文仍然超过一个完整句子。
+
+**可能原因（待排查）**：
+1. PDF 提取的文本可能使用其他 Unicode 句号字符（如 `．` U+FF0E）而非 `。` U+3002
+2. `\n\n` 段落分隔的检测逻辑在特定换行格式下可能失效
+3. 服务端可能仍在运行旧 `.pyc` 字节码（需 `find __pycache__ -delete` + 完全重启 gunicorn）
+
+**验证方法**：在服务器上对实际文档文本执行 `split_sentences` 或 `extract_context_sentence`，打印边界字符和句子长度。注意 RLS 会过滤掉非当前用户的文档——需要先 `set_rls_user(uid)` 或在请求上下文内运行。
+
+#### 其他改动（本次 session）
+
+- **已查词视觉标记**：`markLookedUp()` 函数，查过的词加 `.looked-up` 样式（灰色+下划线），避免重复劳动
+- **阅读工具栏**：底部浮动胶囊栏，字号 ±（12~30px，8 档）、行距切换（1.4/1.8/2.2/2.6）、字体切换（无衬线/衬线/等宽，按钮显示 "A" 字实时预览）、沉浸模式（全屏隐藏 chrome）
+- 所有偏好 localStorage 持久化
+- 字体切换按钮用 `font-family` 实时反映当前字体（`A` 在 serif/mono/sans 间变化）
+
+---
+
+## 2026-07-06 下半场：四语词典重组 + 阅读器交互微调
+
+### 当前状态
+
+仍在 `lute-reading-mvp-design` 分支（未合 master）。全套测试最后记录 **297 passed**（未重跑）。gunicorn 已完全重启。
+
+### 做了什么
+
+#### 词典重组
+
+| 语言 | 文件 | 来源 | 条数 | 格式 |
+|---|---|---|---|---|
+| **en** | `en/entries.json` | SJ-ENtoENCH (牛津高阶 OALD) | 39,576 | 英英+中文双解 |
+| **zh** | `zh/entries.json` | xsjhy-CH-EN + CH-CH 合并 | 160,660 | 词组英译 + 独立词中文释义 |
+| **ja** | `ja/entries.json` | JP-CH (SJ-JPtoJPCH) | 不动 | 日→中 |
+| **fr** | `fr/entries.json` | FR-EN | 不动 | 法→英 |
+
+操作记录：
+1. 删除 zh 里 21 世纪辞典的 4.8 万废条目（`entry://` 链接当 meanings）
+2. 转 xsjhy-CH-EN (10.4 万词组→英译)
+3. CH-CH 重新转，修复两个解析 bug：
+   - 键名去括号 `爱（愛）→爱`（繁体变体导致精确匹配失败）
+   - 释义去 pinyin/BS/BH 前缀（`gāoxìng BS 亠 | BH 8` 被当成释义）
+4. 合并 xsjhy(优先) + CH-CH(兜底) → 16 万条
+5. 转 SJ-ENtoENCH (牛津高阶 OALD) → en，修复 `re.DOTALL` 缺失（定义跨多行没匹配到）
+6. **21 世纪 EN↔ZH MDX 原件已从 `D:\home\RemeMate` 移走**，不在目录里。en 词典无兜底，39,576 条牛津独当
+
+#### dictionary.py 改进
+
+- **`_normalize()` 加零宽字符剥离**：strip 零宽空格(U+200B)、BOM(U+FEFF)、软连字符等。PDF/EPUB 文本可能藏匿这些字符，导致 "魔鬼" 变成 "魔​鬼" (3 字符) 查不到。对应 class 级 `_INVISIBLE_RE` regex。
+- `import re` 新增（原来没导）
+
+#### 阅读器交互
+
+- **字体**：默认字体从 `inherit` 改为 `Noto Sans SC`（思源黑体，base.html 已加载 Google Fonts）
+- **撤销高亮**：新增 `undoLookedUp(term)` 函数。点击已变灰的 `<mark class="looked-up">` 词→恢复原文+从 lookedUpSet 移除+更新统计
+- **加入学习错误日志**：catch 块加了 `console.error`，之前静默吞错
+
+### 已知未修
+
+1. **CJK 点击弹卡失效**（上一轮遗留）：`highlightKnownWords()` → `<mark>` 替换文本节点 → `caretPositionFromPoint` 在边界返回 null → 点击无响应。需用 `elementFromPoint` → 回溯文本节点或其他方案
+2. **CJK 上下文过大**（上一轮遗留）：真机中文/日文整句仍超过一个句子
+3. **中文词命中 CH-CH 而非 xsjhy 的英文释义**：原因已确认——xsjhy 是词组/短语词典，不含独立词。用户期望中英双解，但当前没有词级中英双解词典
+4. **"加入学习" 按钮偶发不弹出候选窗**：加了 `console.error` 等真机复现看报错
+
+### 本次踩坑
+
+**#23 — CH-CH 词典键名带繁体变体括号**
+- 症状：`爱`、`猫` 等常见字 miss，词典是有的
+- 根因：CH-CH 键名是 `爱（愛）`、`猫（貓）` 格式，精确匹配不到
+- 解法：`clean_key()` 正则去掉 `（...）` 括号。去重按键长排序，短键优先保留
+
+**#24 — CH-CH 释义混入 pinyin/部首数据**
+- 症状：释义显示 `xuéxí BS 子 | BH 5` 而非真正的词义
+- 根因：旧 `clean_meaning` 用字符类 `[a-zA-Zà-ü...]` 匹配 pinyin，但 `ā`(U+0101) 不在该范围。`亠` 是 CJK 字符逃过过滤器
+- 解法：用 `.*?BS...BH` 正则（不硬编码 pinyin 字符类），只保留含 CJK 的释义
+
+**#25 — 牛津 OALD 定义跨多行，正则需 DOTALL**
+- 症状：39,576 扫描仅 3,443 条通过
+- 根因：`re.finditer` 不带 `re.DOTALL`，`.*?` 不跨行
+- 解法：所有 XML tag 匹配加 `re.DOTALL`
+
+**#26 — PDF 文本含零宽字符导致查词失败**
+- 症状：`魔鬼` 弹卡显示「词典暂未命中」，但服务端查 `魔鬼` 命中
+- 根因：PDF 文本 CJK 字符之间含零宽空格/BOM，传 `魔​鬼`(3字符) 到服务端
+- 解法：`_normalize()` 加 `_INVISIBLE_RE` strip 所有 Unicode format 类字符
+
+### 当前词典文件快照
+
+```
+/root/rememate-data/dictionaries/
+  en/entries.json   10.0 MB  39,576 entries  [Oxford-ENCH]
+  zh/entries.json   17.4 MB  160,660 entries [xsjhy-CH-EN + CH-CH]
+  ja/entries.json            (unchanged)     [JP-CH]
+  fr/entries.json            (unchanged)     [FR-EN]
+```
+
+DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
+
+### 不做什么
+
+- **不继续修 CJK 上下文提取**：已知 bug 在 HANDOFF 记录了
+- **不重新转换 21 世纪辞典**：MDX 原件不在本地
+- **不碰 ja/fr 词典**
+- **不加在线 API**：当前全部 disable（`if False`）
+- **不合并分支**
+
+### 本次改动的文件清单
+
+| 文件 | 变更 |
+|---|---|
+| `app/services/reading/dictionary.py` | +`import re`；+`_INVISIBLE_RE`；`_normalize()` 调 `_INVISIBLE_RE.sub` |
+| `app/templates/reading/show.html` | 默认字体 Noto Sans SC；+`undoLookedUp()`；click handler mark 检测；catch `console.error` |
+| `docs/HANDOFF.md` | 本节 + 坑 #23-26 |
+| `/root/rememate-data/dictionaries/en/entries.json` | 牛津 OALD 39,576 条（覆盖旧 21 世纪数据） |
+| `/root/rememate-data/dictionaries/zh/entries.json` | xsjhy + CH-CH 合并 160,660 条 |
+
+转换脚本（用完可删）：
+- `/root/rememate/convert_xsjhy.py`
+- `/root/rememate/convert_sj.py`
+- `/root/rememate/merge_zh.py`
+
+
+## 2026-07-07 分支收尾：候选词系统 + 代码 simplify
+
+### 当前状态
+
+分支 `lute-reading-mvp-design`（未合 master）。全套测试 **312 passed, 2 failed**（2 个预存 PDF upload 测试失败，与本次无关）。gunicorn 运行中。
+
+### 做了什么
+
+#### 候选词审核系统重构
+
+**问题**：候选词按创建时间升序排列，旧词永远在前；已忽略/已接受的候选词堆积，新候选词被淹没。
+
+**改动**：
+
+| 改动 | 文件 | 说明 |
+|---|---|---|
+| 新候选词排最前 | `intake.py:list_candidates` | 排序 `id ASC` → `created_at DESC` |
+| 状态筛选 | `intake.py` + `candidates.html` | `?status=pending\|accepted\|ignored` 查询参数 + 4 个筛选标签页 |
+| 一键入库 | `intake.py:commit_all` + `routes.py` | `commit_all` = bulk_accept(全接 pending) + commit(入库)，一步完成 |
+| 提交入库（已接受） | `routes.py:commit` | 只入库已接受的，不动 pending——待审核页逐条手工审时用 |
+| 一键清理 | `intake.py:_cleanup_by_status` + `routes.py:cleanup-all` | 同时删除 ignored + accepted，一个确认弹窗 |
+| 返回书本按钮 | `candidates.html` | 审核页右上角「← 返回书本」链接回阅读页 |
+| `_candidate_query` 辅助器 | `intake.py` | 消除 `filter_by(source_id, user_id, status)` 6 处重复 |
+| `_existing_words` 死参数 | `intake.py` | 移除不用的 `user_id` 参数 |
+| `bulk_accept` 批量 SQL | `intake.py` | `c.status = 'accepted'` 逐个赋值 → `update()` 单条 SQL |
+| 跨租户 query bug | `intake.py:quick_add_word` | `filter_by(source_id=source.id)` 缺 `user_id`，已补 |
+| `commit`/`commit-all` 路由合并 | `routes.py` | 提取 `_do_commit` 辅助器，消除重复 |
+
+**审核页按钮逻辑**：
+
+| 筛选状态 | 按钮 |
+|---|---|
+| 全部 | 一键入库 + 一键清理 |
+| 待审核 | 提交入库（已接受的） |
+| 已接受 | 一键入库 + 一键清理 |
+| 已忽略 | 一键清理 |
+
+#### 书架 + 阅读页交互
+
+| 改动 | 文件 | 说明 |
+|---|---|---|
+| 书架候选词提醒 | `index.html` + `routes.py` | 每本书卡片显示待审核数 `候选词(N)`，有待审核时高亮 |
+| 阅读页按钮精简 | `show.html` | 删除「删除」按钮（管理归书架），保留「返回书架」+「审核候选词」 |
+
+#### 代码 simplify（3 批，25 个修复）
+
+**第 1 批 — Reading 服务层**（`context.py`, `service.py`, `parsers.py`）：
+
+| 修复 | 说明 |
+|---|---|
+| `depth` 变量删除 | `len(open_stack)` 等价，消除冗余状态 |
+| `_trim_sentence` 死代码 | `.strip()` 后的 while 循环永假，删 7 行 |
+| `_is_tiny_sentence` 提升 | 内部函数 `_is_tiny` → 模块级，避免每次调用重定义 |
+| `_dict` 模块级单例 | 17MB JSON 只解析一次/进程，之前每请求新建 Dictionary 实例 |
+| `_find_existing_word` DB 查询 | `Word.query.filter_by(...).all()` O(n) 遍历 → `.filter(...).first()` DB 级过滤 |
+| `_find_existing_candidate` 同上 | `.all()` → `.filter(...).with_for_update().first()` |
+| `add_lookup_to_candidate` 去重 | 删除初始 lookup + document 的重复查询（4→2） |
+| `import re` 模块级 | `_reflow_paragraphs` 内部 import → 模块顶层 |
+| `create_document` 内置去重 | 服务层检查 content_hash 重复 → 路由删除 IntegrityError try/except 块 |
+
+**第 2 批 — Reading 路由+模型+模板**（`routes.py`, `service.py`, 测试）：
+
+| 修复 | 说明 |
+|---|---|
+| 服务返回 `source_id`+`term` | `add_lookup_to_candidate` 所有 state 返回完整字段 → 路由删除 3 次补偿查询 |
+| `add_candidate` 路由简化 | 53 行 → 37 行 |
+| 路由去重逻辑下沉 | `create_document` 内部检查现有文档 → 路由删除 `except IntegrityError` + `_content_hash` 私有调用 |
+| `_int_form` 删除 | `request.form.get(field, type=int)` 内置等效 |
+| 语言列表常量化 | 硬编码 `("zh","en","ja","fr")` → `SUPPORTED_LANGUAGES` |
+| `IntegrityError` import 删除 | dedup 下沉后不再需要 |
+
+**第 3 批 — Intake 候选词**（`intake.py`, `routes.py`）：
+
+| 修复 | 说明 |
+|---|---|
+| `_candidate_query` | 消除 6 处重复 filter 模式 |
+| `_existing_words` 死参数 | `user_id` 未用，已删除 |
+| `cleanup_ignored/accepted` 合并 | 共用一个 `_cleanup_by_status` |
+| `bulk_accept` 批量 | N 个 UPDATE → 1 个 `update()` |
+| `quick_add_word` 跨租户 | 补 `user_id` 过滤 |
+| 路由合并 | `commit` + `commit-all` → `_do_commit` |
+
+### 已知未修
+
+| 问题 | 说明 |
+|---|---|
+| CJK 点击弹卡失效 | `highlightKnownWords()` → `caretPositionFromPoint` 返回 null |
+| CJK 上下文过大 | 真机中文/日文整句仍超过一个句子 |
+| `known_words` JSON 内联 | 每个页面加载嵌入全词表 JSON（~100KB+），建议懒加载 API + localStorage |
+| `total_candidates` 计数器失准 | 去规格化列，cleanup/delete 不递减。建议属性查询或删列 |
+| 候选词状态字符串散落 | `"pending"/"accepted"/"ignored"` 20+ 处字面量，建议模型常量/枚举 |
+| 在线 API 死代码 | `dictionary.py` 三个 `_online_*` 方法 ~140 行被 `if False` 永久禁用 |
+| 语言配置散落 | `SUPPORTED_LANGUAGES`/`_IS_CJK`/`_CJK_PUNCT`/`LOWERCASE_LANGUAGES` 分布在 3 个文件 |
+
+### 本次踩坑
+
+**#27 — Edit 工具写入 Python 文件时引号被转成 Unicode 弯引号**
+
+- 症状：`SyntaxError: invalid character '` (U+201C)` 在 gunicorn 启动时
+- 根因：Edit 工具在写入含 CJK 引号字符的 Python 文件时，将 ASCII 引号 `"` 转成了 Unicode 弯引号 `"` / `"`
+- 解法：用 `git checkout HEAD` 恢复文件，改用 Python 脚本（Bash 执行）做精确替换。CJK 标点数据保留不动
+- 教训：在含 CJK 字面量（如 `"。，！？"`）的 Python 文件上，避免用 Edit 工具做多行替换；用 Bash+Python 脚本更安全
+
+**#28 — git checkout 意外还原了未提交的 working tree 变更**
+
+- 症状：`ContentQualityError` import 报 `ImportError`
+- 根因：用 `git checkout HEAD -- parsers.py` 恢复时，`ContentQualityError` 类 + `validate_content_quality` 是未提交变更，被丢弃
+- 解法：手动重新添加 `ContentQualityError` 类、`_IS_CJK`、`_CJK_PUNCT`、`_REPLACEMENT_CHAR` 和 `validate_content_quality()`
+- 教训：git checkout 单个文件前，先 `git diff` 确认该文件的未提交变更是否需要保留
+
+### 不做什么
+
+- 不继续 simplify 第 4/5 批（Writing+Square、Settings+Admin）
+- 不修 CJK 上下文提取
+- 不碰在线 API
+- 不合并分支
+- 不加新功能
+
+### 本次改动的文件清单（简化版）
+
+| 层级 | 文件 | 主要变更 |
+|---|---|---|
+| 服务 | `app/services/intake.py` | `_candidate_query`, `_cleanup_by_status`, `commit_all`, `bulk_accept` 批量, 修跨租户 query |
+| 服务 | `app/services/reading/service.py` | `_dict` 单例, `create_document` 内置去重, DB 级查询, 服务返回 `source_id`/`term` |
+| 服务 | `app/services/reading/context.py` | 删 `depth` 变量, `_trim_sentence` 简化, `_is_tiny_sentence` 提升 |
+| 服务 | `app/services/reading/parsers.py` | `import re` 模块级, `ContentQualityError` 类 |
+| 路由 | `app/blueprints/intake/routes.py` | `_do_commit` 合并, `cleanup-all`, `SUPPORTED_LANGUAGES` 导入, `candidates()` status 参数 |
+| 路由 | `app/blueprints/reading/routes.py` | 删 `_int_form`, 简化 `add_candidate`, `create` 去 IntegrityError, `pending_counts` |
+| 模板 | `app/templates/intake/candidates.html` | 状态筛选标签, 一键入库/清理按钮, 返回书本, 时间戳 |
+| 模板 | `app/templates/reading/show.html` | 删删除按钮, +审核候选词按钮 |
+| 模板 | `app/templates/reading/index.html` | 候选词提醒 N 徽章 |
+| 测试 | `tests/integration/test_reading_lookup_candidate.py` | 断言适配新返回格式 |
+| 文档 | `docs/HANDOFF.md` | 本节 |
+
+## 2026-07-08 lute 合并前收口：闭测修复 + 阅读 CJK 小修
+
+### 当前状态
+
+- 分支：`lute-reading-mvp-design`
+- 基准判断：本分支准备合入 `master`，`master` 当前停在闭测版修复 commit `7e645ba`
+- 本轮原则：只收口已经验证的小修，不同步线上，不继续做 Daily Task Card v2
+- 验证结果：`pytest -q` -> 331 passed, 15 warnings；`flask doctor --strict` 全 OK；migration head 为 `2e79a6ececcc`
+
+### 本轮做了什么
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 停掉 Daily Task Card | `app/blueprints/main/routes.py`, `app/templates/main/index.html`, `tests/integration/test_home_task_card.py` | 首页不再注入/渲染任务卡；任务卡代码和迁移仍保留为 dormant code，闭测入口不展示 |
+| 造句/三行日记批改体验 | `app/blueprints/write/routes.py`, `app/templates/write/_diary_format_error.html`, `app/static/style.css`, `tests/integration/test_write.py` | 三行日记格式错误不再 400；HTMX loading 提示默认隐藏，只在请求中显示 |
+| CSV 导入兼容 | `app/services/intake.py`, `tests/integration/test_intake.py` | 支持中文表头 `单词,词性,释义,例句,笔记,是否标注`；支持 Aisten `word,definition,sentence,note`；AI 不可用时 CSV 走本地 raw fallback，不再整批失败 |
+| 阅读 CJK PDF 清理 | `app/blueprints/reading/routes.py`, `app/services/reading/parsers.py`, `tests/unit/test_reading_parser.py` | 仅对 `zh/ja` 合并 CJK 字符间 PDF 换行/空格；其他语言保持原逻辑 |
+| 阅读已知词点击 | `app/templates/reading/show.html`, `tests/integration/test_reading_routes.py` | 点击 `mark.known-word` 不再依赖 caret API，直接用 DOM range 定位弹卡 |
+| CJK 词典匹配 | `app/services/reading/dictionary.py`, `tests/unit/test_reading_dictionary.py` | 仅对 `zh/ja` 去除 CJK 字符间空格，英文短语不受影响 |
+
+### 合并判断
+
+- 可以进入合并阶段：先提交本轮收口改动，再把 `lute-reading-mvp-design` 合入 `master`，合并后重新跑 `pytest -q` 和 `flask doctor --strict`
+- Daily Task Card v2 不进入本次合并范围；当前只是关闭首页展示，避免闭测用户接触未定稿功能
+- 线上闭测版先不同步，等 master 对齐后再一次性部署，避免线上/本地两边来回修
+
+### 已知未修
+
+| 问题 | 说明 |
+|---|---|
+| CJK 上下文过大 | 本轮只修 PDF 抽文本中的 CJK 空格/换行污染，不重写上下文提取算法 |
+| 已上传旧文档不会自动重排 | 新解析逻辑只影响新上传/重新上传的文档；旧 `ReadingDocument.content` 不会自动改写 |
+| `known_words` JSON 内联 | 仍是页面内嵌词表，后续可改懒加载/缓存 |
+| Task Card v2 | 需求未定稿，代码保持关闭，不继续推进 |
+
+### 本次踩坑
+
+**#29 — 不要并行跑 integration 测试**
+
+- 症状：并行跑 `tests/integration` 容易在 `rememate_test` 清库/事务上互相卡住
+- 解法：本项目全量验证用单进程 `pytest -q`
+- 教训：如果要加速，先隔离数据库或给每个 worker 独立 test DB，否则并发测试会制造假问题
+
+**#30 — CJK PDF 的视觉换行会污染选词**
+
+- 症状：中文/日文 PDF 抽文本后字与字之间混入空格，词典匹配和点击选词不准
+- 解法：只在 `language_code in {"zh", "ja"}` 时合并 CJK 字符间换行/空格；英语、法语等继续保留空格
+- 教训：这个修复必须按语言守卫，不能全局去空格
+
+**#31 — 8891 旧 gunicorn/pidfile 会造成“重启了但没生效”**
+
+- 症状：`/tmp/gunicorn.pid` 指向的进程和实际占用 8891 的进程不一致，浏览器还在访问旧服务
+- 解法：必要时用 `fuser -k 8891/tcp` 清掉旧进程，再用 `0.0.0.0:8891` 重新托管
+- 教训：WSL 真机测试优先访问 `http://<WSL_IP>:8891/`，不要只看 `127.0.0.1`
+
+### 2026-07-08 补充收口：中日阅读选词 + 发音标注
+
+合并 `lute-reading-mvp-design` 前又补了两个阅读模块小修：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 拖选优先于单击分词 | `app/templates/reading/show.html` | 用户鼠标选中 3/4 字词语、成语时，`mouseup` 负责按完整选区查词；随后的 `click` 如果检测到阅读区选区会直接退出，避免又按 CJK Segmenter 弹出两字词 |
+| 选区 offset 修正 | `app/templates/reading/show.html` | 拖选时如果带到前后空白，前端同步修正 `selection_start/end`，避免后端校验失败后回退到全文第一个同词位置 |
+| 中文拼音 | `app/services/reading/dictionary.py`, `requirements.txt` | 新增 `pypinyin`，中文查词结果生成 `pronunciation`，例如 `学习 -> xué xí` |
+| 日文假名 | `app/services/reading/dictionary.py`, `requirements.txt` | 新增 `pykakasi`，日文查词结果生成假名，优先使用词典自带 `pronunciation/reading/kana/furigana` 字段 |
+| 查词卡展示读音 | `app/templates/reading/_lookup_card.html` | 查词卡在词头下显示拼音/假名；即使词典释义未命中，也可显示读音 |
+| 候选词保留读音 | `app/services/reading/service.py` | 阅读查词加入学习时，把拼音/假名写入候选词 note 第一行，避免进入词库后丢失 |
+
+验证：
+
+- `pytest tests/unit/test_reading_dictionary.py tests/integration/test_reading_routes.py tests/integration/test_reading_lookup_candidate.py -q` -> 68 passed, 15 warnings
+- `pytest -q` -> 334 passed, 16 warnings
+- `flask doctor --strict` -> 全 OK，migration head `2e79a6ececcc`
+
+注意：
+
+- 这次没有新增数据库列；`pronunciation` 只在 `dictionary_result_json` 和候选词 note 中落地，后续如果要在词库 UI 独立展示读音，再做正式字段迁移
+- 日文假名由 `pykakasi` 生成，适合闭测阶段基础读音提示；专名、多音词、上下文读音仍可能需要后续专门改进
+
+### 2026-07-08 补充收口：阅读功能归入词库
+
+产品判断：`lute` 阅读能力不继续走“专业阅读器”路线，避免偏离 RemeMate 的核心。阅读只作为词库的收词入口之一，和手动加词、CSV 导入、文本抽词并列。
+
+本轮 IA 调整：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 顶部导航收口 | `app/templates/base.html` | 移除独立「阅读」顶栏入口；词库下拉改为：词库、手动加词、阅读收词、CSV 导入、文本抽词 |
+| 词库页入口前置 | `app/templates/words/list.html`, `app/static/style.css` | 词库页顶部增加 4 个收词入口卡：手动加词、阅读收词、CSV 导入、文本抽词 |
+| 手动加词命名 | `app/templates/words/add.html` | 原「加词中心」文案改为「手动加词」，保留 URL `/words/add` |
+| 阅读命名 | `app/templates/reading/*.html` | 原「阅读」页面文案改为「阅读收词」，保留 URL `/reading` |
+
+验证：
+
+- `pytest tests/integration/test_add_center.py tests/integration/test_words_list_implicit.py tests/integration/test_reading_routes.py -q` -> 49 passed
+
+边界：
+
+- 只改信息架构和文案，不改阅读器能力、不改路由、不改数据库
+- 后续阅读相关只建议修 bug，不建议继续追 Lumina/Lute 类专业阅读器能力
+
+### 2026-07-08 补充收口：生词本管理闭环
+
+在“阅读收词归入词库”后，又补了几个闭测前可见的小口子：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 手动加词支持中文 | `app/blueprints/words/forms.py` | `LANG_CHOICES` 补 `zh/中文`，和设置页 `正在学` 支持语言保持一致 |
+| 词库菜单顺序 | `app/templates/base.html` | 词库下拉改为：生词本、手动加词、文本抽词、阅读收词、CSV 导入 |
+| 生词本搜索 | `app/templates/words/list.html`, `app/static/style.css` | 生词本页增加本地搜索框，按单词、释义、例句、笔记过滤 |
+| 词条删除 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | 生词本词条操作栏增加删除按钮；服务层按用户归属校验后删除词和复习日志 |
+| 清理重复入口 | `app/templates/words/add.html`, `app/templates/intake/import.html`, `app/templates/intake/extract.html` | 删除手动加词底部、CSV/文本抽词顶部的互跳入口，入口统一放在词库菜单和生词本页 |
+
+验证：
+
+- `pytest tests/integration/test_add_center.py tests/integration/test_intake.py tests/integration/test_words_list_implicit.py tests/integration/test_settings_language.py -q` -> 49 passed
+- `pytest -q` -> 340 passed, 16 warnings
+- `flask doctor --strict` -> 全 OK，migration head `2e79a6ececcc`
+
+### 2026-07-08 补充收口：生词本搜索与排序
+
+在生词本已有搜索/删除闭环基础上，补了两个轻量排序入口，便于闭测用户快速整理词库：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 最近导入排序 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | `/words?sort=recent` 按 `Word.id desc` 展示，作为当前无 `created_at` 字段时的最近导入代理 |
+| 遗忘度排序 | `app/services/words.py`, `app/blueprints/words/routes.py`, `app/templates/words/list.html` | `/words?sort=lapses` 按 `lapses desc, due_date asc, id desc` 展示，优先找最容易忘的词 |
+| 搜索框右置 | `app/templates/words/list.html`, `app/static/style.css` | 排序按钮放工具栏左侧，搜索框放右侧；窄屏自动换行，避免横向溢出 |
+
+验证：
+
+- `pytest tests/integration/test_words_list_implicit.py -q` -> 8 passed
+

@@ -326,19 +326,19 @@ def get_current_language_list(user_id: int) -> WordList | None:
             .filter_by(user_id=user_id, language_code=lang).first())
 
 
-def get_words_for_current_language(user_id: int) -> tuple[str | None, list[Word]]:
-    """词列表页用：返回 (当前语言 code 或 None, 该语言隐式词表的词列表)。
-
-    预加载 definitions 消除模板逐词懒加载。未设语言 → (None, [])，调用方提示去设置。
-    """
+def get_words_for_current_language(user_id: int, *, sort: str = "due") -> tuple[str | None, list[Word]]:
+    """Return current language words with selectable list ordering."""
     wl = get_current_language_list(user_id)
     if wl is None:
         return (get_current_language(user_id), [])
-    ws = (Word.query.filter_by(list_id=wl.id)
-          .options(selectinload(Word.definitions))
-          .order_by(Word.due_date).all())
-    return (wl.language_code, ws)
-
+    q = Word.query.filter_by(list_id=wl.id).options(selectinload(Word.definitions))
+    if sort == "recent":
+        q = q.order_by(Word.id.desc())
+    elif sort == "lapses":
+        q = q.order_by(Word.lapses.desc(), Word.due_date.asc(), Word.id.desc())
+    else:
+        q = q.order_by(Word.due_date.asc(), Word.id.desc())
+    return (wl.language_code, q.all())
 
 def get_word_lists(user_id: int, *, language_code: str | None = None) -> list[tuple[WordList, int]]:
     """返回 [(word_list, word_count), ...]，一次聚合查出词数，避免模板 N+1。
@@ -430,6 +430,21 @@ def update_word(user_id: int, word_id: int, word: str, definitions: list[dict]) 
         ))
     db.session.commit()
     return w
+
+
+def delete_word(user_id: int, word_id: int) -> bool:
+    """Delete one word owned by user_id.
+
+    ReviewLog has no model relationship/ondelete cascade in this branch, so
+    delete logs explicitly before deleting the word row.
+    """
+    w = get_word(user_id, word_id)
+    if w is None:
+        return False
+    ReviewLog.query.filter_by(word_id=w.id).delete()
+    db.session.delete(w)
+    db.session.commit()
+    return True
 
 
 def toggle_marked(user_id: int, word_id: int) -> Word | None:

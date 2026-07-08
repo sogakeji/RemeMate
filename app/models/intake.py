@@ -5,10 +5,13 @@ from app.services.timeutil import utc_now
 
 class IntakeSource(db.Model):
     __tablename__ = "intake_sources"
+    __table_args__ = (
+        db.UniqueConstraint("id", "user_id", name="uq_intake_sources_id_user_id"),
+    )
 
     id               = db.Column(db.Integer, primary_key=True)
     user_id          = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    source_type      = db.Column(db.String(20), nullable=False)  # csv / text_extract / quick_add
+    source_type      = db.Column(db.String(20), nullable=False)  # csv / text_extract / quick_add / reading_pdf
     language_code    = db.Column(db.String(10), nullable=False)
     word_list_id     = db.Column(db.Integer, db.ForeignKey("word_lists.id", ondelete="CASCADE"), nullable=False)
     original_name    = db.Column(db.String(200))
@@ -32,6 +35,9 @@ class SourceSegment(db.Model):
 
 class WordCandidate(db.Model):
     __tablename__ = "word_candidates"
+    __table_args__ = (
+        db.UniqueConstraint("id", "user_id", name="uq_word_candidates_id_user_id"),
+    )
 
     id             = db.Column(db.Integer, primary_key=True)
     source_id      = db.Column(db.Integer, db.ForeignKey("intake_sources.id", ondelete="CASCADE"), nullable=False)
@@ -40,6 +46,7 @@ class WordCandidate(db.Model):
     part_of_speech = db.Column(db.String(50))
     meaning        = db.Column(db.Text)
     example        = db.Column(db.Text)
+    source_example = db.Column(db.Text, nullable=True)
     note           = db.Column(db.Text)
     context_start  = db.Column(db.Integer, nullable=True)  # /extract 原文偏移，用于高亮
     context_end    = db.Column(db.Integer, nullable=True)

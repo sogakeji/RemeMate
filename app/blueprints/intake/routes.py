@@ -12,6 +12,7 @@ from flask_login import login_required, current_user
 from app.services import intake as intake_svc
 from app.services import quota as quota_svc
 from app.services import words as words_svc
+from app.models.reading import ReadingDocument
 
 bp = Blueprint("intake", __name__)
 
@@ -154,10 +155,16 @@ def quick_add():
 @bp.get("/intake/<int:source_id>/candidates")
 @login_required
 def candidates(source_id):
-    source, cands = intake_svc.list_candidates(_uid(), source_id)
+    status = request.args.get("status") or None
+    source, cands = intake_svc.list_candidates(_uid(), source_id, status=status)
     if source is None:
         abort(404)
-    return render_template("intake/candidates.html", source=source, candidates=cands)
+    # 找关联的阅读材料，用于「返回书本」链接
+    doc = ReadingDocument.query.filter_by(
+        user_id=_uid(), intake_source_id=source_id).first()
+    return render_template("intake/candidates.html", source=source,
+                           candidates=cands, current_status=status,
+                           document=doc)
 
 
 @bp.post("/intake/candidates/<int:candidate_id>/accept")
@@ -188,10 +195,39 @@ def bulk_accept(source_id):
 @bp.post("/intake/<int:source_id>/commit")
 @login_required
 def commit(source_id):
+    """提交入库：仅写入已接受的候选词（不含全部接受）。"""
+    return _do_commit(source_id, intake_svc.commit_intake_source)
+
+
+@bp.post("/intake/<int:source_id>/commit-all")
+@login_required
+def commit_all(source_id):
+    """一键入库：先全部接受 pending，再写入词库。"""
+    return _do_commit(source_id, intake_svc.commit_all)
+
+
+def _do_commit(source_id, service_fn):
     source = intake_svc.get_source(_uid(), source_id)
     if source is None:
         abort(404)
-    n = intake_svc.commit_intake_source(_uid(), source_id)
+    n = service_fn(_uid(), source_id)
     words_svc.set_current_language(_uid(), source.language_code)
     flash(f"已入库 {n} 个词")
     return redirect(url_for("words.lists"))
+
+
+@bp.post("/intake/<int:source_id>/cleanup-all")
+@login_required
+def cleanup_all(source_id):
+    """一键清理：同时删除已忽略和已接受的候选词。"""
+    n_ignored = intake_svc.cleanup_ignored(_uid(), source_id)
+    n_accepted = intake_svc.cleanup_accepted(_uid(), source_id)
+    if n_ignored and n_accepted:
+        flash(f"已清理{n_ignored} 个已忽略、{n_accepted} 个已接受")
+    elif n_ignored:
+        flash(f"已清理{n_ignored} 个已忽略")
+    elif n_accepted:
+        flash(f"已清理{n_accepted} 个已接受")
+    else:
+        flash("没有需要清理的候选词")
+    return redirect(url_for("intake.candidates", source_id=source_id))

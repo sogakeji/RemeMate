@@ -52,6 +52,101 @@ def test_words_page_lists_current_language_words(app, client, bypass_engine):
     assert "法语" in page                            # 当前语言名
 
 
+def test_words_page_groups_word_collection_entry_points(app, client, bypass_engine):
+    """词库页收口所有收词方式：手动、阅读、CSV、文本抽词。"""
+    provision_user(app, "wl-entry@t.com", PW)
+    login(client, "wl-entry@t.com", PW)
+    _switch(client, "fr")
+
+    page = client.get("/words").get_data(as_text=True)
+
+    assert "手动加词" in page
+    assert "阅读收词" in page
+    assert "CSV 导入" in page
+    assert "文本抽词" in page
+    assert "/reading" in page
+
+
+def test_words_page_has_search_and_delete_action(app, client, bypass_engine):
+    provision_user(app, "wl-search-delete@t.com", PW)
+    login(client, "wl-search-delete@t.com", PW)
+    _switch(client, "fr")
+    client.post("/words/add", json={"language_code": "fr", "word": "soleil",
+                                    "definitions": [{"meaning": "太阳"}]},
+                headers={"X-CSRFToken": _csrf_add(client)})
+
+    page = client.get("/words").get_data(as_text=True)
+
+    assert "搜索单词、释义、例句或笔记" in page
+    assert "word-search" in page
+    assert "按最近导入排序" in page
+    assert "按遗忘度排序" in page
+    assert 'href="/words?sort=recent"' in page
+    assert 'href="/words?sort=lapses"' in page
+    assert "删除单词" in page
+
+
+def test_words_page_sort_buttons_change_order(app, client, bypass_engine):
+    uid = provision_user(app, "wl-sort@t.com", PW)
+    login(client, "wl-sort@t.com", PW)
+    _switch(client, "fr")
+    csrf = _csrf_add(client)
+    client.post("/words/add", json={"language_code": "fr", "word": "motancienxyz",
+                                    "definitions": [{"meaning": "old"}]},
+                headers={"X-CSRFToken": csrf})
+    client.post("/words/add", json={"language_code": "fr", "word": "motrecentxyz",
+                                    "definitions": [{"meaning": "new"}]},
+                headers={"X-CSRFToken": csrf})
+
+    with bypass_engine.begin() as c:
+        c.execute(text(
+            "UPDATE words SET lapses=5 WHERE word='motancienxyz' AND list_id IN "
+            "(SELECT id FROM word_lists WHERE user_id=:u AND language_code='fr')"
+        ), {"u": uid})
+
+    recent_page = client.get("/words?sort=recent").get_data(as_text=True)
+    lapses_page = client.get("/words?sort=lapses").get_data(as_text=True)
+
+    assert recent_page.index("motrecentxyz") < recent_page.index("motancienxyz")
+    assert lapses_page.index("motancienxyz") < lapses_page.index("motrecentxyz")
+
+
+def test_delete_word_removes_only_current_users_word(app, client, bypass_engine):
+    uid = provision_user(app, "wl-delete@t.com", PW)
+    other_uid = provision_user(app, "wl-delete-other@t.com", PW)
+    login(client, "wl-delete@t.com", PW)
+    _switch(client, "fr")
+    client.post("/words/add", json={"language_code": "fr", "word": "soleil",
+                                    "definitions": [{"meaning": "太阳"}]},
+                headers={"X-CSRFToken": _csrf_add(client)})
+    with bypass_engine.connect() as c:
+        word_id = c.execute(text(
+            "SELECT w.id FROM words w JOIN word_lists wl ON w.list_id=wl.id "
+            "WHERE wl.user_id=:u AND w.word='soleil'"
+        ), {"u": uid}).scalar()
+        other_list_id = c.execute(text(
+            "INSERT INTO word_lists (user_id, name, language_code, created_at) "
+            "VALUES (:u, '法语', 'fr', now()) RETURNING id"
+        ), {"u": other_uid}).scalar()
+        other_word_id = c.execute(text(
+            "INSERT INTO words (list_id, word, marked, due_date, interval, ease, reps, lapses) "
+            "VALUES (:l, 'lune', false, now(), 1, 2.5, 0, 0) RETURNING id"
+        ), {"l": other_list_id}).scalar()
+        c.commit()
+
+    resp = client.post(f"/words/{word_id}/delete",
+                       data={"csrf_token": _csrf_add(client)})
+
+    assert resp.status_code == 302
+    with bypass_engine.connect() as c:
+        own_count = c.execute(text("SELECT count(*) FROM words WHERE id=:w"),
+                              {"w": word_id}).scalar()
+        other_count = c.execute(text("SELECT count(*) FROM words WHERE id=:w"),
+                                {"w": other_word_id}).scalar()
+    assert own_count == 0
+    assert other_count == 1
+
+
 def test_words_detail_no_embedded_add_form(app, client, bypass_engine):
     """词表详情页不再内嵌加词表单（加词移到加词中心）。"""
     provision_user(app, "wl4@t.com", PW)

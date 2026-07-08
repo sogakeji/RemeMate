@@ -1,0 +1,202 @@
+from app.services.reading.context import extract_context_sentence
+
+
+def test_extracts_english_sentence():
+    text = "First sentence. Target term appears here! Last sentence."
+    start = text.index("Target")
+
+    result = extract_context_sentence(text, start, start + len("Target"), "en", expected_term="Target")
+
+    assert result.sentence == "Target term appears here!"
+    assert result.start == text.index("Target")
+    assert result.end == text.index("!") + 1
+    assert result.offset_matched is True
+
+
+def test_extracts_french_sentence():
+    text = "Avant. Le mot café est ici? Après."
+    start = text.index("café")
+
+    result = extract_context_sentence(text, start, start + len("café"), "fr", expected_term="café")
+
+    assert result.sentence == "Le mot café est ici?"
+    assert result.start == text.index("Le")
+    assert result.end == text.index("?") + 1
+    assert result.offset_matched is True
+
+
+def test_extracts_chinese_sentence():
+    text = "第一句。目标词在这里！最后一句。"
+    start = text.index("目标词")
+
+    result = extract_context_sentence(text, start, start + len("目标词"), "zh", expected_term="目标词")
+
+    assert result.sentence == "目标词在这里！"
+    assert result.start == text.index("目标词")
+    assert result.end == text.index("！") + 1
+    assert result.offset_matched is True
+
+
+def test_extracts_japanese_sentence():
+    text = "最初の文。対象語はここです？最後の文。"
+    start = text.index("対象語")
+
+    result = extract_context_sentence(text, start, start + len("対象語"), "ja", expected_term="対象語")
+
+    assert result.sentence == "対象語はここです？"
+    assert result.start == text.index("対象語")
+    assert result.end == text.index("？") + 1
+    assert result.offset_matched is True
+
+
+def test_searches_nearby_window_when_offsets_do_not_match_expected_term():
+    text = "Opening sentence. The desired term appears in this sentence. Closing sentence."
+    wrong_start = text.index("Opening")
+
+    result = extract_context_sentence(
+        text,
+        wrong_start,
+        wrong_start + len("Opening"),
+        "en",
+        expected_term="desired term",
+    )
+
+    assert result.sentence == "The desired term appears in this sentence."
+    assert result.start == text.index("The")
+    assert result.end == text.index(".", text.index("desired term")) + 1
+    assert result.offset_matched is False
+
+
+def test_invalid_offsets_do_not_match_expected_term():
+    text = "Hello world. Bye."
+
+    result = extract_context_sentence(text, -4, len(text), "en", expected_term="Bye.")
+
+    assert result.sentence == "Bye."
+    assert result.start == text.index("Bye")
+    assert result.end == len(text)
+    assert result.offset_matched is False
+
+
+def test_truncates_long_sentence_while_keeping_expected_term():
+    prefix = "a" * 260
+    term = "target-term"
+    suffix = "b" * 260
+    text = f"Intro. {prefix}{term}{suffix}. Outro."
+    start = text.index(term)
+
+    result = extract_context_sentence(text, start, start + len(term), "en", expected_term=term)
+
+    assert term in result.sentence
+    assert result.start <= start
+    assert result.end >= start + len(term)
+    assert result.offset_matched is True
+
+
+def test_keeps_entire_target_term_when_it_exceeds_max_chars():
+    term = "x" * 100
+    text = f"Start. {term}. End."
+    start = text.index(term)
+
+    result = extract_context_sentence(text, start, start + len(term), "en", expected_term=term)
+
+    assert term in result.sentence
+    assert result.start <= start
+    assert result.end >= start + len(term)
+    assert result.offset_matched is True
+
+
+
+def test_repeated_term_fallback_finds_nearest_occurrence():
+    """When offsets do not match, _find_in_window must resolve the occurrence
+    closest to the selection, not the first one in the window.
+
+    Regression: selecting the second 'fox' returned the first sentence because
+    text.find() returned the earliest match.  See HANDOFF pitfall #18.
+    """
+    text = "The fox runs fast. The fox sleeps quietly."
+    # Simulate imprecise offsets near the second 'fox' (position 23-26).
+    ctx = extract_context_sentence(text, 25, 28, "en", expected_term="fox")
+    assert ctx.sentence == "The fox sleeps quietly."
+    assert "fox" in ctx.sentence
+    assert ctx.offset_matched is False
+
+
+def test_repeated_term_exact_offset_returns_correct_sentence():
+    """When offsets match exactly, the correct sentence is returned for the
+    second occurrence of a repeated term."""
+    text = "The fox runs fast. The fox sleeps quietly."
+    second_fox = text.index("fox", 10)
+    ctx = extract_context_sentence(text, second_fox, second_fox + 3, "en", expected_term="fox")
+    assert ctx.sentence == "The fox sleeps quietly."
+    assert ctx.offset_matched is True
+# ---- split_sentences ----
+
+from app.services.reading.context import split_sentences
+
+
+def test_split_english_sentences():
+    sentences = split_sentences("Hello world. Goodbye moon! See you soon?", "en")
+    assert len(sentences) == 3
+    assert sentences[0]["text"] == "Hello world."
+    assert sentences[1]["text"] == "Goodbye moon!"
+    assert sentences[2]["text"] == "See you soon?"
+    assert sentences[2]["start"] > sentences[1]["end"]
+
+
+def test_split_chinese_sentences():
+    sentences = split_sentences("今天天气很好。我们去公园吧！你准备好了吗，走吧。", "zh")
+    assert len(sentences) >= 3
+    texts = [s["text"] for s in sentences]
+    assert "今天天气很好。" in texts
+
+
+def test_split_preserves_paragraph_gaps():
+    sentences = split_sentences("Para one end.\n\nPara two start.", "en")
+    assert len(sentences) == 2
+    assert sentences[0]["text"] == "Para one end."
+
+
+def test_split_empty():
+    assert split_sentences("", "en") == []
+
+
+def test_split_merges_consecutive_boundary_chars():
+    sentences = split_sentences("Hello... world.", "en")
+    assert len(sentences) == 2
+    assert sentences[0]["text"] == "Hello..."
+    assert sentences[1]["text"] == "world."
+
+
+def test_split_parens_dont_break_sentence():
+    sentences = split_sentences("(Yes!) Right.", "en")
+    assert len(sentences) == 1
+    assert sentences[0]["text"] == "(Yes!) Right."
+
+
+def test_split_brackets_dont_break_sentence():
+    sentences = split_sentences("He said [no way!] and left.", "en")
+    assert len(sentences) == 1
+    assert sentences[0]["text"] == "He said [no way!] and left."
+
+
+def test_split_does_not_fragment_ellipsis():
+    sentences = split_sentences("Para one.\n\n..\n\nPara two.", "en")
+    assert len(sentences) == 2
+    # The two lone periods are merged into the previous sentence
+    assert ".." not in [s["text"] for s in sentences]
+    assert sentences[0]["text"] == "Para one..."
+
+
+def test_split_french_guillemets():
+    sentences = split_sentences("« Oui ! Exact. » Encore.", "fr")
+    assert len(sentences) >= 1
+    # boundary punct inside guillemets should not split
+    assert any("«" in s["text"] for s in sentences)
+
+
+def test_split_lone_periods_are_merged():
+    sentences = split_sentences("A.\n.\nB.", "en")
+    texts = [s["text"] for s in sentences]
+    assert "." not in texts
+    assert len(sentences) <= 2

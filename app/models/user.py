@@ -1,5 +1,6 @@
 """用户、设置、额度、token 用量。"""
 from flask_login import UserMixin
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.extensions import db
 from app.services.timeutil import utc_now
@@ -44,6 +45,8 @@ class UserSettings(db.Model):
     notify_daily_summary    = db.Column(db.Boolean, default=True,  nullable=False)
     notify_intake_done      = db.Column(db.Boolean, default=True,  nullable=False)
     notify_partner_activity = db.Column(db.Boolean, default=False, nullable=False)  # P2
+    # 每日任务卡自定义目标量：{slug: goal}。覆盖 DEFAULT_GOALS 的单项。
+    daily_task_config = db.Column(JSONB, nullable=True)
 
 
 class UserQuota(db.Model):

@@ -36,7 +36,8 @@ if "rememate_test" not in APP_URL:
 _TABLES = [
     "push_log", "token_usage_log", "user_quota", "user_settings",
     "sentence_upvotes", "messages", "conversations",
-    "word_candidates", "source_segments", "intake_sources",
+    "reading_lookups", "word_candidates", "source_segments",
+    "reading_documents", "intake_sources",
     "output_entries", "review_logs", "definitions", "words", "word_lists",
     "users",
 ]

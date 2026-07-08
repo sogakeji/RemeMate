@@ -1,4 +1,4 @@
-"""输入管道：CSV / 文本抽词 / 快速加词 → 候选词。
+"""输入管道：CSV / 文本抽词 / 快速加词 / 阅读材料 → 候选词。
 
 核心原则（用户决策 2026-06-23）：
 - 长度/数量在解析前就拦，绝不「先烧 token 再发现超限」。
@@ -260,7 +260,7 @@ def process_source(user_id, source_id):
         return
 
     # 重处理（如上一次 SSE 被中断、status 仍为 processing）前清掉旧候选，避免累积
-    WordCandidate.query.filter_by(source_id=source.id, user_id=user_id).delete()
+    _candidate_query(user_id, source.id).delete(synchronize_session=False)
     db.session.commit()
 
     remaining = quota_svc.import_remaining(user_id)
@@ -294,7 +294,7 @@ def process_source(user_id, source_id):
                                 used_user_key=own, feature="extract")
         yield {"type": "progress", "done": created, "total": created}
 
-    else:  # csv
+    elif source.source_type == "csv":
         segs = (SourceSegment.query.filter_by(source_id=source.id)
                 .order_by(SourceSegment.segment_index).all())
         total = min(len(segs), remaining)
@@ -304,23 +304,34 @@ def process_source(user_id, source_id):
             rows = [json.loads(s.raw_text) for s in batch]
             items, res = _normalize_csv_batch(
                 rows, source.language_code, feedback_lang)
-            if res is None:  # AI 不可用
-                source.status = "error"
-                db.session.commit()
-                yield {"type": "error", "message": "AI 暂不可用，请稍后重试"}
-                return
-            if not items:                      # LLM 失败 → 用原始列值兜底
+            if res is None:                    # AI 不可用 → CSV 原始列值兜底
                 items = rows
+                prompt_tokens = completion_tokens = 0
+                provider, model, feature = "local", "csv", "clean_fallback"
+                used_user_key = False
             else:
-                items = _merge_csv_original_fields(rows, items)
+                if not items:                  # LLM 失败 → 用原始列值兜底
+                    items = rows
+                else:
+                    items = _merge_csv_original_fields(rows, items)
+                prompt_tokens = res.prompt_tokens
+                completion_tokens = res.completion_tokens
+                provider, model, feature = res.provider, res.model, "clean"
+                used_user_key = own
             n = _write_candidates(user_id, source, items)
             created += n
             quota_svc.record_import(user_id, count=n,
-                                    prompt_tokens=res.prompt_tokens,
-                                    completion_tokens=res.completion_tokens,
-                                    provider=res.provider, model=res.model,
-                                    used_user_key=own, feature="clean")
+                                    prompt_tokens=prompt_tokens,
+                                    completion_tokens=completion_tokens,
+                                    provider=provider, model=model,
+                                    used_user_key=used_user_key, feature=feature)
             yield {"type": "progress", "done": created, "total": total}
+
+    else:
+        source.status = "error"
+        db.session.commit()
+        yield {"type": "error", "message": "不支持的导入来源类型"}
+        return
 
     source.status = "done"
     source.total_candidates = created
@@ -366,7 +377,7 @@ def quick_add(user_id, language_code, word, meaning=None):
     source.status = "done"
     source.total_candidates = 1
     db.session.commit()
-    candidate = WordCandidate.query.filter_by(source_id=source.id).first()
+    candidate = _candidate_query(user_id, source.id).first()
     return source, candidate
 
 
@@ -390,7 +401,11 @@ def _write_candidates(user_id, source, items) -> int:
             source_id=source.id, user_id=user_id, word=w,
             part_of_speech=it.get("part_of_speech"),
             meaning=it.get("meaning"), example=it.get("example"),
-            note=it.get("note"), status="pending",
+            source_example=it.get("source_example"),
+            note=it.get("note"),
+            context_start=it.get("context_start"),
+            context_end=it.get("context_end"),
+            status="pending",
         ))
         n += 1
     db.session.flush()
@@ -403,21 +418,30 @@ def get_source(user_id, source_id) -> IntakeSource | None:
     return IntakeSource.query.filter_by(id=source_id, user_id=user_id).first()
 
 
-def _existing_words(user_id, word_list_id) -> set:
+def _candidate_query(user_id, source_id, status=None):
+    q = WordCandidate.query.filter_by(source_id=source_id, user_id=user_id)
+    if status is not None:
+        q = q.filter_by(status=status)
+    return q
+
+
+def _existing_words(word_list_id) -> set:
     rows = (Word.query.with_entities(Word.word)
             .filter(Word.list_id == word_list_id).all())
     return {r[0].strip().lower() for r in rows}
 
 
-def list_candidates(user_id, source_id):
-    """返回候选词列表，每条标注是否与目标词表已有词重复（去重提示）。"""
+def list_candidates(user_id, source_id, status=None):
+    """返回候选词列表，每条标注是否与目标词表已有词重复（去重提示）。
+
+    默认按创建时间倒序（新在前）。可通过 status 过滤（'pending'/'accepted'/'ignored'）。
+    """
     source = get_source(user_id, source_id)
     if source is None:
         return None, []
-    existing = _existing_words(user_id, source.word_list_id)
-    cands = (WordCandidate.query
-             .filter_by(source_id=source_id, user_id=user_id)
-             .order_by(WordCandidate.id).all())
+    existing = _existing_words(source.word_list_id)
+    q = _candidate_query(user_id, source_id, status if status in ("pending", "accepted", "ignored") else None)
+    cands = q.order_by(WordCandidate.created_at.desc()).all()
     out = [(c, c.word.strip().lower() in existing) for c in cands]
     return source, out
 
@@ -451,15 +475,10 @@ def ignore_candidate(user_id, candidate_id) -> bool:
 
 def bulk_accept(user_id, source_id) -> int:
     """一键接受该 source 下所有 pending 候选词。"""
-    source = get_source(user_id, source_id)
-    if source is None:
-        return 0
-    cands = WordCandidate.query.filter_by(
-        source_id=source_id, user_id=user_id, status="pending").all()
-    for c in cands:
-        c.status = "accepted"
+    count = _candidate_query(user_id, source_id, status="pending").update(
+        {"status": "accepted"}, synchronize_session=False)
     db.session.commit()
-    return len(cands)
+    return count
 
 
 def commit_intake_source(user_id, source_id) -> int:
@@ -467,9 +486,8 @@ def commit_intake_source(user_id, source_id) -> int:
     source = get_source(user_id, source_id)
     if source is None:
         return 0
-    accepted = WordCandidate.query.filter_by(
-        source_id=source_id, user_id=user_id, status="accepted").all()
-    existing = _existing_words(user_id, source.word_list_id)
+    accepted = _candidate_query(user_id, source_id, status="accepted").all()
+    existing = _existing_words(source.word_list_id)
 
     committed = 0
     for c in accepted:
@@ -479,10 +497,11 @@ def commit_intake_source(user_id, source_id) -> int:
                     due_date=utc_now(), interval=1, ease=2.5, reps=0, lapses=0)
         db.session.add(word)
         db.session.flush()
-        if any([c.meaning, c.part_of_speech, c.example, c.note]):
+        example = c.source_example or c.example
+        if any([c.meaning, c.part_of_speech, example, c.note]):
             db.session.add(Definition(
                 word_id=word.id, part_of_speech=c.part_of_speech,
-                meaning=c.meaning, example=c.example, note=c.note))
+                meaning=c.meaning, example=example, note=c.note))
         c.word_id = word.id
         existing.add(c.word.strip().lower())
         committed += 1
@@ -491,3 +510,24 @@ def commit_intake_source(user_id, source_id) -> int:
     source.completed_at = utc_now()
     db.session.commit()
     return committed
+
+
+def commit_all(user_id, source_id) -> int:
+    """一键入库：先全部接受 pending，再写入 words + definitions。"""
+    bulk_accept(user_id, source_id)
+    return commit_intake_source(user_id, source_id)
+
+
+def _cleanup_by_status(user_id, source_id, status) -> int:
+    count = _candidate_query(user_id, source_id, status=status).delete(
+        synchronize_session=False)
+    db.session.commit()
+    return count
+
+
+def cleanup_ignored(user_id, source_id) -> int:
+    return _cleanup_by_status(user_id, source_id, "ignored")
+
+
+def cleanup_accepted(user_id, source_id) -> int:
+    return _cleanup_by_status(user_id, source_id, "accepted")

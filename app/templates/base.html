@@ -43,10 +43,11 @@
                  stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
           <div class="nav-menu-panel" role="menu" aria-label="词库菜单">
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.lists') }}">词库首页</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.add_center') }}">加词中心</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.lists') }}">生词本</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.add_center') }}">手动加词</a>
             <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.extract_page') }}">文本抽词</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('reading.index') }}">阅读收词</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
           </div>
         </div>
         <div class="nav-dropdown" data-nav-dropdown>
