@@ -1187,3 +1187,21 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 
 - `pytest tests/integration/test_words_list_implicit.py -q` -> 8 passed
 
+
+### 2026-07-08 补充收口：lute 分支合并 master + 分支清理
+
+lute-reading-mvp-design（18 个 commit）合并到 master，包含阅读收词、每日任务卡 v1、词库 UI、生词本排序搜索、中日选词/注音、CSV 导入别名等全部功能。
+
+**合并冲突**（pp/services/intake.py、	ests/integration/test_intake.py）：master 的 CSV 导入别名修复与 lute 的 AI 降级分支冲突。解决方案：保留 lute 的完整 fallback 逻辑（AI 不可用 → 原始列值兜底 + token 统计归零 + LLM 失败二次兜底），同时保留对应测试用例。
+
+**分支清理**：删除 5 个已过时/已合并分支：
+- lute-reading-mvp-design（已合入 master）
+- acklog-cleanup（纯文档，内容已在 HANDOFF）
+- ui-rescope、ui-port（早期 UI 切片，已过时）
+- worktree-vip-membership-quota（会员 CLI 原型实验）
+
+保留 sentence-square-mvp（句子广场 UI 实现，后续可用）。
+
+**验证**：pytest -q → 341 passed, 16 warnings，与合并前完全一致。master 当前 header：5bd18dd。
+
+**下一步**：将本地 master 同步到线上服务器 43.156.210.229。已打包 /tmp/rememate-master.tar.gz（314K），SSH key 已就绪（~/.ssh/hermes.pem, 600），待 WSL 恢复稳定连接后执行推送。
