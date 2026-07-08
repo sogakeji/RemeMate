@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}加词中心 · 记搭{% endblock %}
+{% block title %}手动加词 · 记搭{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section">
-    <h1>加词中心</h1>
+    <h1>手动加词</h1>
     <p style="color:var(--text-secondary);font-size:14px;">
-      手工加完整词条，或让 AI 一键填充；导入 CSV / 文本抽词在下方。
+      手工加完整词条，或让 AI 一键填充词性、释义、例句和笔记。
       <small>选个语言开始——系统会自动归类到该语言的词库。</small>
     </p>
   </div>
@@ -38,12 +38,12 @@
   </div>
 
   <div class="header-section" style="margin-top:25px;">
-    <h2 style="font-size:18px;">批量导入</h2>
+    <h2 style="font-size:18px;">其它收词方式</h2>
   </div>
   <div class="action-bar" style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a class="btn default" href="{{ url_for('reading.index') }}">阅读收词</a>
     <a class="btn success" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
     <a class="btn success" href="{{ url_for('intake.extract_page') }}">文本抽词</a>
-    <a class="btn default" href="{{ url_for('intake.quick_add_page') }}">随手加一个（AI 补释义）</a>
   </div>
 </div>
 

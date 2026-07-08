@@ -1,4 +1,4 @@
-"""ui-rescope step3：加词中心——手工 JSON 多词义 + AI 三端点 + 隐式建表闭环。"""
+"""ui-rescope step3：手动加词——手工 JSON 多词义 + AI 三端点 + 隐式建表闭环。"""
 import json
 
 from sqlalchemy import text
@@ -40,7 +40,7 @@ def test_add_center_handcrafts_multidef(app, client, bypass_engine):
     """GET /words/add 200；POST 多词义 JSON 入库到该语言隐式词表。"""
     uid = _auth(client, app)
     page = client.get("/words/add").get_data(as_text=True)
-    assert "加词中心" in page and "AI 填充" in page
+    assert "手动加词" in page and "AI 填充" in page
 
     resp = client.post("/words/add",
                        json={"language_code": "fr", "word": "décollage",

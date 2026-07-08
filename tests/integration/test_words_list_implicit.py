@@ -52,6 +52,21 @@ def test_words_page_lists_current_language_words(app, client, bypass_engine):
     assert "法语" in page                            # 当前语言名
 
 
+def test_words_page_groups_word_collection_entry_points(app, client, bypass_engine):
+    """词库页收口所有收词方式：手动、阅读、CSV、文本抽词。"""
+    provision_user(app, "wl-entry@t.com", PW)
+    login(client, "wl-entry@t.com", PW)
+    _switch(client, "fr")
+
+    page = client.get("/words").get_data(as_text=True)
+
+    assert "手动加词" in page
+    assert "阅读收词" in page
+    assert "CSV 导入" in page
+    assert "文本抽词" in page
+    assert "/reading" in page
+
+
 def test_words_detail_no_embedded_add_form(app, client, bypass_engine):
     """词表详情页不再内嵌加词表单（加词移到加词中心）。"""
     provision_user(app, "wl4@t.com", PW)

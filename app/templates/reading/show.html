@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ document.title }} · 阅读 · 记搭{% endblock %}
+{% block title %}{{ document.title }} · 阅读收词 · 记搭{% endblock %}
 {% block content %}
 <div class="reader-layout">
 <div class="reader-main" style="flex:1;min-width:0;">
@@ -7,7 +7,7 @@
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <h1>{{ document.title }}</h1>
     <div style="display:flex;gap:8px;">
-      <a class="btn secondary" href="{{ url_for('reading.index') }}">返回书架</a>
+      <a class="btn secondary" href="{{ url_for('reading.index') }}">返回阅读收词</a>
       {% if document.intake_source_id %}
       <a class="btn primary" href="{{ url_for('intake.candidates', source_id=document.intake_source_id) }}">审核候选词</a>
       {% endif %}

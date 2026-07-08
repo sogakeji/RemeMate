@@ -22,16 +22,37 @@
         <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
       </div>
     </div>
-  {% elif not words %}
+  {% else %}
+    <div class="word-intake-grid" aria-label="收词入口">
+      <a class="word-intake-link" href="{{ url_for('words.add_center') }}">
+        <strong>手动加词</strong>
+        <span>自己填写词条，或让 AI 补释义、例句和笔记。</span>
+      </a>
+      <a class="word-intake-link" href="{{ url_for('reading.index') }}">
+        <strong>阅读收词</strong>
+        <span>上传 PDF，阅读时把遇到的词加入候选词。</span>
+      </a>
+      <a class="word-intake-link" href="{{ url_for('intake.import_page') }}">
+        <strong>CSV 导入</strong>
+        <span>从表格批量导入已有词表。</span>
+      </a>
+      <a class="word-intake-link" href="{{ url_for('intake.extract_page') }}">
+        <strong>文本抽词</strong>
+        <span>从文章或笔记里提取候选词。</span>
+      </a>
+    </div>
+  {% endif %}
+
+  {% if current_language and not words %}
     <div class="word-card">
       <p style="text-align:center;color:var(--text-secondary);margin-bottom:20px;">
-        {{ lang_name }} 词库还空着，加几个词开始背。
+        {{ lang_name }} 词库还空着，先选一种收词方式。
       </p>
       <div class="button-group">
-        <a class="btn success" href="{{ url_for('words.add_center') }}">去加词 →</a>
+        <a class="btn success" href="{{ url_for('words.add_center') }}">手动加词 →</a>
       </div>
     </div>
-  {% else %}
+  {% elif current_language %}
     <div class="table-container word-library">
       <table class="word-table word-rich-table">
         <thead><tr><th>词</th><th>词条内容</th><th>状态</th><th>操作</th></tr></thead>

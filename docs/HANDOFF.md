@@ -1132,3 +1132,25 @@ DICTIONARY_DATA_DIR=/root/rememate-data/dictionaries（.env 已配）
 
 - 这次没有新增数据库列；`pronunciation` 只在 `dictionary_result_json` 和候选词 note 中落地，后续如果要在词库 UI 独立展示读音，再做正式字段迁移
 - 日文假名由 `pykakasi` 生成，适合闭测阶段基础读音提示；专名、多音词、上下文读音仍可能需要后续专门改进
+
+### 2026-07-08 补充收口：阅读功能归入词库
+
+产品判断：`lute` 阅读能力不继续走“专业阅读器”路线，避免偏离 RemeMate 的核心。阅读只作为词库的收词入口之一，和手动加词、CSV 导入、文本抽词并列。
+
+本轮 IA 调整：
+
+| 方向 | 文件 | 说明 |
+|---|---|---|
+| 顶部导航收口 | `app/templates/base.html` | 移除独立「阅读」顶栏入口；词库下拉改为：词库、手动加词、阅读收词、CSV 导入、文本抽词 |
+| 词库页入口前置 | `app/templates/words/list.html`, `app/static/style.css` | 词库页顶部增加 4 个收词入口卡：手动加词、阅读收词、CSV 导入、文本抽词 |
+| 手动加词命名 | `app/templates/words/add.html` | 原「加词中心」文案改为「手动加词」，保留 URL `/words/add` |
+| 阅读命名 | `app/templates/reading/*.html` | 原「阅读」页面文案改为「阅读收词」，保留 URL `/reading` |
+
+验证：
+
+- `pytest tests/integration/test_add_center.py tests/integration/test_words_list_implicit.py tests/integration/test_reading_routes.py -q` -> 49 passed
+
+边界：
+
+- 只改信息架构和文案，不改阅读器能力、不改路由、不改数据库
+- 后续阅读相关只建议修 bug，不建议继续追 Lumina/Lute 类专业阅读器能力
