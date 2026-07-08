@@ -55,6 +55,10 @@
 
 ## 功能 / 体验（相关阶段顺带）
 
+- **闭测软反馈统一入池，不随手开工**（用户决策 2026-07-08）
+  闭测阶段只立即修硬 bug：崩溃、数据丢失、权限/隔离、安全、无法完成核心流程。
+  软 bug、文案、布局、体验微调统一记录到 BACKLOG，定期分批处理，避免每个小需求都扩大全量测试成本。
+
 - **stats 时区一致性**（review 2026-06-23 M2）✅ 2026-06-28
   `get_stats` 「今日已复习」改用 `today_local_start_utc(user.timezone)` 按本地午夜切。
   +`timeutil.today_local_start_utc`（可注入 `now_utc` 供单测）+ 4 个单测覆盖跨时区边界。
@@ -73,13 +77,6 @@
 
 - **add_word 词表内去重**（review 2026-06-23 L10）
   同表可重复加同词；输入管道 commit 时会埋重复牌。加服务层去重或 unique。
-
-- **CSV 导入表头兼容性**（用户反馈 2026-07-05，计划下周处理）
-  当前 CSV 导入要求表头必须包含 `word` 和 `meaning`，会拒绝常见第三方/中文表头。
-  已知无法导入的格式：中文表头 `单词,词性,释义,例句,笔记,是否标注`；Aisten 导出表头
-  `word,definition,sentence,note`。下周修复时应增加表头别名映射：`word/单词`、
-  `meaning/definition/释义`、`part_of_speech/词性`、`example/sentence/例句`、`note/笔记`，
-  并把错误提示改成列出支持的表头，而不是只提示 `word` + `meaning`。
 
 ---
 
