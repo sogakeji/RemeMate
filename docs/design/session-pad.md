@@ -1,408 +1,330 @@
-# 会话输入板（Session Pad）详细设计
+# SessionPad：双人语言交换复盘信纸
 
-> 记录日期：2026-06-22
-> 状态：详细设计完成，**P2 功能**（推迟至用户量 50-100 后上线）
-
-> **⚠ 编号约定（重要）**：本文撰写早于「Session Pad 推迟至 P2」的决策，正文中残留的 `P1a / P1b / P1.5` 等标签，指的是 **Session Pad 自身的内部开发阶段**（先做主闭环、再做关系记忆增强），**不代表全局产品路线图位置**。整个 Session Pad 在全局路线图上是 **P2**；全局阶段编号以文末「进化路径」表（P2a / P2b / P3 / P4）为准。阅读时把内部的 P1x 一律理解为「Session Pad 上线后的第 x 个内部阶段」。
-
----
+> 记录日期：2026-07-09
+> 状态：产品方向已纠偏，后续大功能。闭测期只记录，不立即实现。
+> 取代：2026-06-22 旧版「实时协作输入板 / guest / WebSocket room」方案。
 
 ## 一句话定义
 
-语言交换时双方共同打开一个实时协作输入板，随手记录生词和好表达，会话结束后跳转 /extract 各自选词入库，打通「真实对话 → SRS 词库」的闭环。每次会话都绑定语言伙伴关系，让对话有记忆、有积累、有温度。
+SessionPad 是面向双人语言交换的结构化复盘信纸。
 
----
+用户围绕一位语言伙伴记录「帮自己记」和「帮他记」的学习内容；帮自己记进入自己的候选词、词库和 SRS；帮他记经过筛选后作为快照反馈包推送给对方。AI 只做会后总结增强，不阻塞记录、保存、推送、入库。
 
-## 品牌故事：三个痛点
+## 核心判断
 
-语言交换是最有效的口语练习方式之一，但它有三个反复出现的痛点：
+SessionPad 符合 RemeMate 的长期核心产品逻辑，但不是旧设计里的聊天室、共享房间或协作文档。
 
-**痛点 1：永远重置**
-每次见面重新自我介绍、重新问对方学什么语言、重新建立话题。关系没有积累，每次都是第一次。
+它的产品价值不是“多人实时编辑”，而是把真实语言交换中的关系、反馈和表达沉淀成双方各自可复习的学习资产。
 
-**痛点 2：人脸盲**
-不记得这个人上次聊过什么，说过哪些有意思的话，聊到哪些话题。下次见面无法深入，对话永远停留在表面。
+RemeMate 已有一条主线：我和语言材料的关系。
 
-**痛点 3：词汇蒸发**
-对话中对方教了你一个词，你教了对方一个词，说了很多好句子——会后全忘。没有工具把真实对话里的词沉淀下来。
+- 词库
+- 复习
+- 造句
+- 三行日记
+- 阅读收词
+- 文本抽词 / CSV 导入
 
-> 普通背词 App 帮你记住词。记搭帮你记住——这个词是谁教你的，在哪次对话里出现的，你们当时在聊什么。
+SessionPad 开启第二条主线：我和语言伙伴的关系。
 
----
+- 语言伙伴
+- 复盘信纸
+- 帮自己记
+- 帮他记
+- 反馈包
+- 感谢
 
-## 产品定位
+## 不做什么
 
-Session Pad 是记搭最有品牌辨识度的**差异化输入端**，不是造句输出页，不是单人练习台，不是通用协作文档。
+首版明确不做：
 
-它解决的核心问题不是「我怎么练这个词」，而是「我在和真人对话时遇到的词，怎么不丢」。
+- 聊天室
+- 小组交换
+- guest 免登录参与
+- 公开分享链接
+- 双方共同编辑同一份文档
+- WebSocket 实时协作
+- 评论 / 回复线程
+- 已读 / 忽略等消息压力状态
+- 点赞、排行榜、社交动态
+- 由 AI 决定是否可保存或推送
 
-**与其他功能的分工**：
+这些方向会把产品拉向社交软件或协作文档，偏离 RemeMate 的学习闭环。
 
-| 功能 | 角色 | 触发场景 |
-|---|---|---|
-| Session Pad | 对话捕捉（输入端） | 和真人语言交换时 |
-| /extract | 抽词处理器 | Session 结束后 |
-| /write 造句 | 主动输出（输出端） | SRS 到期词触发 |
-| 句子广场 | 社交展示 | 造句公开后 |
-| SRS | 复习调度 | 词库里的词到期 |
+## 领域术语
 
----
+### Language Partner / 语言伙伴
 
-## 核心产品逻辑
+一位与用户进行语言交换的人。语言伙伴可以先是未绑定档案，之后再绑定到真实 RemeMate 用户。
 
-**以「语言伙伴」为核心对象，不是以「会话」为核心。**
+### Unclaimed Partner / 未绑定伙伴
 
-用户的心智模型不应该是「我开了 N 次会话」，而是「我和 Léa 见过 5 次，聊过这些话题，学了这些词，下次见面我要把上次没掌握的词用出来」。
+用户先手动创建的伙伴档案，只包含昵称、语言、备注等关系信息。未绑定前，对方看不到任何内容。
 
-这是记搭区别于所有普通背词工具的根本差异：词汇有来源，来源是人，人有关系，关系有历史。
+### Claimed Partner / 已绑定伙伴
 
----
+未绑定伙伴与一个真实 RemeMate 账号建立绑定后形成的关系。绑定后仍不会自动暴露历史私密内容。
 
-## 功能流程
+### SessionPad / 复盘信纸
 
-```
-会前：打开语言伙伴卡片，看上次聊了什么、上次入库的词、待处理的记录
-    ↓
-创建 Session → 选择/新建语言伙伴（只填昵称+语言）→ 生成链接
-    ↓
-对方打开链接（无需注册，输入昵称即可，3秒内进入）
-    ↓
-双方实时追加条目：词、短语、句子、备注
-    ↓
-会话结束 → 生成 session summary → 生成 intake_source → 跳转 /extract
-    ↓
-owner 筛选词 → commit 入库 → SRS 排程 → word_occurrences 记录 partner 来源
-    ↓
-原始条目保存 30 天；会话摘要 + 入库词来源永久绑定在语言伙伴关系下
-```
+用户围绕某位语言伙伴创建的一张结构化学习信纸。它可以会中随手写，也可以会后认真整理。
 
----
+### For Me / 帮自己记
 
-## 场景优先级
+服务于我自己的学习和关系记忆。默认私有。
 
-| 场景 | 摩擦度 | 优先级（Session Pad 内部）|
-|---|---|---|
-| **线上语言交换**（视频通话同时开一个标签）| 低 | **首发主打** |
-| **线下会后回顾**（聊完后一起打开，回忆生词）| 中 | 后续增强 |
-| **线下实时输入**（聊天同时低头打字）| 高 | 暂不主推 |
+典型内容：
 
----
+- 我想记住的词、短语、表达
+- 对方教我的自然说法
+- 我下次想复习或使用的句子
+- 私人伙伴笔记
+- 下次想聊的话题
 
-## 关键设计决策
+### For Partner / 帮他记
 
-### 1. 追加式条目流，不是共享文本编辑器
+服务于对方学习的内容。可以筛选后推送给对方。
 
-**不做**：两人同时编辑一个大 textarea（光标冲突、patch/merge、断线恢复，P1 成本极高）
+典型内容：
 
-**做**：像聊天记录一样追加独立条目，每条是一个 `session_entry`，实时广播新增/编辑/删除。
+- 值得对方记住的词、短语、表达
+- 对方的错误修正
+- 给对方的自然说法或例句
+- 下次建议练习的表达
 
-```
-[A] avoir hâte de — 期待做某事
-[B] You can say: J'ai hâte de te revoir.
-[A] se rendre compte de — 意识到
-[B] 例：Je me suis rendu compte que j'avais oublié mon sac.
-```
+### Partner Packet / 反馈包
 
-每条独立，不冲突，天然适合后续 /extract 处理。Entry type 默认不强制选择，用户可事后补填类型。
+从我的「帮他记」中筛选并发送给对方的快照副本。反馈包不是同步引用，发送后稳定存在。
 
-### 2. Guest 免注册加入
+### Received Packet / 收到的反馈包
 
-对方无需注册 RemeMate 即可加入会话。否则「让语言伙伴先注册」这一步会直接杀死使用场景。
+对方发给我的反馈包。我可以感谢，也可以把其中表达或修正加入自己的候选词审核。
 
-- **Owner**（创建者）：必须是 RemeMate 登录用户
-- **Guest**：打开链接，输入昵称即可加入（目标：3秒内进入），可写/编辑/删除自己的条目
-- **会后入库**：P1 只有 owner 能入库；guest 若想入库，引导注册（增长钩子）
-- **Guest 条目权限**：active 期间可编辑/删除自己创建的条目；session ended 后链接只读
+### Thank / 感谢
 
-**Guest 隐私提示**（加入页显示）：
-> 本会话记录对创建者可见，并可能被保存到其个人词库。建议使用昵称加入，不要输入敏感信息。
+收到反馈包后的轻量礼貌回应。感谢不是评论线程，不制造任务压力，只完成善意闭环。
 
-### 3. 会前 Partner Context Card：打破永远重置
+## 首版产品形态
 
-创建新 session 时，若选择已有语言伙伴，显示 **Partner Context Card**：
+入口：
 
-- 上次会话日期和话题
-- 上次已入库的词（只显示已 commit 到 words 的词）
-- 高亮其中 owner 仍未掌握的词（SRS 还在队列）
-- **待处理提醒**：若上次 session 结束但未做 /extract，显示「上次会话还有 N 条记录未抽词，是否继续处理？」
-
-这一屏是记搭最有温度的功能点，直接解决痛点 1 和痛点 2。
-
-**数据来源规则**：
-- 只显示已 commit 的入库词（不显示未处理 candidates，避免状态混乱）
-- 若上次无 AI summary，显示最近 5 条 session_entries 作为摘要
-
-### 4. Partner Context Card vs Partner Profile
-
-| | P1 | P1.5 |
-|---|---|---|
-| **Partner Context Card** | ✅ 创建 session 前显示 | — |
-| **Partner 列表页** (/partners) | ✅ 基础列表：昵称、语言、上次见面、会话数、词数、待处理数 | — |
-| **Partner Profile 页** (/partners/<id>) | ✅ 基础信息 + 最近会话摘要 + 待处理 sessions + 开始新 session | — |
-| **完整词汇统计**（已掌握/复习中）| — | ✅ P1.5 |
-| **历次 session 美化列表** | — | ✅ P1.5 |
-
-Partner Profile 基础版 P1 做，完整统计和美化 P1.5 再补。
-
-### 5. 未处理 Session 提醒机制
-
-用户结束会话后不立即抽词是高概率事件。首页和 Partner 列表都显示 pending extract：
-
-```
-[首页提示] 你有 2 个会话待抽词：
-  · 和 Léa 的 6/15 会话：12 条记录
-  · 和 Marco 的 6/20 会话：8 条记录
-  [继续处理 →]
+```text
+我的 → 语言伙伴 → 伙伴详情 → 新建复盘 / 历史复盘
 ```
 
-`session_rooms.extract_status` 驱动这个显示：`not_started` → 显示提醒；`committed` → 不显示。
+结构：
 
-### 6. 词汇来源溯源链
-
-从 Session Pad 入库的词，溯源链完整保留：
-
+```text
+复盘信纸
+├── 帮自己记
+│   ├── 表达 / 单词
+│   ├── 句子 / 自然说法
+│   ├── 私人伙伴笔记
+│   └── 下次想聊 / 想复习
+└── 帮他记
+    ├── 表达 / 单词
+    ├── 错误修正
+    ├── 自然说法 / 例句
+    └── 下次建议
 ```
-word → word_occurrences → intake_source → session_room → language_partner
+
+桌面端可以是两栏。移动端可以是两个 Tab：`帮自己记` / `帮他记`。领域模型仍然是两栏。
+
+## 数据所有权
+
+首版不做共同编辑。每个人拥有自己的信纸。
+
+- 我的信纸由我创建、编辑、保存。
+- 对方看不到我的原始信纸。
+- 我只能从「帮他记」中筛选内容推送给对方。
+- 推送后生成反馈包快照。
+- 对方收到的是副本，不是我原始信纸的同步引用。
+- 我后续修改原始信纸，不影响对方已收到的反馈包。
+- 如果需要修正或补充，发送新的补充包。
+
+这个模型保留共享价值，同时避免协作文档的权限复杂度。
+
+## 隐私规则
+
+默认私有，主动推送。
+
+- `帮自己记` 默认私有。
+- 私人伙伴笔记永远默认私有。
+- 未绑定伙伴看不到任何内容。
+- 伙伴绑定后，也不默认暴露历史记录。
+- 共享发生在条目级，而不是整张信纸一刀切。
+- 只有被选入反馈包的 `帮他记` 内容会被发送给对方。
+
+绑定关系不是授权对方查看历史私密笔记。绑定只是让未来的反馈包有明确收件人。
+
+## 与词库 / 候选词 / SRS 的关系
+
+`帮自己记` 进入我的学习闭环：
+
+```text
+帮自己记 → 候选词审核 → 我的词库 → SRS → 造句 / 日记 / 复习
 ```
 
-用户复习这个词时可以看到「2026-06-15 和 Léa 聊天时记的」。
+`帮他记` 不进入我的词库：
 
-`word_occurrences` 冗余存 `partner_id`，避免每次溯源都要多层 JOIN。
+```text
+帮他记 → 反馈包 → 对方收到 → 对方决定是否加入自己的候选词审核
+```
 
-### 7. 句子广场联动（默认匿名）
+我不能替对方管理词库。RemeMate 只允许我给对方学习建议，由对方决定是否采纳。
 
-/write 造句时，若触发词来自 Session Pad，广场标注默认匿名：
-- **默认**：「来自一次法语语言交换」
-- **Owner 手动开启**：「来自和 Léa 的对话」（使用 owner 私有 display_name，不用 @注册名，guest 未注册时不暴露任何身份）
+## 收到反馈包后的动作
 
-P1 字段预留，展示逻辑默认匿名；P2 开放 owner 手动选项。
+首版只做学习处理动作：
 
----
+- 查看反馈包
+- 感谢
+- 将表达 / 修正加入自己的候选词审核
 
-## 会话生命周期
+首版不做：
 
-| 状态 | 说明 |
-|---|---|
-| active | 创建后，双方可实时编辑 |
-| ended | owner 点击「结束」后生成 summary + intake_source，跳转 /extract；之后只读 |
-| expired | 创建后 7 天内未结束自动过期；guest 链接失效 |
+- 已读
+- 忽略
+- 拒绝
+- 评论
+- 回复线程
+- 聊天
 
-**双层保存**（解决"关系记忆"与"隐私"的矛盾）：
+这样避免负反馈和消息压力，保持产品气质温和。
 
-| 内容 | 保存时长 | 说明 |
-|---|---|---|
-| 原始 session_entries | 30 天后清理 | 隐私保护，存储控制 |
-| 会话摘要（summary） | 永久，owner 可删 | 支持"上次聊了什么"回顾 |
-| 入库词来源（word_occurrences.partner_id）| 永久 | 支持词汇溯源到人 |
-| 语言伙伴关系（language_partners）| 永久，owner 可 archive | 关系记忆核心资产 |
+## AI 的角色
 
-**多人上限**：P1 仅支持 owner + 1 guest；P2 扩展至小组（≤4人）。
+SessionPad 手动为主，AI 只做会后复盘增强。
 
----
+AI 可生成：
 
-## P1 实施顺序（P1a → P1b）
+- 本 session 的收获
+- 讨论深度
+- 讨论内容主题词云
+- 下次建议
+- 从草稿中整理出「帮自己记」和「帮他记」的建议
 
-### P1a：主闭环验证
-- Auth + Postgres + Word/SRS 基础
-- Guest 免注册加入
-- 追加式条目实时同步（WebSocket）
-- 会后生成 intake_source → 跳转 /extract → owner 入库
+AI 不可用时：
 
-### P1b：关系记忆增强
-- language_partners 表 + Partner 列表页
-- Partner Context Card（会前上下文）
-- 未处理 session 提醒
-- Partner Profile 基础页
-- word_occurrences partner 溯源
+- 仍可记录
+- 仍可保存
+- 仍可筛选
+- 仍可推送
+- 仍可把「帮自己记」加入候选词审核
 
-P1a 验证「用户愿意用 Session Pad 记录」后，P1b 让记录有积累价值。
+AI 失败只能影响总结质量，不能阻塞核心流程。
 
----
+## 用户场景
 
-## P1 范围边界
+### 会中随手写
 
-**P1 做**：
-- 创建 session，绑定/新建语言伙伴（只填昵称+语言）
-- 生成分享链接，guest 免注册加入
-- 追加式条目流 + WebSocket 实时同步
-- 会话摘要生成 + 双层保存
-- 会前 Partner Context Card
-- 未处理 session 提醒
-- 会后跳转 /extract，生成 intake_source
-- Owner 入库 + word_occurrences partner 溯源
-- Partner 列表页 + Profile 基础页
-- Guest 隐私提示 + 条目权限
+我和 Pierre 正在做法语交换。我打开 Pierre 的伙伴页，新建一张复盘信纸。交流中我快速记下：
 
-**P1 不做**：
+- 帮自己记：`avoir hâte de`
+- 帮他记：中文里「我很同意」更自然可以说「我很赞同」
+- 私人伙伴笔记：Pierre 下个月要准备 HSK
+
+会后我筛选「帮他记」的内容，发送一个反馈包给 Pierre。
+
+### 会后誊清
+
+我没有在交流中打开 RemeMate。会后我进入语言伙伴页，新建复盘，把刚才的内容整理成两栏。AI 可以帮我生成总结和下次建议，但我仍手动确认哪些内容入库、哪些内容推给对方。
+
+### 未绑定伙伴
+
+我先创建一个未绑定伙伴 `Pierre`，记录几次交换。Pierre 之后注册 RemeMate，我把这个伙伴档案绑定给他的账号。绑定后，他只能收到我主动发送的反馈包，不能自动看到我的历史私密记录。
+
+## 首版范围
+
+首版做：
+
+- 语言伙伴列表与详情
+- 未绑定伙伴档案
+- 伙伴绑定到真实用户
+- 从伙伴详情新建复盘信纸
+- 两栏结构：帮自己记 / 帮他记
+- 帮自己记加入我的候选词审核
+- 帮他记筛选生成反馈包
+- 反馈包快照发送给已绑定伙伴
+- 收到反馈包
+- 感谢
+- 从收到的反馈包加入自己的候选词审核
+- AI 会后总结增强，失败不阻塞
+
+首版不做：
+
+- 小组交换
+- guest
+- 公开链接
+- 实时多人编辑
+- 评论/回复
+- 复杂通知系统
 - 语音转录
-- 富文本 / 协作文档
-- 多人小组（>2人）
-- guest 直接入库
-- typing 状态显示
-- 会中实时抽词
-- 多设备同步（同一用户多 tab）
-- Partner 完整词汇统计 / 历次 session 美化
-- 广场联动 partner 公开标注（字段预留，展示 P2）
+- 双人实时转录
 
----
+## 后续分期
 
-## 进化路径
+### P1：复盘信纸主闭环
 
-| 阶段 | 内容 | 技术难度 |
-|---|---|---|
-| **P2a**（首发）| 主闭环：guest 加入 + 实时同步 + 会后入库 | 中 |
-| **P2b** | 关系记忆：partner context + 溯源 + 待处理提醒 | 低 |
-| **P3** | 语音转录；guest 入库；小组模式；广场联动 partner 标注 | 中 |
-| **P4** | 双人实时转录 + 各自抽词（diarization）| 高——真正的市场空白 |
+目标：验证用户是否愿意围绕语言伙伴记录、推送、采纳学习反馈。
 
----
+最小闭环：
 
-## 市场定位
-
-现有产品（VoiceLingua 等）聚焦单人转录、单人背词或通用协作文档；多人语言交换场景下「协作记录 → 各自抽词 → SRS 入库 → 伙伴关系沉淀」的完整链路，目前较少见，是记搭的差异化假设，需 P1 验证。
-
----
-
-## WebSocket 技术边界
-
-**只做最小同步**，不做富文本协作：
-
-Socket.IO 事件：
-```
-join_room       — 加入房间
-leave_room      — 离开房间
-create_entry    — 新增条目（广播给所有人）
-update_entry    — 编辑条目
-delete_entry    — 删除条目
-presence_ping   — 在线状态心跳
+```text
+语言伙伴 → 新建复盘 → 两栏记录 → 帮自己记入候选词 → 帮他记发反馈包 → 对方感谢/采纳
 ```
 
-**持久化以 Postgres 为准**，WebSocket 只做广播。客户端断线后重新拉取 `session_entries`，不依赖内存状态。
+### P2：伙伴记忆增强
 
-P1 单机 gevent + Flask-SocketIO，不上 Redis adapter，不做多节点。
+- 伙伴详情中的历史复盘摘要
+- 最近互相推送的反馈包
+- 下次建议聚合
+- 伙伴相关的已入库词回顾
 
----
+### P3：AI 复盘增强
 
-## 数据模型
+- 自动整理草稿
+- 更好的讨论深度评估
+- 主题词云
+- 下次语言交换建议
 
-```
-language_partners                               ← 语言伙伴关系
-  id
-  owner_user_id FK
-  guest_user_id FK nullable                     ← 对方注册后可关联
-  display_name                                  ← owner 私有备注名（如"Léa - 法国建筑师"）
-  guest_name                                    ← 对方在 session 中使用的昵称
-  target_language_code                          ← owner 正在学的语言
-  native_language_code nullable
-  notes                                         ← owner 私有备忘
-  first_met_at
-  last_session_at
-  session_count
-  archived_at nullable
-  created_at
-  updated_at
+### P4：语音与现场增强
 
-session_rooms                                   ← 会话房间
-  id
-  owner_user_id FK
-  partner_id FK
-  room_token                                    ← 足够随机的分享 token
-  title
-  topic nullable
-  status: active / ended / expired
-  summary nullable                              ← 会后生成，长期保留
-  extract_status: not_started / generated / committed
-  intake_source_id FK nullable                  ← 关联生成的 intake_source
-  created_at
-  ended_at nullable
-  expires_at
-  raw_entries_deleted_at nullable               ← 原始条目清理时间戳
+- 语音转录
+- 双人实时转录
+- 但仍保持双人信纸模型，不转向小组聊天室
 
-session_participants                            ← 参与者
-  id
-  room_id FK
-  user_id FK nullable                           ← 已注册用户
-  guest_name
-  guest_token                                   ← uuid4，httponly cookie，与 room_token 分开
-  role: owner / guest
-  joined_at
-  last_seen_at
+## 关键决策记录
 
-session_entries                                 ← 条目流（核心）
-  id
-  room_id FK
-  participant_id FK
-  entry_type: word / phrase / sentence / note
-  language_code nullable                        ← 双语交换时条目可能属于不同语言
-  text
-  translation nullable
-  note nullable
-  tags_json nullable
-  created_at
-  updated_at
-  deleted_at nullable                           ← 软删除，guest 可删自己的条目
-```
+1. SessionPad 不是聊天室，不是 Google Docs，不是共享房间。
+2. 首版只做双人语言交换，不做小组。
+3. 入口在 `我的 → 语言伙伴 → 复盘`。
+4. 可以先记录未绑定伙伴，之后绑定真实 RemeMate 用户。
+5. 一人一张信纸，各自拥有，不做共同编辑。
+6. 信纸是两栏结构：`帮自己记` / `帮他记`。
+7. `帮自己记` 可进入我的候选词和词库。
+8. `帮他记` 不进入我的词库，只能筛选推送给对方。
+9. 推送生成快照副本，不是同步引用。
+10. 收到反馈包后只做学习处理：感谢、加入候选词。
+11. 不做已读、忽略、评论、回复线程。
+12. AI 手动为主，只做会后总结：收获、讨论深度、主题词云、下次建议。
+13. 私人伙伴笔记永远默认私有。
 
-**会话结束后生成**：
-```
-intake_sources
-  type = session_pad
-  source_ref_id = session_room.id
-  raw_text = 合并 session_entries（deleted_at IS NULL）
-  title = session title + partner display_name
-  language_hint = target_language_code
-```
+## 对旧方案的取舍
 
-**入库词溯源**（word_occurrences 冗余 partner_id）：
-```
-word_occurrences
-  id
-  word_id FK
-  intake_source_id FK
-  source_ref_type: session_pad / extract / csv / quick_add
-  source_ref_id
-  partner_id FK nullable                        ← 冗余，避免多层 JOIN
-  context_text
-  context_translation nullable
-  created_at
-```
+旧方案中的以下内容废弃：
 
----
+- `session_room`
+- guest 免注册加入
+- 公开分享链接
+- active / ended / expired 房间生命周期
+- WebSocket 实时同步
+- 双方共同追加同一条目流
+- 会后自动跳转 `/extract` 的房间模型
 
-## /extract 衔接流程
+保留并重解释：
 
-```
-1. Owner 点击「结束会话」
-2. 后端合并 session_entries → raw_text
-3. 生成 session summary（AI 可选，P1 也可跳过直接用 top 5 条目）
-4. 创建 intake_source(type=session_pad, source_ref_id=room.id)
-5. 更新 session_rooms.extract_status = generated
-6. 跳转 /extract/source/<source_id>
-7. 用户确认候选词 → commit
-8. commit 时写 word_occurrences，填入 partner_id
-9. 更新 session_rooms.extract_status = committed
-```
-
----
-
-## UI 形态参考
-
-**桌面三栏**：
-```
-左侧：Partner Context Card
-  · 上次聊了什么（摘要/最近5条）
-  · 上次入库词（未掌握高亮）
-  · 待处理提醒
-
-中间：Entry Stream（主区域）
-  · 双方条目追加流
-  · 底部快捷输入框
-  · Enter 发送，type 可后填
-
-右侧：Session Actions
-  · 复制链接
-  · 在线状态
-  · 结束并抽词
-```
-
-**移动端**：Entry Stream + 输入框为主，Partner Context 折叠；追加式条目流天然适合移动端单手操作。
+- 语言伙伴关系是核心对象。
+- 真实对话是重要词汇来源。
+- 词汇来源需要能溯源到语言伙伴。
+- AI summary 有价值，但只能作为增强。
