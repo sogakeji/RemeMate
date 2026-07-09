@@ -5,7 +5,7 @@
 """
 from sqlalchemy import text
 
-from app.services import words as words_svc
+from app.services import notifications, words as words_svc
 from tests.helpers import provision_user, login
 
 PW = "pw12345678"
@@ -248,7 +248,7 @@ def test_settings_bark_test_saves_and_sends(app, client, bypass_engine, monkeypa
         })
         return Resp()
 
-    monkeypatch.setattr(words_svc.requests, "post", fake_post)
+    monkeypatch.setattr(notifications.requests, "post", fake_post)
     r = client.post("/settings/bark/test", data={
         "languages": ["fr"],
         "feedback_language": "zh",
@@ -283,7 +283,7 @@ def test_settings_bark_test_rejects_private_url(app, client, bypass_engine, monk
     def fail_post(*args, **kwargs):
         raise AssertionError("Bark request should not be sent")
 
-    monkeypatch.setattr(words_svc.requests, "post", fail_post)
+    monkeypatch.setattr(notifications.requests, "post", fail_post)
     r = client.post("/settings/bark/test", data={
         "languages": ["fr"],
         "feedback_language": "zh",

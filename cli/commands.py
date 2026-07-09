@@ -13,6 +13,7 @@ from app.models.user import User
 from app.services import provisioning
 from app.services import llm
 from app.services import words as words_svc
+from app.services import notifications
 from config import INSECURE_SECRET_DEFAULT, is_configured, validate_fernet_key
 
 
@@ -75,6 +76,32 @@ def register_commands(app):
         except provisioning.UserNotFoundError:
             raise click.ClickException(f"用户不存在：{email}")
         click.echo(f"已重置额度：{email}")
+
+    @app.cli.command("send-review-reminders")
+    @click.option("--limit", default=1, show_default=True,
+                  help="每个用户最多推送几个到期词")
+    @click.option("--dry-run", is_flag=True, default=False,
+                  help="只统计和输出，不发送 Bark，不写 push_log")
+    def send_review_reminders(limit, dry_run):
+        """扫描已配置 Bark 的用户并发送到期复习提醒。"""
+        dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+        if not dispatch_url:
+            raise click.ClickException("DISPATCH_DATABASE_URL missing")
+        engine = create_engine(dispatch_url, pool_pre_ping=True)
+        try:
+            with engine.begin() as conn:
+                stats = notifications.send_review_reminders(
+                    conn, limit_per_user=limit, dry_run=dry_run)
+        except ValueError as exc:
+            raise click.ClickException(str(exc))
+        finally:
+            engine.dispose()
+        click.echo(
+            "review reminders: "
+            f"users={stats.users_seen} sent={stats.sent} "
+            f"duplicates={stats.skipped_duplicate} no_due={stats.skipped_no_due} "
+            f"failed={stats.failed}"
+        )
 
     @app.cli.command("doctor")
     @click.option("--strict", is_flag=True, default=False,
