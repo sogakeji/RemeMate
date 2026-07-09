@@ -52,6 +52,7 @@ class BaseConfig:
     # 迁移与后台任务的连接串（不走 Flask-SQLAlchemy，分别由 env.py / dispatch 使用）
     MIGRATE_DATABASE_URL = os.environ.get("MIGRATE_DATABASE_URL")
     DISPATCH_DATABASE_URL = os.environ.get("DISPATCH_DATABASE_URL")
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL")
 
     # PDF 上传文件大小上限（MB），需大于 parser 内部限制（25MB）以让 parser 给出明确提示，
     # 而不是直接报 413 原始错误给用户。
@@ -116,6 +117,7 @@ class ProductionConfig(BaseConfig):
         self.SQLALCHEMY_DATABASE_URI = require_configured("DATABASE_URL")
         self.MIGRATE_DATABASE_URL = require_configured("MIGRATE_DATABASE_URL")
         self.DISPATCH_DATABASE_URL = require_configured("DISPATCH_DATABASE_URL")
+        self.PUBLIC_BASE_URL = optional_configured("PUBLIC_BASE_URL")
         self.DEEPSEEK_API_KEY = optional_configured("DEEPSEEK_API_KEY")
         self.DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         self.DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import text
 
-from app.services import notifications, words as words_svc
+from app.services import notifications, review_links, words as words_svc
 from tests.helpers import provision_user
 
 
@@ -47,6 +47,7 @@ def test_review_reminder_cli_sends_due_word_and_records_push(
     uid = provision_user(app, "remind@t.com", "pw12345678", tz="Asia/Shanghai")
     word_id = _make_due_word(bypass_engine, uid)
     _configure_bark(bypass_engine, uid)
+    app.config["PUBLIC_BASE_URL"] = "https://rememate.test"
     calls = []
 
     class Resp:
@@ -81,10 +82,13 @@ def test_review_reminder_cli_sends_due_word_and_records_push(
             "subtitle": "法语 · 待复习",
             "body": "房子",
             "group": "RemeMate",
+            "url": calls[0]["json"]["url"],
         },
         "timeout": 5,
         "allow_redirects": False,
     }]
+    assert calls[0]["json"]["url"].startswith(
+        "https://rememate.test/bark/review/v1.")
     with bypass_engine.connect() as c:
         row = c.execute(text(
             """
@@ -162,3 +166,60 @@ def test_build_review_reminder_payload_includes_due_count():
         "body": "房子\n还有 3 个词待复习。",
         "group": "RemeMate",
     }
+
+
+def test_bark_review_link_opens_public_card_and_records_grade(
+        app, client, bypass_engine):
+    uid = provision_user(app, "link@t.com", "pw12345678", tz="Asia/Shanghai")
+    word_id = _make_due_word(bypass_engine, uid)
+    token = review_links.make_review_token(app.config["SECRET_KEY"], uid, word_id)
+
+    page = client.get(f"/bark/review/{token}")
+    body = page.get_data(as_text=True)
+    assert page.status_code == 200
+    assert "maison" in body
+    assert "没记住" in body and "有点模糊" in body and "秒记起" in body
+    assert "/login" not in page.headers.get("Location", "")
+
+    graded = client.post(f"/bark/review/{token}/grade", data={"button": "easy"})
+    graded_body = graded.get_data(as_text=True)
+    assert graded.status_code == 200
+    assert "已回流到你的复习计划" in graded_body
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            """
+            SELECT w.reps, w.interval, rl.grade, rl.source
+            FROM words w
+            JOIN review_logs rl ON rl.word_id = w.id
+            WHERE w.id = :word_id
+            """
+        ), {"word_id": word_id}).fetchone()
+    assert row == (1, 1, 5, "bark")
+
+
+def test_bark_review_link_is_single_use_for_grading(
+        app, client, bypass_engine):
+    uid = provision_user(app, "single-use@t.com", "pw12345678", tz="Asia/Shanghai")
+    word_id = _make_due_word(bypass_engine, uid)
+    token = review_links.make_review_token(app.config["SECRET_KEY"], uid, word_id)
+
+    first = client.post(f"/bark/review/{token}/grade", data={"button": "easy"})
+    second = client.post(f"/bark/review/{token}/grade", data={"button": "forgot"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert "已经回流过" in second.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        logs = c.execute(text(
+            "SELECT count(*) FROM review_logs WHERE word_id=:word_id"),
+            {"word_id": word_id}).scalar()
+        reps = c.execute(text(
+            "SELECT reps FROM words WHERE id=:word_id"),
+            {"word_id": word_id}).scalar()
+    assert logs == 1
+    assert reps == 1
+
+
+def test_bark_review_link_rejects_invalid_token(client):
+    page = client.get("/bark/review/not-a-token")
+    assert page.status_code == 410

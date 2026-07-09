@@ -82,7 +82,9 @@ def register_commands(app):
                   help="每个用户最多推送几个到期词")
     @click.option("--dry-run", is_flag=True, default=False,
                   help="只统计和输出，不发送 Bark，不写 push_log")
-    def send_review_reminders(limit, dry_run):
+    @click.option("--public-base-url", default=None,
+                  help="通知点击后打开的站点根地址，默认读 PUBLIC_BASE_URL")
+    def send_review_reminders(limit, dry_run, public_base_url):
         """扫描已配置 Bark 的用户并发送到期复习提醒。"""
         dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
         if not dispatch_url:
@@ -91,7 +93,10 @@ def register_commands(app):
         try:
             with engine.begin() as conn:
                 stats = notifications.send_review_reminders(
-                    conn, limit_per_user=limit, dry_run=dry_run)
+                    conn, limit_per_user=limit, dry_run=dry_run,
+                    secret_key=current_app.config.get("SECRET_KEY"),
+                    public_base_url=(public_base_url
+                                     or current_app.config.get("PUBLIC_BASE_URL")))
         except ValueError as exc:
             raise click.ClickException(str(exc))
         finally:

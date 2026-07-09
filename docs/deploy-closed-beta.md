@@ -13,6 +13,7 @@ FLASK_ENV=production
 DATABASE_URL=postgresql://rememate:...@127.0.0.1:5432/rememate
 MIGRATE_DATABASE_URL=postgresql://rememate_owner:...@127.0.0.1:5432/rememate
 DISPATCH_DATABASE_URL=postgresql://rememate_dispatch:...@127.0.0.1:5432/rememate
+PUBLIC_BASE_URL=https://rememate.com
 
 SECRET_KEY=...
 DATA_ENCRYPTION_KEY=...

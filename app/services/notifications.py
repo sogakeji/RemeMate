@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from app.services.timeutil import utc_now
 from app.services.words import _language_name, _validate_push_url
+from app.services.review_links import make_review_token, review_link_url
 
 
 BARK_GROUP = "RemeMate"
@@ -34,7 +35,8 @@ class NotificationError(ValueError):
     """A notification could not be sent."""
 
 
-def build_review_reminder_payload(row, *, due_count: int) -> dict:
+def build_review_reminder_payload(row, *, due_count: int,
+                                  review_url: str | None = None) -> dict:
     """Build a Bark payload for one due word."""
     meaning = (row.meaning or "").strip()
     example = (row.example or "").strip()
@@ -47,6 +49,8 @@ def build_review_reminder_payload(row, *, due_count: int) -> dict:
         "body": body,
         "group": BARK_GROUP,
     }
+    if review_url:
+        payload["url"] = review_url
     return payload
 
 
@@ -84,6 +88,8 @@ def send_review_reminders(
     limit_per_user: int = 1,
     dry_run: bool = False,
     post=None,
+    secret_key: str | None = None,
+    public_base_url: str | None = None,
 ) -> ReviewReminderStats:
     """Send at most ``limit_per_user`` due-word reminders per configured user.
 
@@ -148,7 +154,12 @@ def send_review_reminders(
             if _already_pushed(conn, key):
                 stats.skipped_duplicate += 1
                 continue
-            payload = build_review_reminder_payload(word, due_count=due_count)
+            url = None
+            if secret_key and public_base_url:
+                token = make_review_token(secret_key, user.id, word.id)
+                url = review_link_url(public_base_url, token)
+            payload = build_review_reminder_payload(
+                word, due_count=due_count, review_url=url)
             if not dry_run:
                 try:
                     send_bark_payload(user.bark_url, payload, post=post)

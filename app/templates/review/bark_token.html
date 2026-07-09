@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Bark 复习 · RemeMate{% endblock %}
+{% block content %}
+<div class="container">
+  {% if word %}
+    <div class="word-card review-word-card">
+      <div class="review-card-toolbar">
+        <div class="review-card-left-actions"></div>
+        <div class="word-actions">
+          <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+                  data-speak="{{ word.word }}" data-lang="{{ word.language_code }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <p class="card-word">{{ word.word }}</p>
+      {% if word.meaning or word.part_of_speech or word.example or word.note %}
+      <details class="definition-item" open><summary>显示释义</summary>
+        <p>
+          {% if word.part_of_speech %}<span class="part-of-speech">{{ word.part_of_speech }}</span>{% endif %}
+          {% if word.meaning %}<span class="meaning">{{ word.meaning }}</span>{% endif %}
+          {% if word.example %}<br><span class="example">{{ word.example }}</span>{% endif %}
+          {% if word.note %}<br><span class="note">{{ word.note }}</span>{% endif %}
+        </p>
+      </details>
+      {% else %}
+      <p style="text-align:center;color:var(--text-secondary);">无释义</p>
+      {% endif %}
+    </div>
+
+    {% if reviewed %}
+      <div class="word-card" style="margin-top:16px;">
+        <p style="text-align:center;color:var(--text-secondary);">
+          {% if already_reviewed %}
+            这条推送已经回流过熟练度。
+          {% else %}
+            已回流到你的复习计划。
+          {% endif %}
+        </p>
+        <div class="button-group" style="margin-top:20px;">
+          <a class="btn primary" href="{{ url_for('auth.login') }}">进入 RemeMate</a>
+        </div>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('words.bark_review_grade', token=token) }}" class="srs-grade-group">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="srs-btn srs-forgot" name="button" value="forgot">没记住</button>
+        <button class="srs-btn srs-fuzzy" name="button" value="fuzzy">有点模糊</button>
+        <button class="srs-btn srs-known" name="button" value="easy">秒记起</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <div class="word-card review-word-card">
+      <p class="card-word">链接失效</p>
+      <p style="text-align:center;color:var(--text-secondary);">这条 Bark 复习链接已过期，或对应词条已不存在。</p>
+      <div class="button-group" style="margin-top:20px;">
+        <a class="btn primary" href="{{ url_for('auth.login') }}">登录 RemeMate</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

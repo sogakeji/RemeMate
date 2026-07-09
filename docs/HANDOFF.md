@@ -6,11 +6,11 @@
 
 ## 当前状态
 
-- 日期：2026-07-08
-- 当前分支：`master`
+- 日期：2026-07-10
+- 当前分支：`bark-usable-loop-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地测试基线：`pytest -q` -> 341 passed, 16 warnings
+- 本地测试基线：`pytest -q` -> 348 passed, 16 warnings
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -31,7 +31,7 @@
 
 三个月第一性目标：证明用户会因为“自己真实遇到的词和句子被 RemeMate 帮他记住并用出来”，而每天回来。详见 `docs/strategy/2026-07-09-three-month-focus.md`。
 
-1. Bark 能力补全：设置页已有入口，下一步做可用性闭环（保存、测试推送、失败提示、调用点）。
+1. Bark 能力补全：当前分支已做保存、测试推送、到期词提醒、签名链接打开三按钮评分回流。
 2. 阅读收词小收口：加入后的去向感、候选审核和词库详情的来源感。
 3. SessionPad：先写产品切片和数据边界，不直接动手大改。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
@@ -47,6 +47,10 @@
 - 服务层在 `app/services/*.py`，不要依赖请求上下文。
 - 阅读收词归入词库：生词本、手动加词、文本抽词、阅读收词、CSV 导入。
 - 生产词典外置：`DICTIONARY_DATA_DIR=/srv/rememate-data/dictionaries`。
+- Bark 回流链接：`/bark/review/<token>` 免登录打开单词三按钮页。token 由
+  `app/services/review_links.py` 用 `SECRET_KEY` HMAC 签名，包含 `user_id + word_id + exp`；
+  路由用 `DISPATCH_DATABASE_URL` 读取/评分这一张卡，并用 `push_log` 防止同一链接重复评分。
+  生产需设置 `PUBLIC_BASE_URL=https://rememate.com`，否则通知不会带可点击回流链接。
 
 ## 本机与线上命令
 

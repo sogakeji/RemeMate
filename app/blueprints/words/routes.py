@@ -5,11 +5,13 @@
 import json
 
 from flask import (Blueprint, render_template, request, abort, jsonify,
-                   redirect, url_for, flash, session)
+                   redirect, url_for, flash, session, current_app)
 from flask_login import login_required, current_user
+from sqlalchemy import create_engine
 
 from app.services import words as words_svc
 from app.services import llm as llm_svc
+from app.services import review_links
 from app.blueprints.words.forms import LanguageChoiceForm
 
 bp = Blueprint("words", __name__)
@@ -310,6 +312,47 @@ def grade(word_id):
     word = nxt[0] if nxt else None
     return render_template("review/_card.html", word=word,
                            previous_available=_previous_available(word))
+
+
+def _dispatch_engine():
+    dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+    if not dispatch_url:
+        raise RuntimeError("DISPATCH_DATABASE_URL missing")
+    return create_engine(dispatch_url, pool_pre_ping=True)
+
+
+@bp.get("/bark/review/<token>")
+def bark_review_page(token):
+    """Public one-card review page opened from a signed Bark notification."""
+    engine = _dispatch_engine()
+    try:
+        with engine.begin() as conn:
+            word = review_links.get_review_link_word(
+                conn, current_app.config["SECRET_KEY"], token)
+    finally:
+        engine.dispose()
+    if word is None:
+        return render_template("review/bark_token.html", word=None), 410
+    return render_template("review/bark_token.html", word=word, token=token)
+
+
+@bp.post("/bark/review/<token>/grade")
+def bark_review_grade(token):
+    button = request.form.get("button", "")
+    engine = _dispatch_engine()
+    try:
+        with engine.begin() as conn:
+            result = review_links.apply_review_link_grade(
+                conn, current_app.config["SECRET_KEY"], token, button)
+    except ValueError:
+        abort(400)
+    finally:
+        engine.dispose()
+    if result is None:
+        return render_template("review/bark_token.html", word=None), 410
+    return render_template("review/bark_token.html", word=result.word,
+                           reviewed=True,
+                           already_reviewed=result.already_reviewed)
 
 
 @bp.route("/stats")
