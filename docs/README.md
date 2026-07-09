@@ -20,6 +20,7 @@ The root `AGENTS.md` contains the shortest operating protocol.
 | `PROGRESS.md` | Milestone history and pointers to archived process records. |
 | `daily-task-card.md` | Daily task card v1/v2 design and implementation notes. |
 | `THIRD_PARTY.md` | Third-party data and dependency notes, especially dictionary provenance. |
+| `strategy/2026-07-09-three-month-focus.md` | Three-month product direction anchor and prioritization filter. |
 
 ## Plans And Specs
 
@@ -28,6 +29,7 @@ Use these only when the task touches that subsystem.
 | Path | When to read |
 | --- | --- |
 | `plans/2026-07-07-daily-task-card.md` | Daily task card v2 / bingo card planning. |
+| `plans/2026-07-09-closed-beta-dual-track.md` | Closed-beta dual-track plan: daily loop hardening plus SessionPad validation. |
 | `superpowers/plans/2026-07-03-lute-reading-mvp.md` | Reading collection implementation plan context. |
 | `superpowers/specs/2026-07-03-lute-reading-mvp-design.md` | Reading collection design context. |
 | `arch/` | Architecture notes, if present and relevant to the task. |
