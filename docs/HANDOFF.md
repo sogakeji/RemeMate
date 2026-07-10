@@ -10,8 +10,8 @@
 - 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地回归：`pytest -q` -> 386 passed, 16 warnings。
-- 本地数据库迁移：`7e3f4a5b6c8d (head)`
+- 本地回归：`pytest -q` -> 390 passed, 16 warnings。
+- 本地数据库迁移：`8f4a5b6c7d9e (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -42,7 +42,8 @@
    B4 已加入面向指定登录邮箱的 7 天签名邀请，对方必须登录并确认；每个伙伴只有最新链接有效，
    数据库约束禁止自绑定和重复绑定，绑定后仍不暴露历史复盘。
    B5 已允许发送者从当前复盘的「帮他记」中逐条选择，生成不可变且幂等的反馈包快照；接收方
-   可从「我的 → 收到的反馈」查看。尚未做感谢、采纳、AI、guest 或实时协作。
+   可从「我的 → 收到的反馈」查看。B6 已加入接收方一次性感谢，发送者可见；尚未做采纳、AI、
+   guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
 ## 架构速记
@@ -72,6 +73,9 @@
   B5 使用 `partner_packets` + `partner_packet_items`；包只允许绑定关系中的发送者创建，发送者和
   接收者可读但都不能修改/删除。包保存标题、日期、双方显示名和条目正文快照，不向接收方开放
   原始复盘。迁移 head 为 `7e3f4a5b6c8d`。
+  B6 使用独立 `partner_packet_thanks` 表保存一次性感谢；复合外键确保感谢者就是包接收方，
+  FORCE RLS 允许双方查看、只允许接收方创建，不提供更新或删除策略。当前迁移 head 为
+  `8f4a5b6c7d9e`。
 
 ## 本机与线上命令
 

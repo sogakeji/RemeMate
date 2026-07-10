@@ -2626,6 +2626,22 @@ textarea.form-control {
     line-height: 1.65;
 }
 
+.packet-thank-action {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.packet-thanked {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+}
+
 @media (max-width: 640px) {
     .recap-saved-heading {
         align-items: flex-start;

@@ -6,10 +6,10 @@ import json
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.extensions import db
-from app.models.packet import PartnerPacket, PartnerPacketItem
+from app.models.packet import PartnerPacket, PartnerPacketItem, PartnerPacketThank
 from app.models.partner import LanguagePartner
 from app.models.recap import PartnerRecap, PartnerRecapItem
 from app.models.user import User
@@ -43,6 +43,7 @@ def create_packet(
         return None
     if partner.linked_user_id is None:
         raise ValueError("请先邀请伙伴绑定账号")
+    recipient_user_id = partner.linked_user_id
 
     rows = (
         PartnerRecapItem.query
@@ -67,14 +68,14 @@ def create_packet(
         recap, sender.display_name, partner.display_name, ordered_items,
     )
     existing = _find_exact_packet(
-        sender_user_id, partner.linked_user_id, recap_id, fingerprint,
+        sender_user_id, recipient_user_id, recap_id, fingerprint,
     )
     if existing is not None:
         return {"state": "existing", "packet": existing}
 
     packet = PartnerPacket(
         sender_user_id=sender_user_id,
-        recipient_user_id=partner.linked_user_id,
+        recipient_user_id=recipient_user_id,
         partner_id=partner_id,
         recap_id=recap_id,
         sender_display_name=sender.display_name,
@@ -96,7 +97,7 @@ def create_packet(
     except IntegrityError:
         db.session.rollback()
         existing = _find_exact_packet(
-            sender_user_id, partner.linked_user_id, recap_id, fingerprint,
+            sender_user_id, recipient_user_id, recap_id, fingerprint,
         )
         if existing is None:
             raise
@@ -119,7 +120,10 @@ def get_packet_for_user(
 ) -> PartnerPacket | None:
     return (
         PartnerPacket.query
-        .options(selectinload(PartnerPacket.items))
+        .options(
+            selectinload(PartnerPacket.items),
+            joinedload(PartnerPacket.thank),
+        )
         .filter(
             PartnerPacket.id == packet_id,
             or_(
@@ -129,6 +133,36 @@ def get_packet_for_user(
         )
         .first()
     )
+
+
+def thank_packet(recipient_user_id: int, packet_id: int) -> str | None:
+    packet = (
+        PartnerPacket.query
+        .options(joinedload(PartnerPacket.thank))
+        .filter_by(id=packet_id, recipient_user_id=recipient_user_id)
+        .first()
+    )
+    if packet is None:
+        return None
+    if packet.thank is not None:
+        return "existing"
+
+    thank = PartnerPacketThank(
+        packet_id=packet_id,
+        recipient_user_id=recipient_user_id,
+    )
+    db.session.add(thank)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        existing = PartnerPacketThank.query.filter_by(
+            packet_id=packet_id, recipient_user_id=recipient_user_id,
+        ).first()
+        if existing is None:
+            raise
+        return "existing"
+    return "created"
 
 
 def _normalize_item_ids(values) -> list[int]:

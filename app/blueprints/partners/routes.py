@@ -415,6 +415,17 @@ def show_packet(packet_id):
     )
 
 
+@bp.post("/partner-packets/<int:packet_id>/thank")
+@login_required
+def thank_packet(packet_id):
+    result = packets_svc.thank_packet(_uid(), packet_id)
+    if result is None:
+        abort(404)
+    if result == "created":
+        flash("感谢已送达")
+    return redirect(url_for("partners.show_packet", packet_id=packet_id))
+
+
 @bp.post(
     "/partners/<int:partner_id>/recaps/<int:recap_id>/items/"
     "<int:item_id>/delete",

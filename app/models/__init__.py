@@ -12,7 +12,7 @@ from app.models.conversation import Conversation, Message
 from app.models.push import PushLog
 from app.models.partner import LanguagePartner
 from app.models.recap import PartnerRecap, PartnerRecapItem
-from app.models.packet import PartnerPacket, PartnerPacketItem
+from app.models.packet import PartnerPacket, PartnerPacketItem, PartnerPacketThank
 
 __all__ = [
     "User", "UserSettings", "UserQuota", "TokenUsageLog",
@@ -26,5 +26,5 @@ __all__ = [
     "LanguagePartner",
     "PartnerRecap",
     "PartnerRecapItem",
-    "PartnerPacket", "PartnerPacketItem",
+    "PartnerPacket", "PartnerPacketItem", "PartnerPacketThank",
 ]

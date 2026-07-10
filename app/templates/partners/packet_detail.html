@@ -25,5 +25,18 @@
     </article>
     {% endfor %}
   </div>
+
+  <div class="packet-thank-action">
+    {% if packet.thank %}
+      <span class="packet-thanked">
+        {{ '已感谢' if is_recipient else '对方已感谢' }}
+      </span>
+    {% elif is_recipient %}
+      <form method="post" action="{{ url_for('partners.thank_packet', packet_id=packet.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn primary" type="submit">感谢对方</button>
+      </form>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

@@ -19,6 +19,10 @@ class PartnerPacket(db.Model):
             "content_fingerprint",
             name="uq_partner_packets_exact_snapshot",
         ),
+        db.UniqueConstraint(
+            "id", "recipient_user_id",
+            name="uq_partner_packets_id_recipient",
+        ),
         db.ForeignKeyConstraint(
             ["partner_id", "sender_user_id", "recipient_user_id"],
             [
@@ -73,6 +77,13 @@ class PartnerPacket(db.Model):
         lazy="select",
         order_by="PartnerPacketItem.position",
     )
+    thank = db.relationship(
+        "PartnerPacketThank",
+        backref="packet",
+        cascade="all, delete-orphan",
+        lazy="select",
+        uselist=False,
+    )
 
 
 class PartnerPacketItem(db.Model):
@@ -105,3 +116,22 @@ class PartnerPacketItem(db.Model):
     kind = db.Column(db.String(30), nullable=False)
     content = db.Column(db.Text, nullable=False)
     position = db.Column(db.Integer, nullable=False)
+
+
+class PartnerPacketThank(db.Model):
+    __tablename__ = "partner_packet_thanks"
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ["packet_id", "recipient_user_id"],
+            ["partner_packets.id", "partner_packets.recipient_user_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    packet_id = db.Column(db.Integer, primary_key=True)
+    recipient_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    thanked_at = db.Column(db.DateTime, default=utc_now, nullable=False)
