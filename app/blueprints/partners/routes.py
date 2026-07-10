@@ -407,11 +407,17 @@ def show_packet(packet_id):
     packet = packets_svc.get_packet_for_user(_uid(), packet_id)
     if packet is None:
         abort(404)
+    is_recipient = packet.recipient_user_id == _uid()
     return render_template(
         "partners/packet_detail.html",
         packet=packet,
         item_labels=recaps_svc.ITEM_LABELS,
-        is_recipient=packet.recipient_user_id == _uid(),
+        is_recipient=is_recipient,
+        adoptable_kinds=packets_svc.ADOPTABLE_KINDS,
+        adoption_source_ids=(
+            packets_svc.adoption_source_ids(_uid(), packet.items)
+            if is_recipient else {}
+        ),
     )
 
 
@@ -424,6 +430,30 @@ def thank_packet(packet_id):
     if result == "created":
         flash("感谢已送达")
     return redirect(url_for("partners.show_packet", packet_id=packet_id))
+
+
+@bp.post(
+    "/partner-packets/<int:packet_id>/items/<int:item_id>/add-candidate",
+)
+@login_required
+def adopt_packet_item(packet_id, item_id):
+    try:
+        result = packets_svc.add_received_item_to_candidates(
+            _uid(), packet_id, item_id, request.form.get("term", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for("partners.show_packet", packet_id=packet_id))
+    if result is None:
+        abort(404)
+    if result["state"] == "existing-word":
+        flash("这条内容已经在生词本中")
+        return redirect(url_for("partners.show_packet", packet_id=packet_id))
+    if result["state"] == "created":
+        flash("已加入候选词，请确认后入库")
+    return redirect(url_for(
+        "intake.candidates", source_id=result["source_id"],
+    ))
 
 
 @bp.post(

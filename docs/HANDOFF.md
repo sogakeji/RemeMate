@@ -10,8 +10,8 @@
 - 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地回归：`pytest -q` -> 390 passed, 16 warnings。
-- 本地数据库迁移：`8f4a5b6c7d9e (head)`
+- 本地回归：`pytest -q` -> 397 passed, 16 warnings。
+- 本地数据库迁移：`9a5b6c7d8e0f (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -42,8 +42,9 @@
    B4 已加入面向指定登录邮箱的 7 天签名邀请，对方必须登录并确认；每个伙伴只有最新链接有效，
    数据库约束禁止自绑定和重复绑定，绑定后仍不暴露历史复盘。
    B5 已允许发送者从当前复盘的「帮他记」中逐条选择，生成不可变且幂等的反馈包快照；接收方
-   可从「我的 → 收到的反馈」查看。B6 已加入接收方一次性感谢，发送者可见；尚未做采纳、AI、
-   guest 或实时协作。
+   可从「我的 → 收到的反馈」查看。B6 已加入接收方一次性感谢，发送者可见。B7 已允许接收方
+   把表达/修正手动整理后加入自己的候选词审核，采纳状态
+   对发送者不可见；尚未做 AI、guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
 ## 架构速记
@@ -76,6 +77,9 @@
   B6 使用独立 `partner_packet_thanks` 表保存一次性感谢；复合外键确保感谢者就是包接收方，
   FORCE RLS 允许双方查看、只允许接收方创建，不提供更新或删除策略。当前迁移 head 为
   `8f4a5b6c7d9e`。
+  B7 在反馈包上固化 `language_code`，并使用 `partner_packet_intakes` +
+  `partner_packet_item_adoptions` 保存接收方私有的候选词来源和采纳链接；发送者受 RLS 隔离，
+  看不到对方是否采纳。当前迁移 head 为 `9a5b6c7d8e0f`。
 
 ## 本机与线上命令
 

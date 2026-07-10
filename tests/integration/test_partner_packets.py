@@ -141,9 +141,10 @@ def test_selected_partner_items_arrive_as_immutable_snapshot(
 
     with bypass_engine.connect() as conn:
         packet = conn.execute(text(
-            "SELECT sender_user_id, recipient_user_id FROM partner_packets"
+            "SELECT sender_user_id, recipient_user_id, language_code "
+            "FROM partner_packets"
         )).one()
-    assert packet == (sender_id, recipient_id)
+    assert packet == (sender_id, recipient_id, "zh")
 
 
 def test_packet_contains_only_explicitly_selected_items(
@@ -191,6 +192,33 @@ def test_unbound_partner_cannot_receive_packet(app, client, bypass_engine):
             "SELECT count(*) FROM partner_packets WHERE sender_user_id = :sender"
         ), {"sender": sender_id}).scalar()
     assert count == 0
+
+
+def test_packet_requires_partner_learning_language(app, client, bypass_engine):
+    sender_id = provision_user(app, "packet-language-sender@t.com", PW)
+    recipient_id = provision_user(app, "packet-language-recipient@t.com", PW)
+    login(client, "packet-language-sender@t.com", PW)
+    partner_id = _create_partner(client)
+    _link_partner(bypass_engine, partner_id, recipient_id)
+    with bypass_engine.begin() as conn:
+        conn.execute(text(
+            "UPDATE language_partners SET learning_language_code = NULL "
+            "WHERE id = :partner"
+        ), {"partner": partner_id})
+    recap_id = _create_recap(client, partner_id)
+    recap_url = f"/partners/{partner_id}/recaps/{recap_id}"
+    item_id = _add_item(
+        client, recap_url, side="for_partner", kind="expression",
+        content="language is required",
+    )
+
+    response = _send_packet(client, recap_url, [item_id])
+    body = client.get(response.headers["Location"]).get_data(as_text=True)
+    assert "请先为伙伴设置正在学的语言" in body
+    with bypass_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT count(*) FROM partner_packets WHERE sender_user_id = :sender"
+        ), {"sender": sender_id}).scalar() == 0
 
 
 def test_for_me_or_foreign_recap_item_cannot_enter_packet(

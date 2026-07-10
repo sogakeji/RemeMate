@@ -2626,6 +2626,38 @@ textarea.form-control {
     line-height: 1.65;
 }
 
+.packet-adopt-form,
+.packet-adopted-link {
+    display: block;
+    margin-top: 12px;
+    color: var(--primary-color);
+    font-size: 13px;
+}
+
+.packet-adopt-form summary {
+    width: max-content;
+    cursor: pointer;
+}
+
+.packet-adopt-form form {
+    display: grid;
+    gap: 9px;
+    margin-top: 10px;
+}
+
+.packet-adopt-form textarea {
+    resize: vertical;
+}
+
+.packet-adopt-form .btn {
+    justify-self: end;
+}
+
+.packet-adopted-link {
+    width: max-content;
+    text-decoration: none;
+}
+
 .packet-thank-action {
     display: flex;
     justify-content: center;

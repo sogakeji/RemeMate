@@ -19,9 +19,27 @@
 
   <div class="packet-items">
     {% for item in packet.items %}
-    <article class="packet-item">
+    <article class="packet-item" data-packet-item-id="{{ item.id }}">
       <span>{{ item_labels.get(item.kind, item.kind) }}</span>
       <p>{{ item.content }}</p>
+      {% if is_recipient and packet.language_code and item.kind in adoptable_kinds %}
+        {% set source_id = adoption_source_ids.get(item.id) %}
+        {% if source_id %}
+        <a class="packet-adopted-link"
+           href="{{ url_for('intake.candidates', source_id=source_id) }}">去候选词审核</a>
+        {% else %}
+        <details class="packet-adopt-form">
+          <summary>加入候选词</summary>
+          <form method="post"
+                action="{{ url_for('partners.adopt_packet_item', packet_id=packet.id, item_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label">想记住的词或表达</label>
+            <textarea class="form-control" name="term" rows="2" maxlength="200" required>{{ item.content }}</textarea>
+            <button class="btn primary" type="submit">加入候选词</button>
+          </form>
+        </details>
+        {% endif %}
+      {% endif %}
     </article>
     {% endfor %}
   </div>

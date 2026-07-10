@@ -14,6 +14,11 @@ class PartnerPacket(db.Model):
             "item_count BETWEEN 1 AND 20",
             name="ck_partner_packets_item_count",
         ),
+        db.CheckConstraint(
+            "language_code IS NULL OR "
+            "language_code IN ('fr','en','ja','de','es','ru','zh')",
+            name="ck_partner_packets_language",
+        ),
         db.UniqueConstraint(
             "sender_user_id", "recipient_user_id", "recap_id",
             "content_fingerprint",
@@ -66,6 +71,7 @@ class PartnerPacket(db.Model):
     recipient_display_name = db.Column(db.String(100), nullable=False)
     recap_title = db.Column(db.String(120), nullable=True)
     session_date = db.Column(db.Date, nullable=False)
+    language_code = db.Column(db.String(10), nullable=True)
     content_fingerprint = db.Column(db.String(64), nullable=False)
     item_count = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
@@ -101,6 +107,10 @@ class PartnerPacketItem(db.Model):
             "packet_id", "position",
             name="uq_partner_packet_items_packet_position",
         ),
+        db.UniqueConstraint(
+            "id", "packet_id",
+            name="uq_partner_packet_items_id_packet",
+        ),
         db.Index(
             "ix_partner_packet_items_packet_position",
             "packet_id", "position",
@@ -135,3 +145,60 @@ class PartnerPacketThank(db.Model):
         nullable=False,
     )
     thanked_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+
+class PartnerPacketIntake(db.Model):
+    __tablename__ = "partner_packet_intakes"
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ["packet_id", "recipient_user_id"],
+            ["partner_packets.id", "partner_packets.recipient_user_id"],
+            ondelete="CASCADE",
+        ),
+        db.ForeignKeyConstraint(
+            ["source_id", "recipient_user_id"],
+            ["intake_sources.id", "intake_sources.user_id"],
+            ondelete="CASCADE",
+        ),
+        db.UniqueConstraint(
+            "source_id", name="uq_partner_packet_intakes_source",
+        ),
+    )
+
+    packet_id = db.Column(db.Integer, primary_key=True)
+    recipient_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+
+class PartnerPacketItemAdoption(db.Model):
+    __tablename__ = "partner_packet_item_adoptions"
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ["packet_item_id", "packet_id"],
+            ["partner_packet_items.id", "partner_packet_items.packet_id"],
+            ondelete="CASCADE",
+        ),
+        db.ForeignKeyConstraint(
+            ["packet_id", "recipient_user_id"],
+            ["partner_packets.id", "partner_packets.recipient_user_id"],
+            ondelete="CASCADE",
+        ),
+        db.ForeignKeyConstraint(
+            ["candidate_id", "recipient_user_id"],
+            ["word_candidates.id", "word_candidates.user_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    packet_item_id = db.Column(db.Integer, primary_key=True)
+    packet_id = db.Column(db.Integer, nullable=False)
+    recipient_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    candidate_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
