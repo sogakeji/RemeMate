@@ -11,9 +11,9 @@
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
 - 本地回归：`pytest -q -k 'not test_settings_save_bark_notification_preferences'`
-  -> 371 passed, 1 deselected, 16 warnings。未过滤全量为 370 passed, 1 failed：
+  -> 378 passed, 1 deselected, 16 warnings。未过滤全量为 378 passed, 1 failed：
   当前 WSL DNS 将 `api.day.app` 映射到保留测试网段 `198.18.0.97`，Bark SSRF 防护按设计拒绝。
-- 本地数据库迁移：`5c1d2e3f4a6b (head)`
+- 本地数据库迁移：`6d2e3f4a5b7c (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -41,7 +41,9 @@
    当前侧切换 + 左侧模块按钮 + 右侧大输入区，不使用新增/编辑类型下拉框。
    B3 已把「帮自己记」中的表达 / 自然说法幂等接入候选词审核，不调用 AI；每张复盘首次
    生成的 SessionPad 来源会固化目标语言，数据库复合外键阻止跨用户挂接。
-   尚未做账号绑定、反馈包、感谢、采纳、AI、guest 或实时协作。
+   B4 已加入面向指定登录邮箱的 7 天签名邀请，对方必须登录并确认；每个伙伴只有最新链接有效，
+   数据库约束禁止自绑定和重复绑定，绑定后仍不暴露历史复盘。尚未做反馈包、感谢、采纳、AI、
+   guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
 ## 架构速记
@@ -65,7 +67,9 @@
   复合外键把 owner 贯穿伙伴、信纸、条目。`private_note` 只允许 `for_me`，`correction`
   只允许 `for_partner`。B3 通过 `intake_source_id` + `candidate_id` 接到现有候选词管道；
   只有 `for_me` 的 `expression` / `natural_phrase` 可加入，复盘仍是作者私有草稿，
-  没有任何发送行为。
+  没有任何发送行为。B4 在 `language_partners` 增加 `linked_user_id` 和待确认令牌哈希；邀请令牌
+  绑定目标邮箱指纹，确认跨越两个用户边界时只允许 `partner_invites` 服务通过 BYPASSRLS 事务
+  更新这一条关系。迁移 head 为 `6d2e3f4a5b7c`。
 
 ## 本机与线上命令
 

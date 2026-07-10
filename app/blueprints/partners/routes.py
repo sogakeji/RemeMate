@@ -2,10 +2,15 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint, abort, current_app, flash, redirect, render_template, request,
+    url_for,
+)
 from flask_login import current_user, login_required
+from sqlalchemy import create_engine
 
 from app.services import partners as partners_svc
+from app.services import partner_invites as invites_svc
 from app.services import recaps as recaps_svc
 from app.services.words import _LANGUAGE_NAMES
 
@@ -15,6 +20,22 @@ bp = Blueprint("partners", __name__)
 
 def _uid() -> int:
     return current_user.id
+
+
+def _dispatch_engine():
+    dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+    if not dispatch_url:
+        raise RuntimeError("DISPATCH_DATABASE_URL missing")
+    return create_engine(dispatch_url, pool_pre_ping=True)
+
+
+def _render_partner_detail(partner):
+    return render_template(
+        "partners/detail.html",
+        partner=partner,
+        recaps=recaps_svc.list_recaps(_uid(), partner.id),
+        language_names=_LANGUAGE_NAMES,
+    )
 
 
 def _form_values() -> dict:
@@ -78,10 +99,89 @@ def show(partner_id):
     partner = partners_svc.get_partner(_uid(), partner_id)
     if partner is None:
         abort(404)
+    return _render_partner_detail(partner)
+
+
+@bp.post("/partners/<int:partner_id>/invite")
+@login_required
+def create_invite(partner_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    if partner is None:
+        abort(404)
+    if partner.linked_user_id is not None:
+        flash("这位伙伴已经绑定账号")
+        return redirect(url_for("partners.show", partner_id=partner_id))
+
+    try:
+        email = invites_svc.normalize_recipient_email(
+            request.form.get("recipient_email"),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return _render_partner_detail(partner), 400
+    if email == current_user.email.strip().lower():
+        flash("不能邀请自己的账号")
+        return _render_partner_detail(partner), 400
+
+    token = invites_svc.make_partner_invite_token(
+        current_app.config["SECRET_KEY"], _uid(), partner_id, email,
+    )
+    if not partners_svc.set_pending_invite(
+        _uid(), partner_id, invites_svc.partner_invite_token_hash(token),
+    ):
+        flash("这位伙伴已经绑定账号")
+        return redirect(url_for("partners.show", partner_id=partner_id))
+    base_url = current_app.config.get("PUBLIC_BASE_URL") or request.host_url
+    invite_url = invites_svc.partner_invite_url(base_url, token)
     return render_template(
-        "partners/detail.html", partner=partner,
-        recaps=recaps_svc.list_recaps(_uid(), partner_id),
-        language_names=_LANGUAGE_NAMES,
+        "partners/invite_created.html",
+        partner=partner,
+        invite_url=invite_url,
+    )
+
+
+@bp.route("/partners/invitations/<token>", methods=["GET", "POST"])
+@login_required
+def invitation(token):
+    engine = _dispatch_engine()
+    try:
+        if request.method == "POST":
+            try:
+                with engine.begin() as conn:
+                    result = invites_svc.accept_partner_invite(
+                        conn,
+                        current_app.config["SECRET_KEY"],
+                        token,
+                        _uid(),
+                        current_user.email,
+                    )
+            except ValueError as exc:
+                return render_template(
+                    "partners/invitation.html", error=str(exc),
+                ), 400
+            if result is None:
+                return render_template(
+                    "partners/invitation.html", unavailable=True,
+                ), 410
+            return render_template(
+                "partners/invitation.html", accepted=True, invite=result,
+            )
+
+        with engine.begin() as conn:
+            preview = invites_svc.preview_partner_invite(
+                conn,
+                current_app.config["SECRET_KEY"],
+                token,
+                current_user.email,
+            )
+    finally:
+        engine.dispose()
+    if preview is None:
+        return render_template(
+            "partners/invitation.html", unavailable=True,
+        ), 410
+    return render_template(
+        "partners/invitation.html", invite=preview, token=token,
     )
 
 

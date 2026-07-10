@@ -17,7 +17,9 @@
           {% if partner.native_language_code %}母语：{{ language_names.get(partner.native_language_code) }}{% endif %}
           {% if partner.learning_language_code %}正在学：{{ language_names.get(partner.learning_language_code) }}{% endif %}
         </span>
-        <span class="settings-chip">未绑定账号</span>
+        <span class="settings-chip">
+          {{ '已绑定账号' if partner.linked_user_id else '未绑定账号' }}
+        </span>
       </a>
       {% endfor %}
     </div>

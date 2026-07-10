@@ -6,7 +6,9 @@
   <div class="partners-page-header">
     <div>
       <h1>{{ partner.display_name }}</h1>
-      <span class="settings-chip">未绑定账号</span>
+      <span class="settings-chip">
+        {{ '已绑定账号' if partner.linked_user_id else '未绑定账号' }}
+      </span>
     </div>
     <a class="btn default" href="{{ url_for('partners.edit', partner_id=partner.id) }}">编辑</a>
   </div>
@@ -25,6 +27,25 @@
       <p>{{ partner.private_note or '暂无' }}</p>
     </div>
   </section>
+
+  {% if not partner.linked_user_id %}
+  <section class="form-card partner-invite-card">
+    <div>
+      <h2>邀请绑定</h2>
+      <p>对方登录并确认后，你才能向这个账号发送反馈包。</p>
+    </div>
+    <form method="post" action="{{ url_for('partners.create_invite', partner_id=partner.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="form-label" for="recipient_email">对方的 RemeMate 登录邮箱</label>
+      <div class="partner-invite-form-row">
+        <input class="form-control" id="recipient_email" name="recipient_email"
+               type="email" maxlength="255" autocomplete="email" required>
+        <button class="btn primary" type="submit">生成邀请链接</button>
+      </div>
+      <p class="form-help">系统不会显示该邮箱是否已注册；链接仅对应账号可确认，7 天内有效。</p>
+    </form>
+  </section>
+  {% endif %}
 
   <section class="partner-recaps-placeholder">
     <div class="partner-section-header">

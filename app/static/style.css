@@ -2036,6 +2036,67 @@ textarea.form-control {
     overflow-wrap: anywhere;
 }
 
+.partner-invite-card {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(300px, 1.2fr);
+    gap: 28px;
+    margin-top: 18px;
+}
+
+.partner-invite-card h2,
+.partner-invite-result h1,
+.partner-invitation-page h1 {
+    margin: 0 0 8px;
+    text-align: left;
+    letter-spacing: 0;
+}
+
+.partner-invite-card h2 {
+    font-size: 20px;
+}
+
+.partner-invite-card p,
+.partner-invite-result p,
+.partner-invitation-page p {
+    color: var(--text-secondary);
+}
+
+.partner-invite-form-row,
+.partner-invite-copy-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.partner-invite-form-row .btn,
+.partner-invite-copy-row .btn {
+    white-space: nowrap;
+}
+
+.partner-invite-card .form-help,
+.partner-invite-result .form-help {
+    margin: 8px 0 0;
+    font-size: 13px;
+}
+
+.partner-invite-result,
+.partner-invitation-page {
+    display: grid;
+    gap: 18px;
+}
+
+.partner-invite-result h1,
+.partner-invitation-page h1 {
+    font-size: 28px;
+}
+
+.partner-invite-privacy {
+    padding: 14px;
+    border-left: 3px solid var(--primary-color);
+    background: var(--input-bg);
+}
+
 .partner-recaps-placeholder {
     margin-top: 32px;
 }
@@ -2062,6 +2123,16 @@ textarea.form-control {
     .partner-language-grid {
         grid-template-columns: 1fr;
         gap: 0;
+    }
+
+    .partner-invite-card {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .partner-invite-form-row,
+    .partner-invite-copy-row {
+        grid-template-columns: 1fr;
     }
 }
 

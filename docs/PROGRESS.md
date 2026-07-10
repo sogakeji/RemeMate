@@ -47,13 +47,21 @@
 - `partner_recaps.intake_source_id` 与 `partner_recap_items.candidate_id` 使用同用户复合外键，
   防止跨用户串接来源或候选词。
 
+### 2026-07-10：SessionPad B4 伙伴确认绑定
+- 伙伴所有者可以为指定登录邮箱生成 7 天邀请链接，对方登录后主动确认绑定。
+- 链接只携带邮箱指纹和签名，不暴露邮箱，也不在生成时查询账号是否存在。
+- 每位伙伴只有最新邀请有效；新链接覆盖旧令牌哈希，确认后立即清除。
+- 数据库拒绝自绑定和同一用户重复绑定；接收方确认后仍无法查看所有者的历史复盘和私人内容。
+- 本片只建立未来反馈包的可靠收件关系，不提前实现反馈包或消息系统。
+
 ## 当前 Git
 
 - 分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近回归验证：371 passed, 1 deselected, 16 warnings；被排除的是当前 WSL DNS 映射导致的
-  Bark 公网地址保存测试，SessionPad 与 intake 相关测试 38 passed。
+- 最近回归验证：378 passed, 1 deselected, 16 warnings；未过滤全量为 378 passed, 1 failed，
+  唯一失败仍是当前 WSL DNS 映射导致的 Bark 公网地址保存测试。SessionPad B4 的伙伴、复盘与
+  邀请相关测试 31 passed。
 
 ## 过程归档
 
