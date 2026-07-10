@@ -40,12 +40,20 @@
 - 私人伙伴笔记只能进入帮自己记，错误修正只能进入帮他记；尚无发送或共享行为。
 - `partner_recaps` 与 `partner_recap_items` 启用 FORCE RLS 和复合所有权外键。
 
+### 2026-07-10：SessionPad B3 接入候选词
+- 「帮自己记」中的表达和自然说法可主动加入现有候选词审核，不调用 AI。
+- 同一条记录幂等加入；私人笔记、下次话题和「帮他记」内容不进入自己的词库。
+- 每张复盘复用一个 `sessionpad` intake source，首次加入时固化目标语言。
+- `partner_recaps.intake_source_id` 与 `partner_recap_items.candidate_id` 使用同用户复合外键，
+  防止跨用户串接来源或候选词。
+
 ## 当前 Git
 
 - 分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近全量验证：`pytest -q` -> 363 passed, 16 warnings
+- 最近回归验证：371 passed, 1 deselected, 16 warnings；被排除的是当前 WSL DNS 映射导致的
+  Bark 公网地址保存测试，SessionPad 与 intake 相关测试 38 passed。
 
 ## 过程归档
 

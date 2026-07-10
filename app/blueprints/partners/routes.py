@@ -172,6 +172,8 @@ def show_recap(partner_id, recap_id):
         item_choice_labels=recaps_svc.ITEM_CHOICE_LABELS,
         item_labels=recaps_svc.ITEM_LABELS,
         item_prompts=recaps_svc.ITEM_PROMPTS,
+        candidate_kinds=recaps_svc.CANDIDATE_KINDS,
+        candidate_source_ids=recaps_svc.candidate_source_ids(_uid(), items),
         active_side=active_side,
         active_kind=_recap_kind(active_side),
     )
@@ -223,6 +225,41 @@ def update_recap_item(partner_id, recap_id, item_id):
     return redirect(url_for(
         "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
         side=item.side, kind=item.kind,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/"
+    "<int:item_id>/add-candidate",
+)
+@login_required
+def add_recap_item_candidate(partner_id, recap_id, item_id):
+    try:
+        result = recaps_svc.add_item_to_candidates(
+            _uid(), partner_id, recap_id, item_id,
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_me",
+        ))
+    if result is None:
+        abort(404)
+    if result["state"] == "existing-word":
+        flash("这条内容已经在生词本中")
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_me",
+        ))
+    if result["state"] == "created":
+        flash("已加入候选词，请确认后入库")
+    return redirect(url_for(
+        "intake.candidates", source_id=result["source_id"],
     ))
 
 

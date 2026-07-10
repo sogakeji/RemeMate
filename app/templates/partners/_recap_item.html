@@ -21,6 +21,19 @@
         <button class="btn primary" type="submit">保存</button>
       </form>
     </details>
+    {% if item.side == 'for_me' and item.kind in candidate_kinds %}
+      {% set candidate_source_id = candidate_source_ids.get(item.id) %}
+      {% if candidate_source_id %}
+      <a class="recap-candidate-action"
+         href="{{ url_for('intake.candidates', source_id=candidate_source_id) }}">去候选词审核</a>
+      {% else %}
+      <form method="post"
+            action="{{ url_for('partners.add_recap_item_candidate', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="recap-candidate-action" type="submit">加入候选词</button>
+      </form>
+      {% endif %}
+    {% endif %}
     <form method="post"
           action="{{ url_for('partners.delete_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

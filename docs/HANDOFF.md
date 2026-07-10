@@ -10,8 +10,10 @@
 - 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地测试基线：`pytest -q` -> 363 passed, 16 warnings
-- 本地数据库迁移：`4b0c3d4e5f6a (head)`
+- 本地回归：`pytest -q -k 'not test_settings_save_bark_notification_preferences'`
+  -> 371 passed, 1 deselected, 16 warnings。未过滤全量为 370 passed, 1 failed：
+  当前 WSL DNS 将 `api.day.app` 映射到保留测试网段 `198.18.0.97`，Bark SSRF 防护按设计拒绝。
+- 本地数据库迁移：`5c1d2e3f4a6b (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -37,6 +39,8 @@
 3. SessionPad：B1「语言伙伴基础」已合入本地 `master`；当前分支完成 B2「复盘信纸 v1」，
    包括日期/标题、帮自己记/帮他记两栏、结构化条目的新增/修改/删除和 RLS。编辑页采用
    当前侧切换 + 左侧模块按钮 + 右侧大输入区，不使用新增/编辑类型下拉框。
+   B3 已把「帮自己记」中的表达 / 自然说法幂等接入候选词审核，不调用 AI；每张复盘首次
+   生成的 SessionPad 来源会固化目标语言，数据库复合外键阻止跨用户挂接。
    尚未做账号绑定、反馈包、感谢、采纳、AI、guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
@@ -59,7 +63,9 @@
   `user_id`，数据库启用 FORCE RLS。当前只有未绑定伙伴档案，未建立用户绑定关系。
 - SessionPad B2 使用 `partner_recaps` + `partner_recap_items`；信纸和条目同样 FORCE RLS，
   复合外键把 owner 贯穿伙伴、信纸、条目。`private_note` 只允许 `for_me`，`correction`
-  只允许 `for_partner`。B2 仍是作者私有草稿，没有任何发送行为。
+  只允许 `for_partner`。B3 通过 `intake_source_id` + `candidate_id` 接到现有候选词管道；
+  只有 `for_me` 的 `expression` / `natural_phrase` 可加入，复盘仍是作者私有草稿，
+  没有任何发送行为。
 
 ## 本机与线上命令
 

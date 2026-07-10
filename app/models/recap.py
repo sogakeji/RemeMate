@@ -17,6 +17,10 @@ class PartnerRecap(db.Model):
             ["language_partners.id", "language_partners.user_id"],
             ondelete="CASCADE",
         ),
+        db.ForeignKeyConstraint(
+            ["intake_source_id", "user_id"],
+            ["intake_sources.id", "intake_sources.user_id"],
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -27,6 +31,11 @@ class PartnerRecap(db.Model):
     partner_id = db.Column(db.Integer, nullable=False)
     session_date = db.Column(db.Date, nullable=False)
     title = db.Column(db.String(120), nullable=True)
+    intake_source_id = db.Column(
+        db.Integer,
+        db.ForeignKey("intake_sources.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=utc_now, onupdate=utc_now, nullable=False,
@@ -64,6 +73,10 @@ class PartnerRecapItem(db.Model):
             ["partner_recaps.id", "partner_recaps.user_id"],
             ondelete="CASCADE",
         ),
+        db.ForeignKeyConstraint(
+            ["candidate_id", "user_id"],
+            ["word_candidates.id", "word_candidates.user_id"],
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -75,6 +88,11 @@ class PartnerRecapItem(db.Model):
     side = db.Column(db.String(20), nullable=False)
     kind = db.Column(db.String(30), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    candidate_id = db.Column(
+        db.Integer,
+        db.ForeignKey("word_candidates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=utc_now, onupdate=utc_now, nullable=False,
