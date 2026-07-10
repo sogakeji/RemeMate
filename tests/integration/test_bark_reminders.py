@@ -142,6 +142,8 @@ def test_review_reminder_cli_skips_users_without_due_words(
     def fail_post(*args, **kwargs):
         raise AssertionError("should not send without due words")
 
+    monkeypatch.setattr(
+        notifications, "utc_now", lambda: datetime(2026, 7, 9, 12, 0, 0))
     monkeypatch.setattr(notifications.requests, "post", fail_post)
 
     result = runner.invoke(args=["send-review-reminders"])
