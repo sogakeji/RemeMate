@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ partner.display_name }} · 语言伙伴{% endblock %}
+{% block content %}
+<div class="container partner-detail-page">
+  <a class="back-link" href="{{ url_for('partners.index') }}">← 语言伙伴</a>
+  <div class="partners-page-header">
+    <div>
+      <h1>{{ partner.display_name }}</h1>
+      <span class="settings-chip">未绑定账号</span>
+    </div>
+    <a class="btn default" href="{{ url_for('partners.edit', partner_id=partner.id) }}">编辑</a>
+  </div>
+
+  <section class="form-card partner-profile">
+    <div class="partner-profile-row">
+      <span>母语</span>
+      <strong>{{ language_names.get(partner.native_language_code, '未设置') }}</strong>
+    </div>
+    <div class="partner-profile-row">
+      <span>正在学</span>
+      <strong>{{ language_names.get(partner.learning_language_code, '未设置') }}</strong>
+    </div>
+    <div class="partner-profile-note">
+      <span>私人备注</span>
+      <p>{{ partner.private_note or '暂无' }}</p>
+    </div>
+  </section>
+
+  <section class="partner-recaps-placeholder">
+    <h2>复盘</h2>
+    <div class="word-card partner-empty"><p>还没有复盘信纸。</p></div>
+  </section>
+</div>
+{% endblock %}

@@ -10,6 +10,7 @@ from app.models.reading import ReadingDocument, ReadingLookup
 from app.models.social import SentenceUpvote
 from app.models.conversation import Conversation, Message
 from app.models.push import PushLog
+from app.models.partner import LanguagePartner
 
 __all__ = [
     "User", "UserSettings", "UserQuota", "TokenUsageLog",
@@ -20,4 +21,5 @@ __all__ = [
     "SentenceUpvote",
     "Conversation", "Message",
     "PushLog",
+    "LanguagePartner",
 ]

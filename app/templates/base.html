@@ -59,6 +59,7 @@
                  stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
           <div class="nav-menu-panel" role="menu" aria-label="我的菜单">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('partners.index') }}">语言伙伴</a>
             <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.stats') }}">统计</a>
             <a class="nav-menu-link" role="menuitem" href="{{ url_for('main.settings') }}">设置</a>
             {% if current_user.role == 'admin' %}

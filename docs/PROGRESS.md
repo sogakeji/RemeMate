@@ -28,12 +28,17 @@
 - 部署到云机 `/srv/rememate`，数据库迁移到 `2e79a6ececcc`。
 - 线上 `flask doctor --strict` 全 OK，阅读词典数据部署到 `/srv/rememate-data/dictionaries`。
 
+### 2026-07-10：Bark 回流与 SessionPad B1
+- Bark 补齐到期词提醒，以及签名链接打开单词三按钮并回流 SRS 熟练度。
+- SessionPad 开始特色验证，第一切片只实现私有语言伙伴档案的创建、列表、详情与编辑。
+- `language_partners` 启用 FORCE RLS；账号绑定、复盘信纸、反馈包和 AI 均留在后续切片。
+
 ## 当前 Git
 
-- 分支：`master`
+- 分支：`sessionpad-partners-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近全量验证：`pytest -q` -> 341 passed, 16 warnings
+- 最近全量验证：`pytest -q` -> 354 passed, 16 warnings
 
 ## 过程归档
 
