@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 
 from app.services import partners as partners_svc
 from app.services import partner_invites as invites_svc
+from app.services import packets as packets_svc
 from app.services import recaps as recaps_svc
 from app.services.words import _LANGUAGE_NAMES
 
@@ -361,6 +362,57 @@ def add_recap_item_candidate(partner_id, recap_id, item_id):
     return redirect(url_for(
         "intake.candidates", source_id=result["source_id"],
     ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/packets",
+)
+@login_required
+def send_packet(partner_id, recap_id):
+    try:
+        result = packets_svc.create_packet(
+            _uid(), partner_id, recap_id, request.form.getlist("item_ids"),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_partner",
+        ))
+    if result is None:
+        abort(404)
+    if result["state"] == "created":
+        flash("反馈包已发送")
+    else:
+        flash("这组内容已经发送过")
+    return redirect(url_for(
+        "partners.show_packet", packet_id=result["packet"].id,
+    ))
+
+
+@bp.get("/partner-packets")
+@login_required
+def packet_inbox():
+    return render_template(
+        "partners/packet_inbox.html",
+        packets=packets_svc.list_received_packets(_uid()),
+    )
+
+
+@bp.get("/partner-packets/<int:packet_id>")
+@login_required
+def show_packet(packet_id):
+    packet = packets_svc.get_packet_for_user(_uid(), packet_id)
+    if packet is None:
+        abort(404)
+    return render_template(
+        "partners/packet_detail.html",
+        packet=packet,
+        item_labels=recaps_svc.ITEM_LABELS,
+        is_recipient=packet.recipient_user_id == _uid(),
+    )
 
 
 @bp.post(

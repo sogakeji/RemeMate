@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ packet.recap_title or '语言交换反馈' }} · RemeMate{% endblock %}
+{% block content %}
+<div class="container packet-page">
+  {% if is_recipient %}
+  <a class="back-link" href="{{ url_for('partners.packet_inbox') }}">← 收到的反馈</a>
+  {% else %}
+  <a class="back-link" href="{{ url_for('partners.show_recap', partner_id=packet.partner_id, recap_id=packet.recap_id) }}">← 原复盘</a>
+  {% endif %}
+
+  <header class="packet-detail-heading">
+    <span class="settings-chip">{{ '收到的反馈' if is_recipient else '已发送' }}</span>
+    <h1>{{ packet.recap_title or '语言交换反馈' }}</h1>
+    <p>
+      {% if is_recipient %}来自 {{ packet.sender_display_name }}{% else %}发送给 {{ packet.recipient_display_name }}{% endif %}
+      · {{ packet.session_date.isoformat() }}
+    </p>
+  </header>
+
+  <div class="packet-items">
+    {% for item in packet.items %}
+    <article class="packet-item">
+      <span>{{ item_labels.get(item.kind, item.kind) }}</span>
+      <p>{{ item.content }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

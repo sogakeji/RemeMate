@@ -1,5 +1,14 @@
 <article class="recap-item" data-recap-item-id="{{ item.id }}">
-  <span class="recap-item-kind">{{ item_labels.get(item.kind, item.kind) }}</span>
+  <div class="recap-item-topline">
+    <span class="recap-item-kind">{{ item_labels.get(item.kind, item.kind) }}</span>
+    {% if item.side == 'for_partner' and partner.linked_user_id %}
+    <label class="recap-packet-select">
+      <input type="checkbox" name="item_ids" value="{{ item.id }}"
+             form="send-packet-form">
+      <span>选入反馈包</span>
+    </label>
+    {% endif %}
+  </div>
   <p>{{ item.content }}</p>
   <div class="recap-item-actions">
     <details class="recap-item-edit">

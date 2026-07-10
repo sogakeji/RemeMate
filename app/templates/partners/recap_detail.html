@@ -69,8 +69,23 @@
 
     <div class="recap-saved-section">
       <div class="recap-saved-heading">
-        <h3>已记录</h3>
-        <span>{{ items[side]|length }}</span>
+        <div>
+          <h3>已记录</h3>
+          <span>{{ items[side]|length }}</span>
+        </div>
+        {% if side == 'for_partner' and items[side] %}
+          {% if partner.linked_user_id %}
+          <form id="send-packet-form" method="post"
+                action="{{ url_for('partners.send_packet', partner_id=partner.id, recap_id=recap.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn primary" type="submit">发送所选</button>
+          </form>
+          {% else %}
+          <a class="recap-bind-note" href="{{ url_for('partners.show', partner_id=partner.id) }}">
+            绑定账号后可发送
+          </a>
+          {% endif %}
+        {% endif %}
       </div>
       <div class="recap-items">
         {% for item in items[side] %}

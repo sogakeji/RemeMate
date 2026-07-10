@@ -9,6 +9,10 @@ class LanguagePartner(db.Model):
         db.UniqueConstraint("id", "user_id",
                             name="uq_language_partners_id_user_id"),
         db.UniqueConstraint(
+            "id", "user_id", "linked_user_id",
+            name="uq_language_partners_id_user_linked_user",
+        ),
+        db.UniqueConstraint(
             "user_id", "linked_user_id",
             name="uq_language_partners_user_linked_user",
         ),

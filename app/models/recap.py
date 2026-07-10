@@ -8,6 +8,10 @@ class PartnerRecap(db.Model):
     __table_args__ = (
         db.UniqueConstraint("id", "user_id",
                             name="uq_partner_recaps_id_user_id"),
+        db.UniqueConstraint(
+            "id", "user_id", "partner_id",
+            name="uq_partner_recaps_id_user_partner",
+        ),
         db.Index(
             "ix_partner_recaps_user_partner_date",
             "user_id", "partner_id", "session_date",
