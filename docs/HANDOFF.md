@@ -7,10 +7,11 @@
 ## 当前状态
 
 - 日期：2026-07-10
-- 当前分支：`sessionpad-partners-v1`
+- 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地测试基线：`pytest -q` -> 354 passed, 16 warnings
+- 本地测试基线：`pytest -q` -> 362 passed, 16 warnings
+- 本地数据库迁移：`4b0c3d4e5f6a (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -33,8 +34,9 @@
 
 1. Bark 能力补全：已合入 `master`，包括保存、测试推送、到期词提醒、签名链接打开三按钮评分回流。
 2. 阅读收词小收口：加入后的去向感、候选审核和词库详情的来源感。
-3. SessionPad：当前分支已完成 B1「语言伙伴基础」：私有伙伴档案的创建、列表、详情与编辑，
-   等待真机验收。本切片没有账号绑定、复盘信纸、反馈包、感谢、AI、guest 或实时协作。
+3. SessionPad：B1「语言伙伴基础」已合入本地 `master`；当前分支完成 B2「复盘信纸 v1」，
+   包括日期/标题、帮自己记/帮他记两栏、结构化条目的新增/修改/删除和 RLS，等待真机验收。
+   尚未做账号绑定、反馈包、感谢、采纳、AI、guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
 ## 架构速记
@@ -54,6 +56,9 @@
   生产需设置 `PUBLIC_BASE_URL=https://rememate.com`，否则通知不会带可点击回流链接。
 - SessionPad B1 使用 `language_partners` 表；记录只属于创建者，服务层所有查询显式传
   `user_id`，数据库启用 FORCE RLS。当前只有未绑定伙伴档案，未建立用户绑定关系。
+- SessionPad B2 使用 `partner_recaps` + `partner_recap_items`；信纸和条目同样 FORCE RLS，
+  复合外键把 owner 贯穿伙伴、信纸、条目。`private_note` 只允许 `for_me`，`correction`
+  只允许 `for_partner`。B2 仍是作者私有草稿，没有任何发送行为。
 
 ## 本机与线上命令
 

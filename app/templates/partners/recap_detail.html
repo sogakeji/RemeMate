@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ recap.title or '语言交换复盘' }} · {{ partner.display_name }}{% endblock %}
+{% block content %}
+<div class="container recap-page">
+  <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) }}">← {{ partner.display_name }}</a>
+  <div class="recap-page-heading">
+    <div>
+      <h1>{{ recap.title or '语言交换复盘' }}</h1>
+      <p>{{ recap.session_date.isoformat() }}</p>
+    </div>
+  </div>
+  <div class="recap-columns">
+    <section class="recap-column recap-for-me" data-recap-column="for_me">
+      <h2>帮自己记</h2>
+      <div class="recap-items">
+        {% for item in items.for_me %}
+        {% include "partners/_recap_item.html" %}
+        {% else %}
+        <div class="recap-column-empty">还没有记录</div>
+        {% endfor %}
+      </div>
+      <form class="recap-add-form" method="post"
+            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="side" value="for_me">
+        <select class="form-control" name="kind" aria-label="帮自己记的记录类型">
+          {% for value, label in item_choices.for_me %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+        <textarea class="form-control" name="content" rows="3" maxlength="2000" required
+                  aria-label="帮自己记的内容"></textarea>
+        <button class="btn primary" type="submit">记下来</button>
+      </form>
+    </section>
+    <section class="recap-column recap-for-partner" data-recap-column="for_partner">
+      <h2>帮他记</h2>
+      <div class="recap-items">
+        {% for item in items.for_partner %}
+        {% include "partners/_recap_item.html" %}
+        {% else %}
+        <div class="recap-column-empty">还没有记录</div>
+        {% endfor %}
+      </div>
+      <form class="recap-add-form" method="post"
+            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="side" value="for_partner">
+        <select class="form-control" name="kind" aria-label="帮他记的记录类型">
+          {% for value, label in item_choices.for_partner %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+        <textarea class="form-control" name="content" rows="3" maxlength="2000" required
+                  aria-label="帮他记的内容"></textarea>
+        <button class="btn primary" type="submit">记下来</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

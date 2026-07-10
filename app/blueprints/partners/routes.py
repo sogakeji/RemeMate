@@ -1,8 +1,12 @@
-"""Private language-partner pages."""
+"""Private language-partner and SessionPad recap pages."""
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.services import partners as partners_svc
+from app.services import recaps as recaps_svc
 from app.services.words import _LANGUAGE_NAMES
 
 
@@ -65,6 +69,7 @@ def show(partner_id):
         abort(404)
     return render_template(
         "partners/detail.html", partner=partner,
+        recaps=recaps_svc.list_recaps(_uid(), partner_id),
         language_names=_LANGUAGE_NAMES,
     )
 
@@ -99,3 +104,116 @@ def update(partner_id):
         abort(404)
     flash("已更新语言伙伴")
     return redirect(url_for("partners.show", partner_id=partner.id))
+
+
+@bp.get("/partners/<int:partner_id>/recaps/new")
+@login_required
+def new_recap(partner_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    if partner is None:
+        abort(404)
+    return render_template(
+        "partners/recap_form.html", partner=partner,
+        default_date=datetime.now(
+            ZoneInfo(current_user.timezone or "Asia/Shanghai")
+        ).date().isoformat(),
+    )
+
+
+@bp.post("/partners/<int:partner_id>/recaps")
+@login_required
+def create_recap(partner_id):
+    values = {
+        "session_date": request.form.get("session_date", ""),
+        "title": request.form.get("title", ""),
+    }
+    try:
+        recap = recaps_svc.create_recap(_uid(), partner_id, **values)
+    except ValueError as exc:
+        partner = partners_svc.get_partner(_uid(), partner_id)
+        if partner is None:
+            abort(404)
+        flash(str(exc))
+        return render_template(
+            "partners/recap_form.html", partner=partner,
+            form_values=values, default_date=values["session_date"],
+        ), 400
+    if recap is None:
+        abort(404)
+    flash("已创建复盘信纸")
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap.id,
+    ))
+
+
+@bp.get("/partners/<int:partner_id>/recaps/<int:recap_id>")
+@login_required
+def show_recap(partner_id, recap_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    recap = recaps_svc.get_recap(_uid(), partner_id, recap_id)
+    items = recaps_svc.list_items(_uid(), partner_id, recap_id)
+    if partner is None or recap is None or items is None:
+        abort(404)
+    return render_template(
+        "partners/recap_detail.html", partner=partner, recap=recap,
+        items=items, item_choices=recaps_svc.ITEM_CHOICES,
+        item_labels=recaps_svc.ITEM_LABELS,
+    )
+
+
+@bp.post("/partners/<int:partner_id>/recaps/<int:recap_id>/items")
+@login_required
+def add_recap_item(partner_id, recap_id):
+    try:
+        item = recaps_svc.add_item(
+            _uid(), partner_id, recap_id,
+            side=request.form.get("side", ""),
+            kind=request.form.get("kind", ""),
+            content=request.form.get("content", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    if item is None:
+        abort(404)
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/<int:item_id>",
+)
+@login_required
+def update_recap_item(partner_id, recap_id, item_id):
+    try:
+        item = recaps_svc.update_item(
+            _uid(), partner_id, recap_id, item_id,
+            kind=request.form.get("kind", ""),
+            content=request.form.get("content", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    if item is None:
+        abort(404)
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/"
+    "<int:item_id>/delete",
+)
+@login_required
+def delete_recap_item(partner_id, recap_id, item_id):
+    if not recaps_svc.delete_item(_uid(), partner_id, recap_id, item_id):
+        abort(404)
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+    ))

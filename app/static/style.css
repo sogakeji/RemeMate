@@ -2064,3 +2064,188 @@ textarea.form-control {
         gap: 0;
     }
 }
+
+/* ===== SessionPad B2: recap paper ===== */
+.partner-section-header,
+.recap-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.partner-section-header {
+    margin-bottom: 12px;
+}
+
+.partner-section-header h2 {
+    margin: 0;
+}
+
+.partner-recap-list {
+    display: grid;
+    gap: 8px;
+}
+
+.partner-recap-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+.partner-recap-link:hover {
+    border-color: var(--primary-color);
+    background: rgba(74, 108, 247, 0.06);
+}
+
+.partner-recap-link span {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.recap-page {
+    max-width: 1040px;
+}
+
+.recap-page-heading {
+    margin-bottom: 24px;
+}
+
+.recap-page-heading h1 {
+    margin: 0;
+    text-align: left;
+    letter-spacing: 0;
+}
+
+.recap-page-heading p {
+    margin-top: 4px;
+    color: var(--text-secondary);
+}
+
+.recap-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: start;
+}
+
+.recap-column {
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+}
+
+.recap-for-me {
+    border-top-color: var(--success-color);
+}
+
+.recap-column h2 {
+    margin-bottom: 16px;
+    font-size: 20px;
+    letter-spacing: 0;
+}
+
+.recap-items {
+    display: grid;
+}
+
+.recap-column-empty {
+    padding: 20px 0;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.recap-item {
+    min-width: 0;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recap-item-kind {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.recap-item > p {
+    margin-top: 5px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.recap-item-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.recap-item-edit {
+    flex: 1 1 auto;
+}
+
+.recap-item-edit summary,
+.recap-delete-action {
+    width: max-content;
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.recap-item-edit summary:hover {
+    color: var(--primary-color);
+}
+
+.recap-delete-action:hover {
+    color: var(--danger-color);
+}
+
+.recap-item-edit form,
+.recap-add-form {
+    display: grid;
+    gap: 10px;
+}
+
+.recap-item-edit form {
+    margin-top: 10px;
+}
+
+.recap-item-edit .btn,
+.recap-add-form .btn {
+    justify-self: end;
+}
+
+.recap-add-form {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 720px) {
+    .recap-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .partner-section-header {
+        align-items: flex-start;
+    }
+
+    .partner-recap-link {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+}

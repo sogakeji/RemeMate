@@ -27,8 +27,23 @@
   </section>
 
   <section class="partner-recaps-placeholder">
-    <h2>复盘</h2>
-    <div class="word-card partner-empty"><p>还没有复盘信纸。</p></div>
+    <div class="partner-section-header">
+      <h2>复盘</h2>
+      <a class="btn primary" href="{{ url_for('partners.new_recap', partner_id=partner.id) }}">新建复盘</a>
+    </div>
+    {% if recaps %}
+      <div class="partner-recap-list">
+        {% for recap in recaps %}
+        <a class="partner-recap-link"
+           href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id) }}">
+          <strong>{{ recap.title or '语言交换复盘' }}</strong>
+          <span>{{ recap.session_date.isoformat() }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="word-card partner-empty"><p>还没有复盘信纸。</p></div>
+    {% endif %}
   </section>
 </div>
 {% endblock %}

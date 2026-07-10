@@ -33,12 +33,18 @@
 - SessionPad 开始特色验证，第一切片只实现私有语言伙伴档案的创建、列表、详情与编辑。
 - `language_partners` 启用 FORCE RLS；账号绑定、复盘信纸、反馈包和 AI 均留在后续切片。
 
+### 2026-07-10：SessionPad B2 复盘信纸
+- 围绕一位语言伙伴创建带日期和可选标题的私有复盘信纸。
+- 两栏保存结构化条目：`帮自己记` / `帮他记`，支持新增、修改和删除。
+- 私人伙伴笔记只能进入帮自己记，错误修正只能进入帮他记；尚无发送或共享行为。
+- `partner_recaps` 与 `partner_recap_items` 启用 FORCE RLS 和复合所有权外键。
+
 ## 当前 Git
 
-- 分支：`sessionpad-partners-v1`
+- 分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近全量验证：`pytest -q` -> 354 passed, 16 warnings
+- 最近全量验证：`pytest -q` -> 362 passed, 16 warnings
 
 ## 过程归档
 

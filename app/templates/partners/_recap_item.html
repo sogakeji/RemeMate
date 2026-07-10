@@ -1,0 +1,26 @@
+<article class="recap-item" data-recap-item-id="{{ item.id }}">
+  <span class="recap-item-kind">{{ item_labels.get(item.kind, item.kind) }}</span>
+  <p>{{ item.content }}</p>
+  <div class="recap-item-actions">
+    <details class="recap-item-edit">
+      <summary>修改</summary>
+      <form method="post"
+            action="{{ url_for('partners.update_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select class="form-control" name="kind" aria-label="记录类型">
+          {% for value, label in item_choices[item.side] %}
+          <option value="{{ value }}" {% if value == item.kind %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <textarea class="form-control" name="content" rows="3" maxlength="2000" required>{{ item.content }}</textarea>
+        <button class="btn primary" type="submit">保存</button>
+      </form>
+    </details>
+    <form method="post"
+          action="{{ url_for('partners.delete_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="recap-delete-action" type="submit"
+              onclick="return confirm('删除这条记录？')">删除</button>
+    </form>
+  </div>
+</article>
