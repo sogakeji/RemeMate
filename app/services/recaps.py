@@ -21,12 +21,29 @@ ITEM_CHOICES = {
         ("next_time", "下次建议"),
     ),
 }
+ITEM_CHOICE_LABELS = {
+    side: dict(choices) for side, choices in ITEM_CHOICES.items()
+}
 ITEM_LABELS = {
     "expression": "词语 / 表达",
     "natural_phrase": "自然说法",
     "correction": "错误修正",
     "private_note": "私人伙伴笔记",
     "next_time": "下次",
+}
+ITEM_PROMPTS = {
+    "for_me": {
+        "expression": "记下一个想掌握的词语或表达",
+        "natural_phrase": "记下对方教你的自然说法",
+        "private_note": "写下只给自己看的伙伴笔记",
+        "next_time": "记下下次想聊或想复习的内容",
+    },
+    "for_partner": {
+        "expression": "记下一个值得对方掌握的词语或表达",
+        "correction": "写下对方的原句和你的修正",
+        "natural_phrase": "写下更自然的说法或例句",
+        "next_time": "写下给对方的下次练习建议",
+    },
 }
 
 
@@ -151,24 +168,25 @@ def update_item(
 
 def delete_item(
     user_id: int, partner_id: int, recap_id: int, item_id: int,
-) -> bool:
+) -> tuple[str, str] | None:
     recap = get_recap(user_id, partner_id, recap_id)
     if recap is None:
-        return False
+        return None
     item = PartnerRecapItem.query.filter_by(
         id=item_id, user_id=user_id, recap_id=recap_id,
     ).first()
     if item is None:
-        return False
+        return None
+    location = (item.side, item.kind)
     db.session.delete(item)
     recap.updated_at = utc_now()
     db.session.commit()
-    return True
+    return location
 
 
 def _validate_item(side: str, kind: str, content: str) -> tuple[str, str, str]:
     normalized_side = (side or "").strip()
-    allowed = dict(ITEM_CHOICES.get(normalized_side, ()))
+    allowed = ITEM_CHOICE_LABELS.get(normalized_side, {})
     normalized_kind = (kind or "").strip()
     if not allowed or normalized_kind not in allowed:
         raise ValueError("记录类型不正确")

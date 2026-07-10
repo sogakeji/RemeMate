@@ -36,6 +36,7 @@
 ### 2026-07-10：SessionPad B2 复盘信纸
 - 围绕一位语言伙伴创建带日期和可选标题的私有复盘信纸。
 - 两栏保存结构化条目：`帮自己记` / `帮他记`，支持新增、修改和删除。
+- UI 不同时平铺两个大栏：先切换记录对象，再用左侧模块按钮驱动右侧大输入区；提交后保留当前侧和模块。
 - 私人伙伴笔记只能进入帮自己记，错误修正只能进入帮他记；尚无发送或共享行为。
 - `partner_recaps` 与 `partner_recap_items` 启用 FORCE RLS 和复合所有权外键。
 
@@ -44,7 +45,7 @@
 - 分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近全量验证：`pytest -q` -> 362 passed, 16 warnings
+- 最近全量验证：`pytest -q` -> 363 passed, 16 warnings
 
 ## 过程归档
 

@@ -9,49 +9,142 @@
       <p>{{ recap.session_date.isoformat() }}</p>
     </div>
   </div>
-  <div class="recap-columns">
-    <section class="recap-column recap-for-me" data-recap-column="for_me">
-      <h2>帮自己记</h2>
-      <div class="recap-items">
-        {% for item in items.for_me %}
-        {% include "partners/_recap_item.html" %}
-        {% else %}
-        <div class="recap-column-empty">还没有记录</div>
-        {% endfor %}
-      </div>
-      <form class="recap-add-form" method="post"
-            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="side" value="for_me">
-        <select class="form-control" name="kind" aria-label="帮自己记的记录类型">
-          {% for value, label in item_choices.for_me %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-        </select>
-        <textarea class="form-control" name="content" rows="3" maxlength="2000" required
-                  aria-label="帮自己记的内容"></textarea>
-        <button class="btn primary" type="submit">记下来</button>
-      </form>
-    </section>
-    <section class="recap-column recap-for-partner" data-recap-column="for_partner">
-      <h2>帮他记</h2>
-      <div class="recap-items">
-        {% for item in items.for_partner %}
-        {% include "partners/_recap_item.html" %}
-        {% else %}
-        <div class="recap-column-empty">还没有记录</div>
-        {% endfor %}
-      </div>
-      <form class="recap-add-form" method="post"
-            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="side" value="for_partner">
-        <select class="form-control" name="kind" aria-label="帮他记的记录类型">
-          {% for value, label in item_choices.for_partner %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-        </select>
-        <textarea class="form-control" name="content" rows="3" maxlength="2000" required
-                  aria-label="帮他记的内容"></textarea>
-        <button class="btn primary" type="submit">记下来</button>
-      </form>
-    </section>
+
+  <div class="recap-side-tabs" role="tablist" aria-label="复盘记录对象">
+    <button type="button" role="tab"
+            class="recap-side-tab {% if active_side == 'for_me' %}active{% endif %}"
+            data-recap-side-tab="for_me" aria-controls="recap-panel-for-me"
+            aria-selected="{{ 'true' if active_side == 'for_me' else 'false' }}">
+      <span>给自己</span>
+      <strong>帮自己记</strong>
+    </button>
+    <button type="button" role="tab"
+            class="recap-side-tab {% if active_side == 'for_partner' %}active{% endif %}"
+            data-recap-side-tab="for_partner" aria-controls="recap-panel-for-partner"
+            aria-selected="{{ 'true' if active_side == 'for_partner' else 'false' }}">
+      <span>给伙伴</span>
+      <strong>帮他记</strong>
+    </button>
   </div>
+
+  {% for side, side_title in [('for_me', '帮自己记'), ('for_partner', '帮他记')] %}
+  {% set side_dom = side|replace('_', '-') %}
+  {% set first_choice = item_choices[side][0] %}
+  {% set selected_kind = active_kind if active_side == side and active_kind in item_prompts[side] else first_choice[0] %}
+  <section id="recap-panel-{{ side_dom }}"
+           class="recap-editor-panel {% if active_side == side %}active{% endif %}"
+           data-recap-column="{{ side }}" role="tabpanel"
+           {% if active_side != side %}hidden{% endif %}>
+    <div class="recap-editor-heading">
+      <span>当前信纸</span>
+      <h2>{{ side_title }}</h2>
+    </div>
+
+    <div class="recap-editor-grid">
+      <div class="recap-kind-tabs" role="tablist" aria-label="{{ side_title }}的记录类型">
+        {% for value, label in item_choices[side] %}
+        <button type="button"
+                class="recap-kind-tab {% if value == selected_kind %}active{% endif %}"
+                data-recap-kind-tab="{{ value }}"
+                data-kind-label="{{ label }}"
+                data-kind-placeholder="{{ item_prompts[side][value] }}"
+                aria-pressed="{{ 'true' if value == selected_kind else 'false' }}">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <form class="recap-compose-form" method="post"
+            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="side" value="{{ side }}">
+        <input type="hidden" name="kind" value="{{ selected_kind }}" data-recap-kind-input>
+        <label class="form-label" data-recap-kind-label>{{ item_choice_labels[side][selected_kind] }}</label>
+        <textarea class="form-control" name="content" rows="8" maxlength="2000" required
+                  aria-label="{{ side_title }}的内容"
+                  placeholder="{{ item_prompts[side][selected_kind] }}"></textarea>
+        <button class="btn primary" type="submit">记下来</button>
+      </form>
+    </div>
+
+    <div class="recap-saved-section">
+      <div class="recap-saved-heading">
+        <h3>已记录</h3>
+        <span>{{ items[side]|length }}</span>
+      </div>
+      <div class="recap-items">
+        {% for item in items[side] %}
+        {% include "partners/_recap_item.html" %}
+        {% else %}
+        <div class="recap-column-empty">还没有记录</div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var sideTabs = Array.prototype.slice.call(document.querySelectorAll('[data-recap-side-tab]'));
+    var panels = Array.prototype.slice.call(document.querySelectorAll('[data-recap-column]'));
+
+    function updateUrl(side, kind) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('side', side);
+      if (kind) url.searchParams.set('kind', kind);
+      window.history.replaceState({}, '', url);
+    }
+
+    function activateSide(side) {
+      sideTabs.forEach(function (tab) {
+        var active = tab.getAttribute('data-recap-side-tab') === side;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      panels.forEach(function (panel) {
+        var active = panel.getAttribute('data-recap-column') === side;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+      var activePanel = panels.find(function (panel) {
+        return panel.getAttribute('data-recap-column') === side;
+      });
+      var activeKind = activePanel && activePanel.querySelector('.recap-kind-tab.active');
+      updateUrl(side, activeKind && activeKind.getAttribute('data-recap-kind-tab'));
+    }
+
+    sideTabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        activateSide(tab.getAttribute('data-recap-side-tab'));
+      });
+    });
+
+    panels.forEach(function (panel) {
+      var kindTabs = Array.prototype.slice.call(panel.querySelectorAll('[data-recap-kind-tab]'));
+      var kindInput = panel.querySelector('[data-recap-kind-input]');
+      var kindLabel = panel.querySelector('[data-recap-kind-label]');
+      var textarea = panel.querySelector('textarea[name="content"]');
+      kindTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          kindTabs.forEach(function (candidate) {
+            var active = candidate === tab;
+            candidate.classList.toggle('active', active);
+            candidate.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+          kindInput.value = tab.getAttribute('data-recap-kind-tab');
+          kindLabel.textContent = tab.getAttribute('data-kind-label');
+          textarea.placeholder = tab.getAttribute('data-kind-placeholder');
+          textarea.focus();
+          updateUrl(
+            panel.getAttribute('data-recap-column'),
+            tab.getAttribute('data-recap-kind-tab')
+          );
+        });
+      });
+    });
+  })();
+</script>
 {% endblock %}

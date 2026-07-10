@@ -10,7 +10,7 @@
 - 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地测试基线：`pytest -q` -> 362 passed, 16 warnings
+- 本地测试基线：`pytest -q` -> 363 passed, 16 warnings
 - 本地数据库迁移：`4b0c3d4e5f6a (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
@@ -35,7 +35,8 @@
 1. Bark 能力补全：已合入 `master`，包括保存、测试推送、到期词提醒、签名链接打开三按钮评分回流。
 2. 阅读收词小收口：加入后的去向感、候选审核和词库详情的来源感。
 3. SessionPad：B1「语言伙伴基础」已合入本地 `master`；当前分支完成 B2「复盘信纸 v1」，
-   包括日期/标题、帮自己记/帮他记两栏、结构化条目的新增/修改/删除和 RLS，等待真机验收。
+   包括日期/标题、帮自己记/帮他记两栏、结构化条目的新增/修改/删除和 RLS。编辑页采用
+   当前侧切换 + 左侧模块按钮 + 右侧大输入区，不使用新增/编辑类型下拉框。
    尚未做账号绑定、反馈包、感谢、采纳、AI、guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 

@@ -7,12 +7,17 @@
       <form method="post"
             action="{{ url_for('partners.update_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <select class="form-control" name="kind" aria-label="记录类型">
+        <input type="hidden" name="side" value="{{ item.side }}">
+        <div class="recap-edit-kinds" aria-label="记录类型">
           {% for value, label in item_choices[item.side] %}
-          <option value="{{ value }}" {% if value == item.kind %}selected{% endif %}>{{ label }}</option>
+          <label class="recap-edit-kind">
+            <input type="radio" name="kind" value="{{ value }}"
+                   {% if value == item.kind %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
           {% endfor %}
-        </select>
-        <textarea class="form-control" name="content" rows="3" maxlength="2000" required>{{ item.content }}</textarea>
+        </div>
+        <textarea class="form-control" name="content" rows="4" maxlength="2000" required>{{ item.content }}</textarea>
         <button class="btn primary" type="submit">保存</button>
       </form>
     </details>

@@ -245,3 +245,22 @@ def test_user_can_edit_and_delete_own_recap_item(app, client):
         "csrf_token": _csrf(client, recap_url),
     }, follow_redirects=True)
     assert "avoir hâte de" not in deleted.get_data(as_text=True)
+
+
+def test_recap_editor_uses_side_and_kind_buttons_without_dropdown(app, client):
+    provision_user(app, "recap-editor-ui@t.com", PW)
+    login(client, "recap-editor-ui@t.com", PW)
+    partner_id = _create_partner(client)
+    recap_id = _create_recap(client, partner_id)
+
+    body = client.get(
+        f"/partners/{partner_id}/recaps/{recap_id}"
+    ).get_data(as_text=True)
+
+    assert 'data-recap-side-tab="for_me"' in body
+    assert 'data-recap-side-tab="for_partner"' in body
+    assert 'data-recap-kind-tab="expression"' in body
+    assert 'data-recap-kind-tab="private_note"' in body
+    assert 'data-recap-kind-tab="correction"' in body
+    assert 'rows="8"' in body
+    assert "<select" not in body

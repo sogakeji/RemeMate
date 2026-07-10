@@ -27,6 +27,17 @@ def _form_values() -> dict:
     }
 
 
+def _recap_side(value: str | None = None) -> str:
+    side = (value or request.args.get("side") or "for_me").strip()
+    return side if side in recaps_svc.ITEM_CHOICES else "for_me"
+
+
+def _recap_kind(side: str, value: str | None = None) -> str:
+    choices = recaps_svc.ITEM_CHOICE_LABELS[side]
+    kind = (value or request.args.get("kind") or "").strip()
+    return kind if kind in choices else next(iter(choices))
+
+
 @bp.get("/partners")
 @login_required
 def index():
@@ -154,10 +165,15 @@ def show_recap(partner_id, recap_id):
     items = recaps_svc.list_items(_uid(), partner_id, recap_id)
     if partner is None or recap is None or items is None:
         abort(404)
+    active_side = _recap_side()
     return render_template(
         "partners/recap_detail.html", partner=partner, recap=recap,
         items=items, item_choices=recaps_svc.ITEM_CHOICES,
+        item_choice_labels=recaps_svc.ITEM_CHOICE_LABELS,
         item_labels=recaps_svc.ITEM_LABELS,
+        item_prompts=recaps_svc.ITEM_PROMPTS,
+        active_side=active_side,
+        active_kind=_recap_kind(active_side),
     )
 
 
@@ -175,11 +191,13 @@ def add_recap_item(partner_id, recap_id):
         flash(str(exc))
         return redirect(url_for(
             "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+            side=_recap_side(request.form.get("side")),
         ))
     if item is None:
         abort(404)
     return redirect(url_for(
         "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=item.side, kind=item.kind,
     ))
 
 
@@ -198,11 +216,13 @@ def update_recap_item(partner_id, recap_id, item_id):
         flash(str(exc))
         return redirect(url_for(
             "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+            side=_recap_side(request.form.get("side")),
         ))
     if item is None:
         abort(404)
     return redirect(url_for(
         "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=item.side, kind=item.kind,
     ))
 
 
@@ -212,8 +232,11 @@ def update_recap_item(partner_id, recap_id, item_id):
 )
 @login_required
 def delete_recap_item(partner_id, recap_id, item_id):
-    if not recaps_svc.delete_item(_uid(), partner_id, recap_id, item_id):
+    location = recaps_svc.delete_item(_uid(), partner_id, recap_id, item_id)
+    if location is None:
         abort(404)
+    side, kind = location
     return redirect(url_for(
         "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=side, kind=kind,
     ))
