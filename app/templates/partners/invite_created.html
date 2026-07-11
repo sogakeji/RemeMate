@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}邀请 {{ partner.display_name }} · RemeMate{% endblock %}
+{% block content %}
+<div class="container partner-form-page">
+  <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) }}">← {{ partner.display_name }}</a>
+  <section class="form-card partner-invite-result">
+    <h1>邀请链接已生成</h1>
+    <p>把链接发给 {{ partner.display_name }}。对方需使用对应邮箱登录并确认绑定。</p>
+    <div class="partner-invite-copy-row" data-invite-url="{{ invite_url }}">
+      <input class="form-control" id="partner-invite-url" value="{{ invite_url }}" readonly>
+      <button class="btn primary" id="copy-partner-invite" type="button">复制链接</button>
+    </div>
+    <p class="form-help">链接 7 天内有效；绑定不会公开你过去的复盘或私人备注。</p>
+  </section>
+</div>
+<script>
+(() => {
+  const button = document.getElementById('copy-partner-invite');
+  const input = document.getElementById('partner-invite-url');
+  if (!button || !input) return;
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(input.value);
+      button.textContent = '已复制';
+    } catch (_) {
+      input.select();
+    }
+  });
+})();
+</script>
+{% endblock %}

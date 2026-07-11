@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}{{ recap.title or '语言交换复盘' }} · {{ partner.display_name }}{% endblock %}
+{% block content %}
+<div class="container recap-page">
+  <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) }}">← {{ partner.display_name }}</a>
+  <div class="recap-page-heading">
+    <div>
+      <h1>{{ recap.title or '语言交换复盘' }}</h1>
+      <p>{{ recap.session_date.isoformat() }}</p>
+    </div>
+  </div>
+
+  <div class="recap-side-tabs" role="tablist" aria-label="复盘记录对象">
+    <button type="button" role="tab"
+            class="recap-side-tab {% if active_side == 'for_me' %}active{% endif %}"
+            data-recap-side-tab="for_me" aria-controls="recap-panel-for-me"
+            aria-selected="{{ 'true' if active_side == 'for_me' else 'false' }}">
+      <span>给自己</span>
+      <strong>帮自己记</strong>
+    </button>
+    <button type="button" role="tab"
+            class="recap-side-tab {% if active_side == 'for_partner' %}active{% endif %}"
+            data-recap-side-tab="for_partner" aria-controls="recap-panel-for-partner"
+            aria-selected="{{ 'true' if active_side == 'for_partner' else 'false' }}">
+      <span>给伙伴</span>
+      <strong>帮他记</strong>
+    </button>
+  </div>
+
+  {% for side, side_title in [('for_me', '帮自己记'), ('for_partner', '帮他记')] %}
+  {% set side_dom = side|replace('_', '-') %}
+  {% set first_choice = item_choices[side][0] %}
+  {% set selected_kind = active_kind if active_side == side and active_kind in item_prompts[side] else first_choice[0] %}
+  <section id="recap-panel-{{ side_dom }}"
+           class="recap-editor-panel {% if active_side == side %}active{% endif %}"
+           data-recap-column="{{ side }}" role="tabpanel"
+           {% if active_side != side %}hidden{% endif %}>
+    <div class="recap-editor-heading">
+      <span>当前信纸</span>
+      <h2>{{ side_title }}</h2>
+    </div>
+
+    <div class="recap-editor-grid">
+      <div class="recap-kind-tabs" role="tablist" aria-label="{{ side_title }}的记录类型">
+        {% for value, label in item_choices[side] %}
+        <button type="button"
+                class="recap-kind-tab {% if value == selected_kind %}active{% endif %}"
+                data-recap-kind-tab="{{ value }}"
+                data-kind-label="{{ label }}"
+                data-kind-placeholder="{{ item_prompts[side][value] }}"
+                aria-pressed="{{ 'true' if value == selected_kind else 'false' }}">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <form class="recap-compose-form" method="post"
+            action="{{ url_for('partners.add_recap_item', partner_id=partner.id, recap_id=recap.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="side" value="{{ side }}">
+        <input type="hidden" name="kind" value="{{ selected_kind }}" data-recap-kind-input>
+        <label class="form-label" data-recap-kind-label>{{ item_choice_labels[side][selected_kind] }}</label>
+        <textarea class="form-control" name="content" rows="8" maxlength="2000" required
+                  aria-label="{{ side_title }}的内容"
+                  placeholder="{{ item_prompts[side][selected_kind] }}"></textarea>
+        <button class="btn primary" type="submit">记下来</button>
+      </form>
+    </div>
+
+    <div class="recap-saved-section">
+      <div class="recap-saved-heading">
+        <div>
+          <h3>已记录</h3>
+          <span>{{ items[side]|length }}</span>
+        </div>
+        {% if side == 'for_partner' and items[side] %}
+          {% if partner.linked_user_id %}
+          <form id="send-packet-form" method="post"
+                action="{{ url_for('partners.send_packet', partner_id=partner.id, recap_id=recap.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn primary" type="submit">发送所选</button>
+          </form>
+          {% else %}
+          <a class="recap-bind-note" href="{{ url_for('partners.show', partner_id=partner.id) }}">
+            绑定账号后可发送
+          </a>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="recap-items">
+        {% for item in items[side] %}
+        {% include "partners/_recap_item.html" %}
+        {% else %}
+        <div class="recap-column-empty">还没有记录</div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+
+  <section class="form-card recap-summary" aria-labelledby="recap-summary-title">
+    <div class="recap-summary-heading">
+      <div>
+        <span>会后整理</span>
+        <h2 id="recap-summary-title">AI 复盘总结</h2>
+      </div>
+      {% if not summary_state.payload or summary_state.stale %}
+        <form method="post"
+              action="{{ url_for('partners.generate_recap_summary', partner_id=partner.id, recap_id=recap.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn default" type="submit">
+            {{ '重新总结' if summary_state.payload else '生成总结' }}
+          </button>
+        </form>
+      {% else %}
+        <span class="settings-chip">已是最新</span>
+      {% endif %}
+    </div>
+    <p class="form-help">私人伙伴笔记不会发送给 AI。</p>
+    {% if summary_state.payload %}
+      {% if summary_state.stale %}
+      <p class="recap-summary-stale">内容已更新，可重新总结</p>
+      {% endif %}
+      <div class="recap-summary-grid">
+        <div>
+          <h3>本次收获</h3>
+          <ul>
+            {% for value in summary_state.payload.gains %}<li>{{ value }}</li>{% endfor %}
+          </ul>
+        </div>
+        <div>
+          <h3>讨论深度</h3>
+          <p>{{ summary_state.payload.depth }}</p>
+        </div>
+        <div>
+          <h3>主题词</h3>
+          <div class="recap-summary-topics">
+            {% for value in summary_state.payload.topics %}
+            <span class="settings-chip">{{ value }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div>
+          <h3>下次建议</h3>
+          <ul>
+            {% for value in summary_state.payload.next_steps %}<li>{{ value }}</li>{% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% else %}
+    <p class="recap-summary-empty">记录完成后，可以生成一次会后学习总结。</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var sideTabs = Array.prototype.slice.call(document.querySelectorAll('[data-recap-side-tab]'));
+    var panels = Array.prototype.slice.call(document.querySelectorAll('[data-recap-column]'));
+
+    function updateUrl(side, kind) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('side', side);
+      if (kind) url.searchParams.set('kind', kind);
+      window.history.replaceState({}, '', url);
+    }
+
+    function activateSide(side) {
+      sideTabs.forEach(function (tab) {
+        var active = tab.getAttribute('data-recap-side-tab') === side;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      panels.forEach(function (panel) {
+        var active = panel.getAttribute('data-recap-column') === side;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+      var activePanel = panels.find(function (panel) {
+        return panel.getAttribute('data-recap-column') === side;
+      });
+      var activeKind = activePanel && activePanel.querySelector('.recap-kind-tab.active');
+      updateUrl(side, activeKind && activeKind.getAttribute('data-recap-kind-tab'));
+    }
+
+    sideTabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        activateSide(tab.getAttribute('data-recap-side-tab'));
+      });
+    });
+
+    panels.forEach(function (panel) {
+      var kindTabs = Array.prototype.slice.call(panel.querySelectorAll('[data-recap-kind-tab]'));
+      var kindInput = panel.querySelector('[data-recap-kind-input]');
+      var kindLabel = panel.querySelector('[data-recap-kind-label]');
+      var textarea = panel.querySelector('textarea[name="content"]');
+      kindTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          kindTabs.forEach(function (candidate) {
+            var active = candidate === tab;
+            candidate.classList.toggle('active', active);
+            candidate.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+          kindInput.value = tab.getAttribute('data-recap-kind-tab');
+          kindLabel.textContent = tab.getAttribute('data-kind-label');
+          textarea.placeholder = tab.getAttribute('data-kind-placeholder');
+          textarea.focus();
+          updateUrl(
+            panel.getAttribute('data-recap-column'),
+            tab.getAttribute('data-recap-kind-tab')
+          );
+        });
+      });
+    });
+  })();
+</script>
+{% endblock %}

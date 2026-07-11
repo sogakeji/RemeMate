@@ -11,6 +11,11 @@ from app.models.social import SentenceUpvote
 from app.models.conversation import Conversation, Message
 from app.models.push import PushLog
 from app.models.partner import LanguagePartner
+from app.models.recap import PartnerRecap, PartnerRecapItem
+from app.models.packet import (
+    PartnerPacket, PartnerPacketIntake, PartnerPacketItem,
+    PartnerPacketItemAdoption, PartnerPacketThank,
+)
 
 __all__ = [
     "User", "UserSettings", "UserQuota", "TokenUsageLog",
@@ -22,4 +27,8 @@ __all__ = [
     "Conversation", "Message",
     "PushLog",
     "LanguagePartner",
+    "PartnerRecap",
+    "PartnerRecapItem",
+    "PartnerPacket", "PartnerPacketItem", "PartnerPacketThank",
+    "PartnerPacketIntake", "PartnerPacketItemAdoption",
 ]

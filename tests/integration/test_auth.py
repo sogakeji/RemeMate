@@ -42,8 +42,16 @@ def test_inactive_user_cannot_login(app, client):
     assert "邮箱或密码错误" in resp.get_data(as_text=True)
 
 
-def test_login_required_redirects_anonymous(client):
+def test_public_home_shows_landing_for_anonymous(client):
     resp = client.get("/")
+    assert resp.status_code == 200
+    page = resp.get_data(as_text=True)
+    assert "RemeMate" in page
+    assert "登录" in page
+
+
+def test_protected_page_redirects_anonymous(client):
+    resp = client.get("/settings")
     assert resp.status_code == 302
     assert "/login" in resp.headers["Location"]
 
@@ -53,7 +61,9 @@ def test_logout(app, client):
     client.post("/login", data={"email": "lo@t.com", "password": PW})
     assert client.get("/").status_code == 200      # 已登录
     client.get("/logout")
-    assert client.get("/").status_code == 302      # 登出后被拦
+    resp = client.get("/")
+    assert resp.status_code == 200                 # 登出后回公开首页
+    assert "RemeMate" in resp.get_data(as_text=True)
 
 
 def test_open_redirect_blocked(app, client):
@@ -89,8 +99,8 @@ def test_garbage_session_user_id_no_500(client):
     with client.session_transaction() as sess:
         sess["_user_id"] = "not-an-int"
     resp = client.get("/")
-    assert resp.status_code == 302          # 重定向到登录，而非 500
-    assert "/login" in resp.headers["Location"]
+    assert resp.status_code == 200          # 公开首页，而非 500
+    assert "RemeMate" in resp.get_data(as_text=True)
 
 
 def test_email_case_insensitive_login(app, client):

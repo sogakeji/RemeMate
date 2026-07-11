@@ -6,11 +6,12 @@
 
 ## 当前状态
 
-- 日期：2026-07-10
-- 当前分支：`sessionpad-partners-v1`
+- 日期：2026-07-11
+- 当前分支：`sessionpad-recaps-v1`
 - 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地测试基线：`pytest -q` -> 354 passed, 16 warnings
+- 本地回归：`pytest -q` -> 397 passed, 16 warnings。
+- 本地数据库迁移：`9a5b6c7d8e0f (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -33,8 +34,17 @@
 
 1. Bark 能力补全：已合入 `master`，包括保存、测试推送、到期词提醒、签名链接打开三按钮评分回流。
 2. 阅读收词小收口：加入后的去向感、候选审核和词库详情的来源感。
-3. SessionPad：当前分支已完成 B1「语言伙伴基础」：私有伙伴档案的创建、列表、详情与编辑，
-   等待真机验收。本切片没有账号绑定、复盘信纸、反馈包、感谢、AI、guest 或实时协作。
+3. SessionPad：B1「语言伙伴基础」已合入本地 `master`；当前分支完成 B2「复盘信纸 v1」，
+   包括日期/标题、帮自己记/帮他记两栏、结构化条目的新增/修改/删除和 RLS。编辑页采用
+   当前侧切换 + 左侧模块按钮 + 右侧大输入区，不使用新增/编辑类型下拉框。
+   B3 已把「帮自己记」中的表达 / 自然说法幂等接入候选词审核，不调用 AI；每张复盘首次
+   生成的 SessionPad 来源会固化目标语言，数据库复合外键阻止跨用户挂接。
+   B4 已加入面向指定登录邮箱的 7 天签名邀请，对方必须登录并确认；每个伙伴只有最新链接有效，
+   数据库约束禁止自绑定和重复绑定，绑定后仍不暴露历史复盘。
+   B5 已允许发送者从当前复盘的「帮他记」中逐条选择，生成不可变且幂等的反馈包快照；接收方
+   可从「我的 → 收到的反馈」查看。B6 已加入接收方一次性感谢，发送者可见。B7 已允许接收方
+   把表达/修正手动整理后加入自己的候选词审核，采纳状态
+   对发送者不可见；尚未做 AI、guest 或实时协作。
 4. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
 
 ## 架构速记
@@ -54,6 +64,22 @@
   生产需设置 `PUBLIC_BASE_URL=https://rememate.com`，否则通知不会带可点击回流链接。
 - SessionPad B1 使用 `language_partners` 表；记录只属于创建者，服务层所有查询显式传
   `user_id`，数据库启用 FORCE RLS。当前只有未绑定伙伴档案，未建立用户绑定关系。
+- SessionPad B2 使用 `partner_recaps` + `partner_recap_items`；信纸和条目同样 FORCE RLS，
+  复合外键把 owner 贯穿伙伴、信纸、条目。`private_note` 只允许 `for_me`，`correction`
+  只允许 `for_partner`。B3 通过 `intake_source_id` + `candidate_id` 接到现有候选词管道；
+  只有 `for_me` 的 `expression` / `natural_phrase` 可加入，复盘仍是作者私有草稿，
+  没有任何发送行为。B4 在 `language_partners` 增加 `linked_user_id` 和待确认令牌哈希；邀请令牌
+  绑定目标邮箱指纹，确认跨越两个用户边界时只允许 `partner_invites` 服务通过 BYPASSRLS 事务
+  更新这一条关系。迁移 head 为 `6d2e3f4a5b7c`。
+  B5 使用 `partner_packets` + `partner_packet_items`；包只允许绑定关系中的发送者创建，发送者和
+  接收者可读但都不能修改/删除。包保存标题、日期、双方显示名和条目正文快照，不向接收方开放
+  原始复盘。迁移 head 为 `7e3f4a5b6c8d`。
+  B6 使用独立 `partner_packet_thanks` 表保存一次性感谢；复合外键确保感谢者就是包接收方，
+  FORCE RLS 允许双方查看、只允许接收方创建，不提供更新或删除策略。当前迁移 head 为
+  `8f4a5b6c7d9e`。
+  B7 在反馈包上固化 `language_code`，并使用 `partner_packet_intakes` +
+  `partner_packet_item_adoptions` 保存接收方私有的候选词来源和采纳链接；发送者受 RLS 隔离，
+  看不到对方是否采纳。当前迁移 head 为 `9a5b6c7d8e0f`。
 
 ## 本机与线上命令
 

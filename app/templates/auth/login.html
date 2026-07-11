@@ -1,21 +1,58 @@
 {% extends "base.html" %}
-{% block title %}登录 · 记搭{% endblock %}
+{% block title %}登录 · RemeMate{% endblock %}
 {% block content %}
 <div class="container" style="max-width:420px;">
-  <h1>登录</h1>
+  <div class="auth-header-row">
+    <h1 data-login-zh="登录" data-login-en="Log in">登录</h1>
+    <button type="button" class="auth-lang-toggle" id="authLangBtn">EN</button>
+  </div>
   <div class="form-card">
     <form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
       {{ form.csrf_token }}
       <div class="form-group">
-        {{ form.email.label(class="form-label") }}<br>
-        {{ form.email(autofocus=true, autocomplete="username", class="form-control") }}
+        <label class="form-label" for="{{ form.email.id }}"
+               data-login-zh="邮箱" data-login-en="Email">邮箱</label><br>
+        {{ form.email(autofocus=true, autocomplete="username", class="form-control",
+                      **{"data-placeholder-zh": "you@example.com",
+                         "data-placeholder-en": "you@example.com"}) }}
       </div>
       <div class="form-group">
-        {{ form.password.label(class="form-label") }}<br>
-        {{ form.password(autocomplete="current-password", class="form-control") }}
+        <label class="form-label" for="{{ form.password.id }}"
+               data-login-zh="密码" data-login-en="Password">密码</label><br>
+        {{ form.password(autocomplete="current-password", class="form-control",
+                         **{"data-placeholder-zh": "请输入密码",
+                            "data-placeholder-en": "Enter your password"}) }}
       </div>
-      <button type="submit" class="btn primary" style="width:100%;">登录</button>
+      <button type="submit" class="btn primary" style="width:100%;"
+              data-login-zh="登录" data-login-en="Log in">登录</button>
     </form>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    var lang = localStorage.getItem('landingLang') || 'zh';
+    var btn = document.getElementById('authLangBtn');
+    function apply(nextLang) {
+      lang = nextLang === 'en' ? 'en' : 'zh';
+      document.querySelectorAll('[data-login-zh]').forEach(function (el) {
+        var text = el.getAttribute('data-login-' + lang);
+        if (text != null) el.textContent = text;
+      });
+      document.querySelectorAll('[data-placeholder-zh]').forEach(function (el) {
+        var text = el.getAttribute('data-placeholder-' + lang);
+        if (text != null) el.setAttribute('placeholder', text);
+      });
+      if (btn) btn.textContent = lang === 'zh' ? 'EN' : '中';
+      localStorage.setItem('landingLang', lang);
+    }
+    apply(lang);
+    if (btn) {
+      btn.addEventListener('click', function () {
+        apply(lang === 'zh' ? 'en' : 'zh');
+      });
+    }
+  })();
+</script>
 {% endblock %}

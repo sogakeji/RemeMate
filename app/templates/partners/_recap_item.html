@@ -1,0 +1,53 @@
+<article class="recap-item" data-recap-item-id="{{ item.id }}">
+  <div class="recap-item-topline">
+    <span class="recap-item-kind">{{ item_labels.get(item.kind, item.kind) }}</span>
+    {% if item.side == 'for_partner' and partner.linked_user_id %}
+    <label class="recap-packet-select">
+      <input type="checkbox" name="item_ids" value="{{ item.id }}"
+             form="send-packet-form">
+      <span>选入反馈包</span>
+    </label>
+    {% endif %}
+  </div>
+  <p>{{ item.content }}</p>
+  <div class="recap-item-actions">
+    <details class="recap-item-edit">
+      <summary>修改</summary>
+      <form method="post"
+            action="{{ url_for('partners.update_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="side" value="{{ item.side }}">
+        <div class="recap-edit-kinds" aria-label="记录类型">
+          {% for value, label in item_choices[item.side] %}
+          <label class="recap-edit-kind">
+            <input type="radio" name="kind" value="{{ value }}"
+                   {% if value == item.kind %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <textarea class="form-control" name="content" rows="4" maxlength="2000" required>{{ item.content }}</textarea>
+        <button class="btn primary" type="submit">保存</button>
+      </form>
+    </details>
+    {% if item.side == 'for_me' and item.kind in candidate_kinds %}
+      {% set candidate_source_id = candidate_source_ids.get(item.id) %}
+      {% if candidate_source_id %}
+      <a class="recap-candidate-action"
+         href="{{ url_for('intake.candidates', source_id=candidate_source_id) }}">去候选词审核</a>
+      {% else %}
+      <form method="post"
+            action="{{ url_for('partners.add_recap_item_candidate', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="recap-candidate-action" type="submit">加入候选词</button>
+      </form>
+      {% endif %}
+    {% endif %}
+    <form method="post"
+          action="{{ url_for('partners.delete_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="recap-delete-action" type="submit"
+              onclick="return confirm('删除这条记录？')">删除</button>
+    </form>
+  </div>
+</article>

@@ -63,6 +63,21 @@ def update_partner(
     return partner
 
 
+def set_pending_invite(
+    user_id: int,
+    partner_id: int,
+    token_hash: str,
+) -> bool:
+    """Make this token the only invitation that can claim the profile."""
+    updated = (
+        LanguagePartner.query
+        .filter_by(id=partner_id, user_id=user_id, linked_user_id=None)
+        .update({"invite_token_hash": token_hash}, synchronize_session=False)
+    )
+    db.session.commit()
+    return updated == 1
+
+
 def _validated_values(
     *,
     display_name: str,

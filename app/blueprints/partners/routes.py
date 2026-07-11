@@ -1,8 +1,20 @@
-"""Private language-partner pages."""
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+"""Private language-partner and SessionPad recap pages."""
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from flask import (
+    Blueprint, abort, current_app, flash, redirect, render_template, request,
+    url_for,
+)
 from flask_login import current_user, login_required
+from sqlalchemy import create_engine
 
 from app.services import partners as partners_svc
+from app.services import partner_invites as invites_svc
+from app.services import packets as packets_svc
+from app.services import recap_summaries as summaries_svc
+from app.services import recaps as recaps_svc
+from app.services import words as words_svc
 from app.services.words import _LANGUAGE_NAMES
 
 
@@ -13,6 +25,26 @@ def _uid() -> int:
     return current_user.id
 
 
+def _dispatch_engine():
+    dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+    if not dispatch_url:
+        raise RuntimeError("DISPATCH_DATABASE_URL missing")
+    return create_engine(dispatch_url, pool_pre_ping=True)
+
+
+def _render_partner_detail(partner):
+    recaps = recaps_svc.list_recaps(_uid(), partner.id)
+    return render_template(
+        "partners/detail.html",
+        partner=partner,
+        recaps=recaps,
+        recap_delivery_statuses=packets_svc.recap_delivery_statuses(
+            _uid(), [recap.id for recap in recaps],
+        ),
+        language_names=_LANGUAGE_NAMES,
+    )
+
+
 def _form_values() -> dict:
     return {
         "display_name": request.form.get("display_name", ""),
@@ -21,6 +53,35 @@ def _form_values() -> dict:
             "learning_language_code", ""),
         "private_note": request.form.get("private_note", ""),
     }
+
+
+def _recap_side(value: str | None = None) -> str:
+    side = (value or request.args.get("side") or "for_me").strip()
+    return side if side in recaps_svc.ITEM_CHOICES else "for_me"
+
+
+def _recap_kind(side: str, value: str | None = None) -> str:
+    choices = recaps_svc.ITEM_CHOICE_LABELS[side]
+    kind = (value or request.args.get("kind") or "").strip()
+    return kind if kind in choices else next(iter(choices))
+
+
+def _render_packet_adopt_form(
+    packet_id: int,
+    item,
+    *,
+    terms: str,
+    suggestion_message: str,
+):
+    return render_template(
+        "partners/_packet_adopt_form.html",
+        packet_id=packet_id,
+        item=item,
+        source_id=packets_svc.adoption_source_ids(_uid(), [item]).get(item.id),
+        terms=terms,
+        suggestion_message=suggestion_message,
+        form_open=True,
+    )
 
 
 @bp.get("/partners")
@@ -63,8 +124,128 @@ def show(partner_id):
     partner = partners_svc.get_partner(_uid(), partner_id)
     if partner is None:
         abort(404)
+    return _render_partner_detail(partner)
+
+
+@bp.post("/partners/<int:partner_id>/invite")
+@login_required
+def create_invite(partner_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    if partner is None:
+        abort(404)
+    if partner.linked_user_id is not None:
+        flash("这位伙伴已经绑定账号")
+        return redirect(url_for("partners.show", partner_id=partner_id))
+
+    try:
+        email = invites_svc.normalize_recipient_email(
+            request.form.get("recipient_email"),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return _render_partner_detail(partner), 400
+    if email == current_user.email.strip().lower():
+        flash("不能邀请自己的账号")
+        return _render_partner_detail(partner), 400
+
+    token = invites_svc.make_partner_invite_token(
+        current_app.config["SECRET_KEY"], _uid(), partner_id, email,
+    )
+    if not partners_svc.set_pending_invite(
+        _uid(), partner_id, invites_svc.partner_invite_token_hash(token),
+    ):
+        flash("这位伙伴已经绑定账号")
+        return redirect(url_for("partners.show", partner_id=partner_id))
+    base_url = current_app.config.get("PUBLIC_BASE_URL") or request.host_url
+    invite_url = invites_svc.partner_invite_url(base_url, token)
     return render_template(
-        "partners/detail.html", partner=partner,
+        "partners/invite_created.html",
+        partner=partner,
+        invite_url=invite_url,
+    )
+
+
+@bp.route("/partners/invitations/<token>", methods=["GET", "POST"])
+@login_required
+def invitation(token):
+    engine = _dispatch_engine()
+    try:
+        if request.method == "POST":
+            try:
+                with engine.begin() as conn:
+                    result = invites_svc.accept_partner_invite(
+                        conn,
+                        current_app.config["SECRET_KEY"],
+                        token,
+                        _uid(),
+                        current_user.email,
+                    )
+            except ValueError as exc:
+                return render_template(
+                    "partners/invitation.html", error=str(exc),
+                ), 400
+            if result is None:
+                return render_template(
+                    "partners/invitation.html", unavailable=True,
+                ), 410
+            return redirect(url_for(
+                "partners.confirm_reciprocal",
+                owner_user_id=result.owner_user_id,
+            ))
+
+        with engine.begin() as conn:
+            preview = invites_svc.preview_partner_invite(
+                conn,
+                current_app.config["SECRET_KEY"],
+                token,
+                current_user.email,
+            )
+    finally:
+        engine.dispose()
+    if preview is None:
+        return render_template(
+            "partners/invitation.html", unavailable=True,
+        ), 410
+    return render_template(
+        "partners/invitation.html", invite=preview, token=token,
+    )
+
+
+@bp.route(
+    "/partners/reciprocal/<int:owner_user_id>", methods=["GET", "POST"],
+)
+@login_required
+def confirm_reciprocal(owner_user_id):
+    engine = _dispatch_engine()
+    try:
+        with engine.begin() as conn:
+            if request.method == "POST":
+                result = invites_svc.create_reciprocal_partner(
+                    conn, _uid(), owner_user_id,
+                )
+                if result is None:
+                    abort(404)
+            else:
+                preview = invites_svc.preview_reciprocal_partner(
+                    conn, _uid(), owner_user_id,
+                )
+                if preview is None:
+                    abort(404)
+    finally:
+        engine.dispose()
+
+    if request.method == "POST":
+        flash(
+            "已加入语言伙伴"
+            if result.state == "created"
+            else "这位伙伴已经在你的列表中"
+        )
+        return redirect(url_for(
+            "partners.show", partner_id=result.partner_id,
+        ))
+    return render_template(
+        "partners/reciprocal_confirm.html",
+        reciprocal=preview,
         language_names=_LANGUAGE_NAMES,
     )
 
@@ -99,3 +280,331 @@ def update(partner_id):
         abort(404)
     flash("已更新语言伙伴")
     return redirect(url_for("partners.show", partner_id=partner.id))
+
+
+@bp.get("/partners/<int:partner_id>/recaps/new")
+@login_required
+def new_recap(partner_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    if partner is None:
+        abort(404)
+    return render_template(
+        "partners/recap_form.html", partner=partner,
+        default_date=datetime.now(
+            ZoneInfo(current_user.timezone or "Asia/Shanghai")
+        ).date().isoformat(),
+    )
+
+
+@bp.post("/partners/<int:partner_id>/recaps")
+@login_required
+def create_recap(partner_id):
+    values = {
+        "session_date": request.form.get("session_date", ""),
+        "title": request.form.get("title", ""),
+    }
+    try:
+        recap = recaps_svc.create_recap(_uid(), partner_id, **values)
+    except ValueError as exc:
+        partner = partners_svc.get_partner(_uid(), partner_id)
+        if partner is None:
+            abort(404)
+        flash(str(exc))
+        return render_template(
+            "partners/recap_form.html", partner=partner,
+            form_values=values, default_date=values["session_date"],
+        ), 400
+    if recap is None:
+        abort(404)
+    flash("已创建复盘信纸")
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap.id,
+    ))
+
+
+@bp.get("/partners/<int:partner_id>/recaps/<int:recap_id>")
+@login_required
+def show_recap(partner_id, recap_id):
+    partner = partners_svc.get_partner(_uid(), partner_id)
+    recap = recaps_svc.get_recap(_uid(), partner_id, recap_id)
+    items = recaps_svc.list_items(_uid(), partner_id, recap_id)
+    if partner is None or recap is None or items is None:
+        abort(404)
+    active_side = _recap_side()
+    return render_template(
+        "partners/recap_detail.html", partner=partner, recap=recap,
+        items=items, item_choices=recaps_svc.ITEM_CHOICES,
+        item_choice_labels=recaps_svc.ITEM_CHOICE_LABELS,
+        item_labels=recaps_svc.ITEM_LABELS,
+        item_prompts=recaps_svc.ITEM_PROMPTS,
+        candidate_kinds=recaps_svc.CANDIDATE_KINDS,
+        candidate_source_ids=recaps_svc.candidate_source_ids(_uid(), items),
+        summary_state=summaries_svc.summary_state(recap, items),
+        active_side=active_side,
+        active_kind=_recap_kind(active_side),
+    )
+
+
+@bp.post("/partners/<int:partner_id>/recaps/<int:recap_id>/items")
+@login_required
+def add_recap_item(partner_id, recap_id):
+    try:
+        item = recaps_svc.add_item(
+            _uid(), partner_id, recap_id,
+            side=request.form.get("side", ""),
+            kind=request.form.get("kind", ""),
+            content=request.form.get("content", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+            side=_recap_side(request.form.get("side")),
+        ))
+    if item is None:
+        abort(404)
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=item.side, kind=item.kind,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/<int:item_id>",
+)
+@login_required
+def update_recap_item(partner_id, recap_id, item_id):
+    try:
+        item = recaps_svc.update_item(
+            _uid(), partner_id, recap_id, item_id,
+            kind=request.form.get("kind", ""),
+            content=request.form.get("content", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+            side=_recap_side(request.form.get("side")),
+        ))
+    if item is None:
+        abort(404)
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=item.side, kind=item.kind,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/"
+    "<int:item_id>/add-candidate",
+)
+@login_required
+def add_recap_item_candidate(partner_id, recap_id, item_id):
+    try:
+        result = recaps_svc.add_item_to_candidates(
+            _uid(), partner_id, recap_id, item_id,
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_me",
+        ))
+    if result is None:
+        abort(404)
+    if result["state"] == "existing-word":
+        flash("这条内容已经在生词本中")
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_me",
+        ))
+    if result["state"] == "created":
+        flash("已加入候选词，请确认后入库")
+    return redirect(url_for(
+        "intake.candidates", source_id=result["source_id"],
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/summary",
+)
+@login_required
+def generate_recap_summary(partner_id, recap_id):
+    try:
+        result = summaries_svc.generate_summary(
+            _uid(), partner_id, recap_id,
+            feedback_language_code=words_svc.get_feedback_language(_uid()),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    except summaries_svc.SummaryUnavailable:
+        flash("AI 总结暂时不可用，不影响已记录内容")
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    if result is None:
+        abort(404)
+    flash(
+        "AI 复盘总结已生成"
+        if result["state"] == "generated"
+        else "当前总结已是最新"
+    )
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/packets",
+)
+@login_required
+def send_packet(partner_id, recap_id):
+    try:
+        result = packets_svc.create_packet(
+            _uid(), partner_id, recap_id, request.form.getlist("item_ids"),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap",
+            partner_id=partner_id,
+            recap_id=recap_id,
+            side="for_partner",
+        ))
+    if result is None:
+        abort(404)
+    if result["state"] == "created":
+        flash("反馈包已发送")
+    else:
+        flash("这组内容已经发送过")
+    return redirect(url_for(
+        "partners.show_packet", packet_id=result["packet"].id,
+    ))
+
+
+@bp.get("/partner-packets")
+@login_required
+def packet_inbox():
+    return render_template(
+        "partners/packet_inbox.html",
+        packets=packets_svc.list_received_packets(_uid()),
+    )
+
+
+@bp.get("/partner-packets/<int:packet_id>")
+@login_required
+def show_packet(packet_id):
+    packet = packets_svc.get_packet_for_user(_uid(), packet_id)
+    if packet is None:
+        abort(404)
+    is_recipient = packet.recipient_user_id == _uid()
+    return render_template(
+        "partners/packet_detail.html",
+        packet=packet,
+        item_labels=recaps_svc.ITEM_LABELS,
+        is_recipient=is_recipient,
+        adoptable_kinds=packets_svc.ADOPTABLE_KINDS,
+        adoption_source_ids=(
+            packets_svc.adoption_source_ids(_uid(), packet.items)
+            if is_recipient else {}
+        ),
+    )
+
+
+@bp.post("/partner-packets/<int:packet_id>/thank")
+@login_required
+def thank_packet(packet_id):
+    result = packets_svc.thank_packet(_uid(), packet_id)
+    if result is None:
+        abort(404)
+    if result == "created":
+        flash("感谢已送达")
+    return redirect(url_for("partners.show_packet", packet_id=packet_id))
+
+
+@bp.post(
+    "/partner-packets/<int:packet_id>/items/<int:item_id>/add-candidate",
+)
+@login_required
+def adopt_packet_item(packet_id, item_id):
+    try:
+        result = packets_svc.add_received_item_to_candidates(
+            _uid(), packet_id, item_id, request.form.get("terms", ""),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for("partners.show_packet", packet_id=packet_id))
+    if result is None:
+        abort(404)
+    if result["state"] == "existing-word":
+        flash("填写的内容已经在生词本中")
+        return redirect(url_for("partners.show_packet", packet_id=packet_id))
+    if result["created_count"]:
+        message = f"已加入 {result['created_count']} 个候选词，请确认后入库"
+    else:
+        message = "这些候选词已经在审核列表中"
+    if result["existing_word_count"]:
+        message += f"；另有 {result['existing_word_count']} 个已在生词本中"
+    flash(message)
+    return redirect(url_for(
+        "intake.candidates", source_id=result["source_id"],
+    ))
+
+
+@bp.post(
+    "/partner-packets/<int:packet_id>/items/<int:item_id>/suggest-terms",
+)
+@login_required
+def suggest_packet_item_terms(packet_id, item_id):
+    try:
+        result = packets_svc.suggest_received_item_terms(
+            _uid(), packet_id, item_id,
+        )
+    except ValueError as exc:
+        item = packets_svc.get_received_packet_item(_uid(), packet_id, item_id)
+        if item is None:
+            abort(404)
+        return _render_packet_adopt_form(
+            packet_id, item,
+            terms=item.content,
+            suggestion_message=str(exc),
+        )
+    except packets_svc.TermSuggestionUnavailable:
+        item = packets_svc.get_received_packet_item(_uid(), packet_id, item_id)
+        if item is None:
+            abort(404)
+        return _render_packet_adopt_form(
+            packet_id, item,
+            terms=item.content,
+            suggestion_message="AI 暂时不可用，可继续手动拆分",
+        )
+    if result is None:
+        abort(404)
+    return _render_packet_adopt_form(
+        packet_id, result["item"],
+        terms="\n".join(result["terms"]),
+        suggestion_message="AI 建议已填入，可继续修改",
+    )
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/items/"
+    "<int:item_id>/delete",
+)
+@login_required
+def delete_recap_item(partner_id, recap_id, item_id):
+    location = recaps_svc.delete_item(_uid(), partner_id, recap_id, item_id)
+    if location is None:
+        abort(404)
+    side, kind = location
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        side=side, kind=kind,
+    ))

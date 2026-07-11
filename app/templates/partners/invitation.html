@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}语言伙伴邀请 · RemeMate{% endblock %}
+{% block content %}
+<div class="container partner-form-page">
+  <section class="form-card partner-invitation-page">
+    {% if unavailable %}
+      <h1>邀请不可用</h1>
+      <p>链接可能已过期、已被确认，或不属于当前登录账号。</p>
+      <a class="btn default" href="{{ url_for('main.index') }}">回到首页</a>
+    {% elif error %}
+      <h1>无法确认邀请</h1>
+      <p>{{ error }}</p>
+      <a class="btn default" href="{{ url_for('main.index') }}">回到首页</a>
+    {% else %}
+      <h1>语言伙伴邀请</h1>
+      <p>{{ invite.owner_display_name }} 邀请你建立语言伙伴关系。</p>
+      <p class="partner-invite-privacy">确认后，对方仍看不到你的词库或私人内容；你也不会看到对方过去的复盘。</p>
+      <form method="post" action="{{ url_for('partners.invitation', token=token) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn primary" type="submit">确认绑定</button>
+      </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
