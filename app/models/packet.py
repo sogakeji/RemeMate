@@ -200,5 +200,5 @@ class PartnerPacketItemAdoption(db.Model):
         db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    candidate_id = db.Column(db.Integer, nullable=False)
+    candidate_id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)

@@ -518,7 +518,7 @@ def thank_packet(packet_id):
 def adopt_packet_item(packet_id, item_id):
     try:
         result = packets_svc.add_received_item_to_candidates(
-            _uid(), packet_id, item_id, request.form.get("term", ""),
+            _uid(), packet_id, item_id, request.form.get("terms", ""),
         )
     except ValueError as exc:
         flash(str(exc))
@@ -526,10 +526,15 @@ def adopt_packet_item(packet_id, item_id):
     if result is None:
         abort(404)
     if result["state"] == "existing-word":
-        flash("这条内容已经在生词本中")
+        flash("填写的内容已经在生词本中")
         return redirect(url_for("partners.show_packet", packet_id=packet_id))
-    if result["state"] == "created":
-        flash("已加入候选词，请确认后入库")
+    if result["created_count"]:
+        message = f"已加入 {result['created_count']} 个候选词，请确认后入库"
+    else:
+        message = "这些候选词已经在审核列表中"
+    if result["existing_word_count"]:
+        message += f"；另有 {result['existing_word_count']} 个已在生词本中"
+    flash(message)
     return redirect(url_for(
         "intake.candidates", source_id=result["source_id"],
     ))

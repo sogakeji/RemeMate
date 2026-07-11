@@ -24,6 +24,7 @@ from app.services.timeutil import utc_now
 
 
 MAX_PACKET_ITEMS = 20
+MAX_ADOPTION_TERMS = 20
 ADOPTABLE_KINDS = {"expression", "natural_phrase", "correction"}
 
 
@@ -287,7 +288,7 @@ def add_received_item_to_candidates(
     recipient_user_id: int,
     packet_id: int,
     packet_item_id: int,
-    term: str,
+    terms: str,
 ) -> dict | None:
     packet = PartnerPacket.query.filter_by(
         id=packet_id, recipient_user_id=recipient_user_id,
@@ -300,9 +301,7 @@ def add_received_item_to_candidates(
     if item.kind not in ADOPTABLE_KINDS:
         raise ValueError("这类反馈不能加入候选词")
 
-    normalized_term = (term or "").strip()
-    if not normalized_term or len(normalized_term) > 200:
-        raise ValueError("候选词内容需为 1-200 个字符")
+    normalized_terms = _normalize_adoption_terms(terms)
     language_code = packet.language_code
     if not language_code:
         raise ValueError("这份旧反馈没有语言信息，暂时不能加入候选词")
@@ -318,102 +317,124 @@ def add_received_item_to_candidates(
             recipient_user_id, language_code,
         )
 
-    existing_adoption = _adoption_result(
-        recipient_user_id, packet_item_id,
-    )
-    if existing_adoption is not None:
-        return existing_adoption
-
-    existing_word = (
-        Word.query
-        .filter(
-            Word.list_id == word_list.id,
-            db.func.lower(Word.word) == normalized_term.lower(),
+    term_by_key = {term.lower(): term for term in normalized_terms}
+    existing_word_keys = {
+        word.lower() for word, in (
+            Word.query
+            .with_entities(Word.word)
+            .filter(
+                Word.list_id == word_list.id,
+                db.func.lower(Word.word).in_(term_by_key),
+            )
+            .all()
         )
-        .first()
-    )
-    if existing_word is not None:
-        return {"state": "existing-word", "word_id": existing_word.id}
+    }
+    candidate_terms = [
+        term for key, term in term_by_key.items()
+        if key not in existing_word_keys
+    ]
+    if not candidate_terms:
+        return {
+            "state": "existing-word",
+            "candidate_count": 0,
+            "created_count": 0,
+            "existing_word_count": len(existing_word_keys),
+        }
 
     db.session.execute(
         text("SELECT pg_advisory_xact_lock(:lock_key)"),
         {"lock_key": 7_700_000_000 + packet_id},
     )
-    existing_adoption = _adoption_result(
-        recipient_user_id, packet_item_id,
-    )
-    if existing_adoption is not None:
-        db.session.commit()
-        return existing_adoption
-
     source = _source_for_received_packet(
         recipient_user_id, packet, word_list.id, language_code,
     )
 
-    candidate = (
-        WordCandidate.query
-        .filter(
-            WordCandidate.source_id == source.id,
-            WordCandidate.user_id == recipient_user_id,
-            WordCandidate.status.in_(["pending", "accepted"]),
-            db.func.lower(WordCandidate.word) == normalized_term.lower(),
+    candidate_keys = {term.lower() for term in candidate_terms}
+    existing_candidates = {
+        candidate.word.lower(): candidate
+        for candidate in (
+            WordCandidate.query
+            .filter(
+                WordCandidate.source_id == source.id,
+                WordCandidate.user_id == recipient_user_id,
+                WordCandidate.status.in_(["pending", "accepted"]),
+                db.func.lower(WordCandidate.word).in_(candidate_keys),
+            )
+            .all()
         )
-        .first()
-    )
-    state = "already-candidate"
-    if candidate is None:
-        candidate = WordCandidate(
-            source_id=source.id,
-            user_id=recipient_user_id,
-            word=normalized_term,
-            source_example=item.content,
-            status="pending",
-        )
-        db.session.add(candidate)
-        db.session.flush()
-        source.total_candidates = (source.total_candidates or 0) + 1
-        state = "created"
+    }
+    created_count = 0
+    ordered_candidates = []
+    for term in candidate_terms:
+        key = term.lower()
+        candidate = existing_candidates.get(key)
+        if candidate is None:
+            candidate = WordCandidate(
+                source_id=source.id,
+                user_id=recipient_user_id,
+                word=term,
+                source_example=item.content,
+                status="pending",
+            )
+            db.session.add(candidate)
+            existing_candidates[key] = candidate
+            created_count += 1
+        ordered_candidates.append(candidate)
+    db.session.flush()
 
-    db.session.add(PartnerPacketItemAdoption(
-        packet_item_id=packet_item_id,
-        packet_id=packet_id,
-        recipient_user_id=recipient_user_id,
-        candidate_id=candidate.id,
-    ))
+    candidate_ids = [candidate.id for candidate in ordered_candidates]
+    adopted_ids = set(
+        candidate_id for candidate_id, in (
+            PartnerPacketItemAdoption.query
+            .with_entities(PartnerPacketItemAdoption.candidate_id)
+            .filter(
+                PartnerPacketItemAdoption.packet_item_id == packet_item_id,
+                PartnerPacketItemAdoption.recipient_user_id == recipient_user_id,
+                PartnerPacketItemAdoption.candidate_id.in_(candidate_ids),
+            )
+            .all()
+        )
+    )
+    for candidate in ordered_candidates:
+        if candidate.id not in adopted_ids:
+            db.session.add(PartnerPacketItemAdoption(
+                packet_item_id=packet_item_id,
+                packet_id=packet_id,
+                recipient_user_id=recipient_user_id,
+                candidate_id=candidate.id,
+            ))
+    if created_count:
+        source.total_candidates = (
+            source.total_candidates or 0
+        ) + created_count
     db.session.commit()
     return {
-        "state": state,
-        "candidate_id": candidate.id,
+        "state": "created" if created_count else "already-candidate",
+        "candidate_count": len(ordered_candidates),
+        "created_count": created_count,
+        "existing_word_count": len(existing_word_keys),
         "source_id": source.id,
     }
 
 
-def _adoption_result(
-    recipient_user_id: int,
-    packet_item_id: int,
-) -> dict | None:
-    row = (
-        db.session.query(
-            PartnerPacketItemAdoption.candidate_id,
-            WordCandidate.source_id,
-        )
-        .join(
-            WordCandidate,
-            WordCandidate.id == PartnerPacketItemAdoption.candidate_id,
-        )
-        .filter(
-            PartnerPacketItemAdoption.packet_item_id == packet_item_id,
-            PartnerPacketItemAdoption.recipient_user_id == recipient_user_id,
-        )
-        .first()
-    )
-    if row is None:
-        return None
-    return {
-        "state": "already-candidate",
-        "candidate_id": row.candidate_id,
-        "source_id": row.source_id,
-    }
+def _normalize_adoption_terms(value: str) -> list[str]:
+    terms = []
+    seen = set()
+    for line in (value or "").splitlines():
+        term = line.strip()
+        if not term:
+            continue
+        if len(term) > 200:
+            raise ValueError("每个候选词需为 1-200 个字符")
+        key = term.lower()
+        if key not in seen:
+            seen.add(key)
+            terms.append(term)
+    if not terms:
+        raise ValueError("请至少填写一个候选词或表达")
+    if len(terms) > MAX_ADOPTION_TERMS:
+        raise ValueError(f"一次最多加入 {MAX_ADOPTION_TERMS} 个候选词")
+    return terms
 
 
 def _source_for_received_packet(

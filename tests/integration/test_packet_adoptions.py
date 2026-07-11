@@ -90,7 +90,7 @@ def _adopt(client, packet_id, item_id, term):
     packet_url = f"/partner-packets/{packet_id}"
     return client.post(
         f"{packet_url}/items/{item_id}/add-candidate",
-        data={"term": term, "csrf_token": _csrf(client, packet_url)},
+        data={"terms": term, "csrf_token": _csrf(client, packet_url)},
     )
 
 
@@ -116,9 +116,10 @@ def test_recipient_can_edit_received_expression_before_candidate_review(
     next_card = re.search(
         rf'data-packet-item-id="{next_time_id}".*?</article>', body, re.S,
     ).group()
-    assert "加入候选词" in expression_card
-    assert "加入候选词" in correction_card
-    assert "加入候选词" not in next_card
+    assert "拆分为候选词" in expression_card
+    assert 'name="terms"' in expression_card
+    assert "拆分为候选词" in correction_card
+    assert "拆分为候选词" not in next_card
 
     response = _adopt(client, packet_id, correction_id, "我很赞同")
     assert response.status_code == 302
@@ -145,6 +146,33 @@ def test_recipient_can_edit_received_expression_before_candidate_review(
     assert 'class="packet-adopted-link"' not in sender_body
 
 
+def test_one_received_sentence_can_create_multiple_word_level_candidates(
+    app, client, bypass_engine,
+):
+    sender_id = provision_user(app, "adopt-many-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "adopt-many-recipient@t.com")
+    context = "我很同意你的看法，更自然可以说我很赞同你的观点。"
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("correction", context)],
+    )
+    login(client, "adopt-many-recipient@t.com", PW)
+
+    response = _adopt(
+        client, packet_id, item_ids[0], "赞同\n观点\n赞同",
+    )
+
+    assert response.status_code == 302
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT c.word,c.source_example FROM partner_packet_item_adoptions a "
+            "JOIN word_candidates c ON c.id=a.candidate_id "
+            "WHERE a.packet_item_id=:item ORDER BY c.id"
+        ), {"item": item_ids[0]}).mappings().all()
+    assert [row["word"] for row in rows] == ["赞同", "观点"]
+    assert {row["source_example"] for row in rows} == {context}
+
+
 def test_received_item_adoption_is_idempotent_and_reuses_packet_source(
     app, client, bypass_engine,
 ):
@@ -159,8 +187,12 @@ def test_received_item_adoption_is_idempotent_and_reuses_packet_source(
     )
     login(client, "adopt-twice-recipient@t.com", PW)
 
-    first = _adopt(client, packet_id, item_ids[0], "第一个表达")
-    repeated = _adopt(client, packet_id, item_ids[0], "ignored new term")
+    first = _adopt(
+        client, packet_id, item_ids[0], "第一个表达\n第一个补充",
+    )
+    repeated = _adopt(
+        client, packet_id, item_ids[0], "第一个表达\n第一个补充",
+    )
     second = _adopt(client, packet_id, item_ids[1], "第二个自然说法")
 
     assert first.headers["Location"] == repeated.headers["Location"]
@@ -174,7 +206,40 @@ def test_received_item_adoption_is_idempotent_and_reuses_packet_source(
             "FROM partner_packet_item_adoptions WHERE packet_id = :packet"
         ), {"packet": packet_id}).scalar()
     assert sources == 1
-    assert candidates == 2
+    assert candidates == 3
+
+
+def test_mixed_existing_word_and_new_term_reports_both_outcomes(
+    app, client, bypass_engine,
+):
+    sender_id = provision_user(app, "adopt-mixed-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "adopt-mixed-recipient@t.com")
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("expression", "已会和新词")],
+    )
+    with bypass_engine.begin() as conn:
+        list_id = conn.execute(text(
+            "SELECT id FROM word_lists WHERE user_id=:user AND language_code='zh'"
+        ), {"user": recipient_id}).scalar()
+        conn.execute(text(
+            "INSERT INTO words(list_id,word,marked,due_date,interval,ease,reps,lapses) "
+            "VALUES (:list,'已会',false,now(),1,2.5,0,0)"
+        ), {"list": list_id})
+    login(client, "adopt-mixed-recipient@t.com", PW)
+
+    response = _adopt(client, packet_id, item_ids[0], "已会\n新词")
+    body = client.get(response.headers["Location"]).get_data(as_text=True)
+
+    assert "已加入 1 个候选词" in body
+    assert "另有 1 个已在生词本中" in body
+    with bypass_engine.connect() as conn:
+        words = conn.execute(text(
+            "SELECT c.word FROM partner_packet_item_adoptions a "
+            "JOIN word_candidates c ON c.id=a.candidate_id "
+            "WHERE a.packet_item_id=:item"
+        ), {"item": item_ids[0]}).scalars().all()
+    assert words == ["新词"]
 
 
 def test_ineligible_or_wrong_user_cannot_adopt_packet_item(
