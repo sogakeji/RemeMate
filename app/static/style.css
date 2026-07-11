@@ -2508,6 +2508,70 @@ textarea.form-control {
     color: var(--primary-color);
 }
 
+.recap-summary {
+    display: grid;
+    gap: 16px;
+    margin-top: 22px;
+    padding: 22px 24px;
+}
+
+.recap-summary-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.recap-summary-heading span {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.recap-summary-heading h2 {
+    margin-top: 2px;
+    font-size: 19px;
+    letter-spacing: 0;
+}
+
+.recap-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 24px;
+    padding-top: 4px;
+}
+
+.recap-summary-grid h3 {
+    margin-bottom: 6px;
+    font-size: 14px;
+    letter-spacing: 0;
+}
+
+.recap-summary-grid ul {
+    padding-left: 20px;
+}
+
+.recap-summary-grid li + li {
+    margin-top: 4px;
+}
+
+.recap-summary-topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.recap-summary-stale {
+    padding: 9px 11px;
+    border-left: 3px solid var(--warning-color);
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.recap-summary-empty {
+    color: var(--text-secondary);
+}
+
 @media (max-width: 720px) {
     .recap-editor-panel {
         padding: 18px;
@@ -2528,6 +2592,18 @@ textarea.form-control {
 
     .recap-compose-form textarea {
         min-height: 220px;
+    }
+
+    .recap-summary {
+        padding: 18px;
+    }
+
+    .recap-summary-heading {
+        align-items: flex-start;
+    }
+
+    .recap-summary-grid {
+        grid-template-columns: 1fr;
     }
 }
 

@@ -1,4 +1,6 @@
 """SessionPad recap papers."""
+from sqlalchemy.dialects.postgresql import JSONB
+
 from app.extensions import db
 from app.services.timeutil import utc_now
 
@@ -40,6 +42,9 @@ class PartnerRecap(db.Model):
         db.ForeignKey("intake_sources.id", ondelete="SET NULL"),
         nullable=True,
     )
+    ai_summary = db.Column(JSONB, nullable=True)
+    ai_summary_source_hash = db.Column(db.String(64), nullable=True)
+    ai_summary_generated_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=utc_now, onupdate=utc_now, nullable=False,

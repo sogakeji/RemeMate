@@ -12,7 +12,9 @@ from sqlalchemy import create_engine
 from app.services import partners as partners_svc
 from app.services import partner_invites as invites_svc
 from app.services import packets as packets_svc
+from app.services import recap_summaries as summaries_svc
 from app.services import recaps as recaps_svc
+from app.services import words as words_svc
 from app.services.words import _LANGUAGE_NAMES
 
 
@@ -275,6 +277,7 @@ def show_recap(partner_id, recap_id):
         item_prompts=recaps_svc.ITEM_PROMPTS,
         candidate_kinds=recaps_svc.CANDIDATE_KINDS,
         candidate_source_ids=recaps_svc.candidate_source_ids(_uid(), items),
+        summary_state=summaries_svc.summary_state(recap, items),
         active_side=active_side,
         active_kind=_recap_kind(active_side),
     )
@@ -361,6 +364,38 @@ def add_recap_item_candidate(partner_id, recap_id, item_id):
         flash("已加入候选词，请确认后入库")
     return redirect(url_for(
         "intake.candidates", source_id=result["source_id"],
+    ))
+
+
+@bp.post(
+    "/partners/<int:partner_id>/recaps/<int:recap_id>/summary",
+)
+@login_required
+def generate_recap_summary(partner_id, recap_id):
+    try:
+        result = summaries_svc.generate_summary(
+            _uid(), partner_id, recap_id,
+            feedback_language_code=words_svc.get_feedback_language(_uid()),
+        )
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    except summaries_svc.SummaryUnavailable:
+        flash("AI 总结暂时不可用，不影响已记录内容")
+        return redirect(url_for(
+            "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
+        ))
+    if result is None:
+        abort(404)
+    flash(
+        "AI 复盘总结已生成"
+        if result["state"] == "generated"
+        else "当前总结已是最新"
+    )
+    return redirect(url_for(
+        "partners.show_recap", partner_id=partner_id, recap_id=recap_id,
     ))
 
 

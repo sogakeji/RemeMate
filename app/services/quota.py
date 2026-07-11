@@ -108,6 +108,25 @@ def record_correction(user_id, *, prompt_tokens, completion_tokens,
     db.session.commit()
 
 
+def record_feature_usage(user_id, *, prompt_tokens, completion_tokens,
+                         provider, model, feature, used_user_key=False):
+    """Record optional AI usage without consuming a workflow counter."""
+    quota = _get_or_create_quota(user_id)
+    if not used_user_key:
+        quota.tokens_used_today += (prompt_tokens or 0) + (completion_tokens or 0)
+    quota.updated_at = utc_now()
+    db.session.add(TokenUsageLog(
+        user_id=user_id,
+        provider=provider,
+        model=model,
+        feature=feature,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        used_user_key=used_user_key,
+    ))
+    db.session.commit()
+
+
 # ---- 导入额度（按候选词数/天，与造句分开）----
 
 def import_daily_limit(user_id) -> int:
