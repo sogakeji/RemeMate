@@ -2158,19 +2158,26 @@ textarea.form-control {
     gap: 8px;
 }
 
+.partner-recap-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
 .partner-recap-link {
     display: flex;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
     padding: 14px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
     color: var(--text-color);
     text-decoration: none;
 }
 
-.partner-recap-link:hover {
+.partner-recap-row:hover {
     border-color: var(--primary-color);
     background: rgba(74, 108, 247, 0.06);
 }
@@ -2179,6 +2186,31 @@ textarea.form-control {
     flex: 0 0 auto;
     color: var(--text-secondary);
     font-size: 13px;
+}
+
+.partner-recap-status {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.partner-recap-status.pending {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.partner-recap-status.thanked {
+    border-color: var(--success-color);
+    color: var(--success-color);
 }
 
 .recap-page {
@@ -2305,6 +2337,15 @@ textarea.form-control {
         align-items: flex-start;
         flex-direction: column;
         gap: 4px;
+    }
+
+    .partner-recap-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .partner-recap-status {
+        justify-self: start;
+        margin: 0 16px 14px;
     }
 }
 

@@ -33,10 +33,14 @@ def _dispatch_engine():
 
 
 def _render_partner_detail(partner):
+    recaps = recaps_svc.list_recaps(_uid(), partner.id)
     return render_template(
         "partners/detail.html",
         partner=partner,
-        recaps=recaps_svc.list_recaps(_uid(), partner.id),
+        recaps=recaps,
+        recap_delivery_statuses=packets_svc.recap_delivery_statuses(
+            _uid(), [recap.id for recap in recaps],
+        ),
         language_names=_LANGUAGE_NAMES,
     )
 

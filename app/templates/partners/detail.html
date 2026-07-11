@@ -55,11 +55,27 @@
     {% if recaps %}
       <div class="partner-recap-list">
         {% for recap in recaps %}
-        <a class="partner-recap-link"
-           href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id) }}">
-          <strong>{{ recap.title or '语言交换复盘' }}</strong>
-          <span>{{ recap.session_date.isoformat() }}</span>
-        </a>
+        {% set delivery = recap_delivery_statuses.get(recap.id) %}
+        <div class="partner-recap-row" data-recap-id="{{ recap.id }}">
+          <a class="partner-recap-link"
+             href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id) }}">
+            <strong>{{ recap.title or '语言交换复盘' }}</strong>
+            <span>{{ recap.session_date.isoformat() }}</span>
+          </a>
+          {% if delivery %}
+            {% if delivery.state == 'pending' %}
+            <a class="partner-recap-status pending"
+               href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id, side='for_partner') }}">
+              {{ delivery.label }}
+            </a>
+            {% else %}
+            <a class="partner-recap-status {{ delivery.state }}"
+               href="{{ url_for('partners.show_packet', packet_id=delivery.packet_id) }}">
+              {{ delivery.label }}
+            </a>
+            {% endif %}
+          {% endif %}
+        </div>
         {% endfor %}
       </div>
     {% else %}

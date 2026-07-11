@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 
-from sqlalchemy import or_, text
+from sqlalchemy import case, func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -24,6 +25,86 @@ from app.services.timeutil import utc_now
 
 MAX_PACKET_ITEMS = 20
 ADOPTABLE_KINDS = {"expression", "natural_phrase", "correction"}
+
+
+@dataclass(frozen=True)
+class RecapDeliveryStatus:
+    state: str
+    packet_count: int
+    packet_id: int | None
+
+    @property
+    def label(self) -> str:
+        if self.state == "thanked":
+            return "对方已感谢"
+        if self.state == "sent":
+            return f"已发送 {self.packet_count} 份"
+        return "待发送"
+
+
+def recap_delivery_statuses(
+    sender_user_id: int,
+    recap_ids,
+) -> dict[int, RecapDeliveryStatus]:
+    """Batch recap-level delivery facts for one partner page."""
+    normalized_ids = list(dict.fromkeys(int(value) for value in recap_ids))
+    if not normalized_ids:
+        return {}
+
+    item_counts = dict(
+        db.session.query(
+            PartnerRecapItem.recap_id,
+            func.count(PartnerRecapItem.id),
+        )
+        .filter(
+            PartnerRecapItem.user_id == sender_user_id,
+            PartnerRecapItem.recap_id.in_(normalized_ids),
+            PartnerRecapItem.side == "for_partner",
+        )
+        .group_by(PartnerRecapItem.recap_id)
+        .all()
+    )
+    packet_rows = (
+        db.session.query(
+            PartnerPacket.recap_id,
+            func.count(PartnerPacket.id),
+            func.max(PartnerPacket.id),
+            func.max(case(
+                (PartnerPacketThank.packet_id.isnot(None), PartnerPacket.id),
+                else_=None,
+            )),
+        )
+        .outerjoin(
+            PartnerPacketThank,
+            PartnerPacketThank.packet_id == PartnerPacket.id,
+        )
+        .filter(
+            PartnerPacket.sender_user_id == sender_user_id,
+            PartnerPacket.recap_id.in_(normalized_ids),
+        )
+        .group_by(PartnerPacket.recap_id)
+        .all()
+    )
+    packets_by_recap = {row[0]: row[1:] for row in packet_rows}
+
+    statuses = {}
+    for recap_id in normalized_ids:
+        packet_count, latest_packet_id, thanked_packet_id = (
+            packets_by_recap.get(recap_id, (0, None, None))
+        )
+        if thanked_packet_id is not None:
+            statuses[recap_id] = RecapDeliveryStatus(
+                "thanked", packet_count, thanked_packet_id,
+            )
+        elif packet_count:
+            statuses[recap_id] = RecapDeliveryStatus(
+                "sent", packet_count, latest_packet_id,
+            )
+        elif item_counts.get(recap_id, 0):
+            statuses[recap_id] = RecapDeliveryStatus(
+                "pending", 0, None,
+            )
+    return statuses
 
 
 def create_packet(
