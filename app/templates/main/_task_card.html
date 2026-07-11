@@ -2,16 +2,16 @@
 {% if task_card and task_card.items %}
 <div class="task-card" id="task-card">
   <div class="task-card-header">
-    <h2>今日任务</h2>
+    <h2>{{ _('task.today') }}</h2>
     {% if task_card.all_done %}
-    <span class="task-done-badge">全部完成</span>
+    <span class="task-done-badge">{{ _('task.all_done') }}</span>
     {% endif %}
   </div>
   <ul class="task-list">
     {% for t in task_card.items %}
     <li class="task-item{% if t.done %} done{% endif %}">
       <a href="{{ t.href }}">
-        <span class="task-title">{{ t.title }}</span>
+        <span class="task-title">{{ _('task.' ~ t.slug) }}</span>
         <span class="task-progress"
               data-slug="{{ t.slug }}"
               data-progress="{{ t.progress }}"

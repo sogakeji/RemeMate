@@ -7,11 +7,11 @@
 ## 当前状态
 
 - 日期：2026-07-11
-- 当前分支：`navigation-ia-mobile`（基于 `master` 的 `3eca845`）
+- 当前分支：`i18n-foundation`（基于导航提交 `631a157`）
 - 本地里程碑：`3eca845`（SessionPad MVP + 公开双语 Landing + 文档收口）
 - 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地回归：`pytest -q` -> 422 passed, 16 warnings。
-- 本地数据库迁移：`b7c8d9e0f1a2 (head)`
+- 本地回归：`pytest -q` -> 426 passed, 16 warnings。
+- 本地数据库迁移：`c8d9e0f1a2b3 (head)`
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
 - 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
 - 线上数据库迁移：`2e79a6ececcc (head)`
@@ -42,6 +42,9 @@
    语言伙伴、词库、我的；造句/历史/广场成为写作域同级视图，收到的反馈归入伙伴域。
    移动端使用固定底部五图标导航，品牌与语言/主题控件保持在同一顶栏。
 6. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
+7. 全站国际化：`i18n-foundation` 已建立独立 `ui_locale`、服务端翻译目录和全局切换路由；
+   第一批覆盖导航、登录、首页复习/每日任务和设置。后续按写作、词库、伙伴、阅读/管理
+   分批推进，详见 `docs/strategy/2026-07-12-app-i18n.md`。
 
 ## 架构速记
 

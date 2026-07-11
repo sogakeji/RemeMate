@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}设置 · 记搭{% endblock %}
+{% block title %}{{ _('settings.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container" style="max-width:520px;">
-  <h1>设置</h1>
+  <h1>{{ _('settings.title') }}</h1>
 
   <div class="form-card settings-card">
     <form method="post" action="{{ url_for('main.save_settings') }}">
@@ -10,83 +10,112 @@
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">昵称</div>
+          <div class="settings-title">{{ _('settings.display_name') }}</div>
           <div class="settings-value">
             <span class="settings-chip">{{ current_user.display_name }}</span>
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
-                data-settings-toggle="profile-panel">修改</button>
+                data-settings-toggle="profile-panel">{{ _('common.edit') }}</button>
         <div class="settings-panel" id="profile-panel">
           <div class="settings-options">
             <div class="form-group">
-              <label class="form-label" for="display_name">昵称</label>
+              <label class="form-label" for="display_name">{{ _('settings.display_name') }}</label>
               <input id="display_name" class="form-control" type="text"
                      name="display_name" value="{{ current_user.display_name }}"
                      maxlength="100" required autocomplete="name">
             </div>
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
             <button type="submit" class="btn primary"
-                    formaction="{{ url_for('main.save_account_settings') }}">确定</button>
+                    formaction="{{ url_for('main.save_account_settings') }}">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">登录密码</div>
+          <div class="settings-title">{{ _('settings.login_password') }}</div>
           <div class="settings-value">
-            <span class="settings-empty">已设置</span>
+            <span class="settings-empty">{{ _('settings.password_set') }}</span>
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
-                data-settings-toggle="password-panel">修改</button>
+                data-settings-toggle="password-panel">{{ _('common.edit') }}</button>
         <div class="settings-panel" id="password-panel">
           <div class="settings-options">
             <div class="form-group">
-              <label class="form-label" for="current_password">当前密码</label>
+              <label class="form-label" for="current_password">{{ _('settings.current_password') }}</label>
               <input id="current_password" class="form-control" type="password"
                      name="current_password" autocomplete="current-password">
             </div>
             <div class="form-group">
-              <label class="form-label" for="new_password">新密码</label>
+              <label class="form-label" for="new_password">{{ _('settings.new_password') }}</label>
               <input id="new_password" class="form-control" type="password"
                      name="new_password" minlength="8" maxlength="128"
                      autocomplete="new-password">
             </div>
             <div class="form-group">
-              <label class="form-label" for="confirm_password">再次输入新密码</label>
+              <label class="form-label" for="confirm_password">{{ _('settings.confirm_password') }}</label>
               <input id="confirm_password" class="form-control" type="password"
                      name="confirm_password" minlength="8" maxlength="128"
                      autocomplete="new-password">
             </div>
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
             <button type="submit" class="btn primary"
-                    formaction="{{ url_for('main.save_account_settings') }}">确定</button>
+                    formaction="{{ url_for('main.save_account_settings') }}">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">正在学</div>
+          <div class="settings-title">{{ _('settings.ui_language') }}</div>
+          <div class="settings-value">
+            <span class="settings-chip">{{ _('ui.english') if selected_ui_locale == 'en' else _('ui.zh') }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn default settings-edit"
+                data-settings-toggle="ui-locale-panel">{{ _('common.edit') }}</button>
+        <div class="settings-panel" id="ui-locale-panel">
+          <div class="settings-options">
+            <label class="lang-check">
+              <input type="radio" name="ui_locale" value="zh"
+                     {% if selected_ui_locale == 'zh' %}checked{% endif %}>
+              <span>{{ _('ui.zh') }}</span>
+            </label>
+            <label class="lang-check">
+              <input type="radio" name="ui_locale" value="en"
+                     {% if selected_ui_locale == 'en' %}checked{% endif %}>
+              <span>{{ _('ui.english') }}</span>
+            </label>
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
+            <button type="submit" class="btn primary">{{ _('common.confirm') }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-copy">
+          <div class="settings-title">{{ _('settings.learning') }}</div>
           <div class="settings-value">
             {% if learning %}
               {% for code in learning %}
-                <span class="settings-chip">{{ lang_choices.get(code, code) }}</span>
+                <span class="settings-chip">{{ ui_language_names.get(code, code) }}</span>
               {% endfor %}
             {% else %}
-              <span class="settings-empty">未选择</span>
+              <span class="settings-empty">{{ _('common.not_selected') }}</span>
             {% endif %}
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
                 data-settings-toggle="learning-panel">
-          {% if learning %}修改{% else %}设置{% endif %}
+          {% if learning %}{{ _('common.edit') }}{% else %}{{ _('common.set') }}{% endif %}
         </button>
         <div class="settings-panel" id="learning-panel">
           <div class="settings-options">
@@ -94,133 +123,133 @@
             <label class="lang-check">
               <input type="checkbox" name="languages" value="{{ code }}"
                      {% if code in learning %}checked{% endif %}>
-              <span>{{ name }}</span>
+              <span>{{ ui_language_names.get(code, name) }}</span>
             </label>
             {% endfor %}
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
-            <button type="submit" class="btn primary">确定</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
+            <button type="submit" class="btn primary">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">母语</div>
+          <div class="settings-title">{{ _('settings.feedback_language') }}</div>
           <div class="settings-value">
-            <span class="settings-chip">{{ feedback_choices.get(feedback_language, feedback_language) }}</span>
+            <span class="settings-chip">{{ ui_language_names.get(feedback_language, feedback_language) }}</span>
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
-                data-settings-toggle="feedback-panel">修改</button>
+                data-settings-toggle="feedback-panel">{{ _('common.edit') }}</button>
         <div class="settings-panel" id="feedback-panel">
           <div class="settings-options">
           {% for code, name in feedback_choices.items() %}
             <label class="lang-check">
               <input type="radio" name="feedback_language" value="{{ code }}"
                      {% if code == feedback_language %}checked{% endif %}>
-              <span>{{ name }}</span>
+              <span>{{ ui_language_names.get(code, name) }}</span>
             </label>
           {% endfor %}
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
-            <button type="submit" class="btn primary">确定</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
+            <button type="submit" class="btn primary">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">时区</div>
+          <div class="settings-title">{{ _('settings.timezone') }}</div>
           <div class="settings-value">
-            <span class="settings-chip">{{ timezone_choices.get(timezone, timezone) }}</span>
+            <span class="settings-chip">{{ ui_timezone_names.get(timezone, timezone) }}</span>
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
-                data-settings-toggle="timezone-panel">修改</button>
+                data-settings-toggle="timezone-panel">{{ _('common.edit') }}</button>
         <div class="settings-panel" id="timezone-panel">
           <div class="settings-options">
           {% for code, name in timezone_choices.items() %}
             <label class="lang-check">
               <input type="radio" name="timezone" value="{{ code }}"
                      {% if code == timezone %}checked{% endif %}>
-              <span>{{ name }}</span>
+              <span>{{ ui_timezone_names.get(code, name) }}</span>
               <small class="settings-option-note">{{ code }}</small>
             </label>
           {% endfor %}
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
-            <button type="submit" class="btn primary">确定</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
+            <button type="submit" class="btn primary">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-copy">
-          <div class="settings-title">Bark 推送</div>
+          <div class="settings-title">{{ _('settings.bark_push') }}</div>
           <div class="settings-value">
             {% if notification_settings.bark_url %}
-              <span class="settings-chip">已配置</span>
+              <span class="settings-chip">{{ _('settings.configured') }}</span>
               {% if notification_settings.notify_review_reminder %}
-                <span class="settings-chip">复习提醒</span>
+                <span class="settings-chip">{{ _('settings.review_reminder') }}</span>
               {% endif %}
               {% if notification_settings.notify_daily_summary %}
-                <span class="settings-chip">每日摘要</span>
+                <span class="settings-chip">{{ _('settings.daily_summary') }}</span>
               {% endif %}
               {% if notification_settings.notify_intake_done %}
-                <span class="settings-chip">导入完成</span>
+                <span class="settings-chip">{{ _('settings.import_complete') }}</span>
               {% endif %}
             {% else %}
-              <span class="settings-empty">未配置</span>
+              <span class="settings-empty">{{ _('common.not_configured') }}</span>
             {% endif %}
           </div>
         </div>
         <button type="button" class="btn default settings-edit"
                 data-settings-toggle="bark-panel">
-          {% if notification_settings.bark_url %}修改{% else %}设置{% endif %}
+          {% if notification_settings.bark_url %}{{ _('common.edit') }}{% else %}{{ _('common.set') }}{% endif %}
         </button>
         <div class="settings-panel" id="bark-panel">
           <div class="settings-options">
             <div class="form-group">
-              <label class="form-label" for="bark_url">Bark 地址</label>
+              <label class="form-label" for="bark_url">{{ _('settings.bark_address') }}</label>
               <input id="bark_url" class="form-control" type="url" name="bark_url"
                      value="{{ notification_settings.bark_url }}"
-                     placeholder="https://api.day.app/你的Key">
-              <small class="form-text">留空即可关闭推送。</small>
+                     placeholder="https://api.day.app/your-key">
+              <small class="form-text">{{ _('settings.bark_close_hint') }}</small>
             </div>
             <label class="lang-check">
               <input type="checkbox" name="notify_review_reminder"
                      {% if notification_settings.notify_review_reminder %}checked{% endif %}>
-              <span>复习提醒</span>
+              <span>{{ _('settings.review_reminder') }}</span>
             </label>
             <label class="lang-check">
               <input type="checkbox" name="notify_daily_summary"
                      {% if notification_settings.notify_daily_summary %}checked{% endif %}>
-              <span>每日摘要</span>
+              <span>{{ _('settings.daily_summary') }}</span>
             </label>
             <label class="lang-check">
               <input type="checkbox" name="notify_intake_done"
                      {% if notification_settings.notify_intake_done %}checked{% endif %}>
-              <span>导入完成</span>
+              <span>{{ _('settings.import_complete') }}</span>
             </label>
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn default settings-cancel">取消</button>
+            <button type="button" class="btn default settings-cancel">{{ _('common.cancel') }}</button>
             <button type="submit" class="btn default"
                     formaction="{{ url_for('main.test_bark_settings') }}">
-              发送测试
+              {{ _('settings.send_test') }}
             </button>
-            <button type="submit" class="btn primary">确定</button>
+            <button type="submit" class="btn primary">{{ _('common.confirm') }}</button>
           </div>
         </div>
       </div>
     </form>
     {% if not learning %}
     <p class="settings-footnote">
-      还没选任何语言——首页会提示你先来这里选语言。
+      {{ _('settings.no_learning') }}
     </p>
     {% endif %}
   </div>

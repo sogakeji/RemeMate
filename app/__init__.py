@@ -25,8 +25,10 @@ def create_app(config_name=None):
     # RLS：before_request 把 uid 缓存进 g；after_begin 事件每个事务注入 GUC（多 commit 安全）。
     # 见 app/services/rls.py。
     from app.services.rls import set_request_rls_user
+    from app.i18n import bind_ui_locale
 
     app.before_request(set_request_rls_user)
+    app.before_request(bind_ui_locale)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -67,6 +69,10 @@ def create_app(config_name=None):
     # 全局模板上下文：把「当前语言 + 语言清单」注入所有模板，供 base.html 全局语言
     # 切换器用。无请求未登录时为 None/空。service 层显式收 user_id，不依赖 request。
     from app.services import words as _words_svc
+    from app.i18n import (get_ui_locale, localized_language_names,
+                          localized_timezone_names, translate)
+
+    app.jinja_env.globals["_"] = translate
 
     @app.context_processor
     def inject_lang():
@@ -91,6 +97,14 @@ def create_app(config_name=None):
             except Exception:
                 learning = []
         return {"learning_languages": learning}
+
+    @app.context_processor
+    def inject_i18n():
+        return {
+            "ui_locale": get_ui_locale(),
+            "ui_language_names": localized_language_names(),
+            "ui_timezone_names": localized_timezone_names(),
+        }
 
     @app.get("/healthz")
     def healthz():

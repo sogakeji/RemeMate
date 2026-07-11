@@ -1430,6 +1430,31 @@ textarea.form-control {
     letter-spacing: 0.4px;
 }
 
+.ui-locale-form {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.ui-locale-toggle {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: 0 2px 8px var(--shadow-color);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-locale-toggle:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
 .brand-user {
     font-size: 13px;
     color: var(--text-secondary);
