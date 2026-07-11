@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}造句 · 记搭{% endblock %}
+{% block title %}写一写 · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
+  {% with write_section='compose' %}{% include "write/_section_nav.html" %}{% endwith %}
   <div class="write-header">
     <div>
       <h1>{% if mode == 'diary' %}写三行日记{% else %}今天写一句{% endif %}</h1>
       <p class="write-quota">今日 {{ quota.used }}/{{ quota.limit }}{% if quota.own_key %} · 自带 key{% endif %}</p>
     </div>
-    <a class="btn default" href="{{ url_for('write.history') }}">历史</a>
   </div>
 
   <div class="write-mode-tabs" aria-label="造句模式">

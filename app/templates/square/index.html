@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}句子广场 · 记搭{% endblock %}
+{% block title %}广场 · 写一写 · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
+  {% with write_section='square' %}{% include "write/_section_nav.html" %}{% endwith %}
   <div class="header-section">
     <h1>句子广场</h1>
     <p><small>公开的造句和三行日记，只展示用户主动发布的内容。</small></p>

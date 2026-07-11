@@ -4,7 +4,10 @@
 <div class="container partners-page">
   <div class="partners-page-header">
     <h1>语言伙伴</h1>
-    <a class="btn primary" href="{{ url_for('partners.new') }}">添加伙伴</a>
+    <div class="partner-page-actions">
+      <a class="btn default" href="{{ url_for('partners.packet_inbox') }}">收到的反馈</a>
+      <a class="btn primary" href="{{ url_for('partners.new') }}">添加伙伴</a>
+    </div>
   </div>
 
   {% if partners %}

@@ -183,3 +183,44 @@ def test_nav_groups_account_tools_under_my_menu(app, client, bypass_engine):
     assert '<a class="nav-link" href="/stats"' not in page
     assert '<a class="nav-link" href="/settings"' not in page
     assert '<a class="nav-link" href="/logout"' not in page
+
+
+def test_nav_promotes_writing_and_partners_to_primary_domains(
+    app, client, bypass_engine,
+):
+    _auth(client, app)
+    page = client.get("/").get_data(as_text=True)
+
+    assert 'data-nav-menu="writing"' in page
+    assert 'aria-label="写一写菜单"' in page
+    assert 'href="/write">造句</a>' in page
+    assert 'href="/write/history">历史</a>' in page
+    assert 'href="/square">广场</a>' in page
+    assert 'data-nav-menu="partners"' in page
+    assert 'aria-label="语言伙伴菜单"' in page
+    assert 'href="/partners">伙伴列表</a>' in page
+    assert 'href="/partner-packets">收到的反馈</a>' in page
+
+    account_menu = page.split('aria-label="我的菜单"', 1)[1].split("</div>", 1)[0]
+    assert 'href="/partners"' not in account_menu
+    assert 'href="/partner-packets"' not in account_menu
+    assert page.count("nav-mobile-icon") == 5
+
+
+def test_writing_domain_pages_share_equal_section_navigation(
+    app, client, bypass_engine,
+):
+    _auth(client, app)
+
+    for path, active_label in [
+        ("/write", "造句"),
+        ("/write/history", "历史"),
+        ("/square", "广场"),
+    ]:
+        page = client.get(path).get_data(as_text=True)
+        assert 'class="write-section-nav"' in page
+        assert page.count("write-section-link") == 3
+        assert (
+            f'class="write-section-link active"' in page
+            and f'aria-current="page">{active_label}</a>' in page
+        )
