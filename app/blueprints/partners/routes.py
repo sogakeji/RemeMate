@@ -66,6 +66,24 @@ def _recap_kind(side: str, value: str | None = None) -> str:
     return kind if kind in choices else next(iter(choices))
 
 
+def _render_packet_adopt_form(
+    packet_id: int,
+    item,
+    *,
+    terms: str,
+    suggestion_message: str,
+):
+    return render_template(
+        "partners/_packet_adopt_form.html",
+        packet_id=packet_id,
+        item=item,
+        source_id=packets_svc.adoption_source_ids(_uid(), [item]).get(item.id),
+        terms=terms,
+        suggestion_message=suggestion_message,
+        form_open=True,
+    )
+
+
 @bp.get("/partners")
 @login_required
 def index():
@@ -538,6 +556,42 @@ def adopt_packet_item(packet_id, item_id):
     return redirect(url_for(
         "intake.candidates", source_id=result["source_id"],
     ))
+
+
+@bp.post(
+    "/partner-packets/<int:packet_id>/items/<int:item_id>/suggest-terms",
+)
+@login_required
+def suggest_packet_item_terms(packet_id, item_id):
+    try:
+        result = packets_svc.suggest_received_item_terms(
+            _uid(), packet_id, item_id,
+        )
+    except ValueError as exc:
+        item = packets_svc.get_received_packet_item(_uid(), packet_id, item_id)
+        if item is None:
+            abort(404)
+        return _render_packet_adopt_form(
+            packet_id, item,
+            terms=item.content,
+            suggestion_message=str(exc),
+        )
+    except packets_svc.TermSuggestionUnavailable:
+        item = packets_svc.get_received_packet_item(_uid(), packet_id, item_id)
+        if item is None:
+            abort(404)
+        return _render_packet_adopt_form(
+            packet_id, item,
+            terms=item.content,
+            suggestion_message="AI 暂时不可用，可继续手动拆分",
+        )
+    if result is None:
+        abort(404)
+    return _render_packet_adopt_form(
+        packet_id, result["item"],
+        terms="\n".join(result["terms"]),
+        suggestion_message="AI 建议已填入，可继续修改",
+    )
 
 
 @bp.post(

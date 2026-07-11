@@ -19,13 +19,20 @@ from app.models.partner import LanguagePartner
 from app.models.recap import PartnerRecap, PartnerRecapItem
 from app.models.user import User
 from app.models.word import Word, WordList
+from app.services import llm, quota as quota_svc
 from app.services import words as words_svc
 from app.services.timeutil import utc_now
 
 
 MAX_PACKET_ITEMS = 20
 MAX_ADOPTION_TERMS = 20
+MAX_TERM_SUGGESTIONS = 8
+MAX_SUGGESTED_TERM_CHARS = 80
 ADOPTABLE_KINDS = {"expression", "natural_phrase", "correction"}
+
+
+class TermSuggestionUnavailable(Exception):
+    """Optional AI suggestions failed; manual candidate splitting still works."""
 
 
 @dataclass(frozen=True)
@@ -284,22 +291,29 @@ def adoption_source_ids(
     return {item_id: source_id for item_id, source_id in rows}
 
 
+def get_received_packet_item(
+    recipient_user_id: int,
+    packet_id: int,
+    packet_item_id: int,
+) -> PartnerPacketItem | None:
+    received = _received_packet_item(
+        recipient_user_id, packet_id, packet_item_id,
+    )
+    return received[1] if received else None
+
+
 def add_received_item_to_candidates(
     recipient_user_id: int,
     packet_id: int,
     packet_item_id: int,
     terms: str,
 ) -> dict | None:
-    packet = PartnerPacket.query.filter_by(
-        id=packet_id, recipient_user_id=recipient_user_id,
-    ).first()
-    item = PartnerPacketItem.query.filter_by(
-        id=packet_item_id, packet_id=packet_id,
-    ).first()
-    if packet is None or item is None:
+    received = _received_adoptable_item(
+        recipient_user_id, packet_id, packet_item_id,
+    )
+    if received is None:
         return None
-    if item.kind not in ADOPTABLE_KINDS:
-        raise ValueError("这类反馈不能加入候选词")
+    packet, item = received
 
     normalized_terms = _normalize_adoption_terms(terms)
     language_code = packet.language_code
@@ -417,6 +431,45 @@ def add_received_item_to_candidates(
     }
 
 
+def suggest_received_item_terms(
+    recipient_user_id: int,
+    packet_id: int,
+    packet_item_id: int,
+) -> dict | None:
+    """Suggest editable word-level terms without creating any learning data."""
+    received = _received_adoptable_item(
+        recipient_user_id, packet_id, packet_item_id,
+    )
+    if received is None:
+        return None
+    packet, item = received
+    language_code = packet.language_code
+    if not language_code:
+        raise ValueError("这份旧反馈没有语言信息，暂时不能提取词语")
+    if language_code not in words_svc.get_learning_languages(recipient_user_id):
+        language_name = words_svc._language_name(language_code)
+        raise ValueError(f"请先在设置中把{language_name}加入正在学")
+
+    language_name = words_svc._language_name(language_code)
+    messages = _term_suggestion_messages(item.content, language_name)
+    try:
+        result = llm.chat(messages, task="extract", json_mode=True)
+    except llm.AllProvidersDown as exc:
+        raise TermSuggestionUnavailable() from exc
+    quota_svc.record_feature_usage(
+        recipient_user_id,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+        provider=result.provider,
+        model=result.model,
+        feature="sessionpad_term_suggestions",
+    )
+    suggestions = normalize_term_suggestions(_parse_json_object(result.content))
+    if not suggestions:
+        raise TermSuggestionUnavailable()
+    return {"terms": suggestions, "item": item}
+
+
 def _normalize_adoption_terms(value: str) -> list[str]:
     terms = []
     seen = set()
@@ -435,6 +488,94 @@ def _normalize_adoption_terms(value: str) -> list[str]:
     if len(terms) > MAX_ADOPTION_TERMS:
         raise ValueError(f"一次最多加入 {MAX_ADOPTION_TERMS} 个候选词")
     return terms
+
+
+def normalize_term_suggestions(data) -> list[str]:
+    """Accept only a small editable list from an untrusted model response."""
+    if not isinstance(data, dict) or not isinstance(data.get("terms"), list):
+        return []
+    terms = []
+    seen = set()
+    for value in data["terms"]:
+        if not isinstance(value, str):
+            continue
+        term = value.strip()
+        if not term or len(term) > MAX_SUGGESTED_TERM_CHARS:
+            continue
+        key = term.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        terms.append(term)
+        if len(terms) == MAX_TERM_SUGGESTIONS:
+            break
+    return terms
+
+
+def _term_suggestion_messages(content: str, language_name: str) -> list[dict]:
+    system = (
+        f"你是{language_name}学习材料整理助手。"
+        "只提取可独立复用、值得记忆的词语、固定搭配或地道短表达。"
+        "不要机械切句，不要返回完整句子、代词片段、功能词或普通高频句段。"
+        "如果反馈包含错误修正，优先提取修正后的目标表达。"
+        "严格输出 JSON，不要添加解释。"
+    )
+    user = (
+        "从下面这条语言交换反馈中谨慎提取 1-8 个学习项；宁缺毋滥。"
+        "每项脱离原句后仍应有学习价值，保留原语言写法并去重，"
+        "每项不超过 80 个字符。"
+        "输出格式：{\"terms\":[\"词语或短表达\"]}\n\n"
+        f"反馈：{content}"
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def _parse_json_object(content: str):
+    try:
+        return json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    try:
+        start = content.index("{")
+        end = content.rindex("}") + 1
+        return json.loads(content[start:end])
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+
+def _received_adoptable_item(
+    recipient_user_id: int,
+    packet_id: int,
+    packet_item_id: int,
+) -> tuple[PartnerPacket, PartnerPacketItem] | None:
+    received = _received_packet_item(
+        recipient_user_id, packet_id, packet_item_id,
+    )
+    if received is None:
+        return None
+    packet, item = received
+    if item.kind not in ADOPTABLE_KINDS:
+        raise ValueError("这类反馈不能加入候选词")
+    return packet, item
+
+
+def _received_packet_item(
+    recipient_user_id: int,
+    packet_id: int,
+    packet_item_id: int,
+) -> tuple[PartnerPacket, PartnerPacketItem] | None:
+    packet = PartnerPacket.query.filter_by(
+        id=packet_id, recipient_user_id=recipient_user_id,
+    ).first()
+    item = PartnerPacketItem.query.filter_by(
+        id=packet_item_id, packet_id=packet_id,
+    ).first()
+    if packet is None or item is None:
+        return None
+    return packet, item
 
 
 def _source_for_received_packet(

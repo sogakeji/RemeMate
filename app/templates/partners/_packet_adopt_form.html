@@ -1,0 +1,20 @@
+<details id="packet-adopt-form-{{ item.id }}" class="packet-adopt-form"
+         {% if form_open %}open{% endif %}>
+  <summary>{{ '继续拆分候选词' if source_id else '拆分为候选词' }}</summary>
+  <form hx-post="{{ url_for('partners.suggest_packet_item_terms', packet_id=packet_id, item_id=item.id) }}"
+        hx-target="#packet-adopt-form-{{ item.id }}" hx-swap="outerHTML"
+        hx-disabled-elt="find button">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn default" type="submit">AI 提取建议</button>
+  </form>
+  {% if suggestion_message %}
+  <p class="form-hint">{{ suggestion_message }}</p>
+  {% endif %}
+  <form method="post"
+        action="{{ url_for('partners.adopt_packet_item', packet_id=packet_id, item_id=item.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="form-label">想记住的词或表达，每行一个</label>
+    <textarea class="form-control" name="terms" rows="4" maxlength="4020" required>{{ terms }}</textarea>
+    <button class="btn primary" type="submit">加入候选词</button>
+  </form>
+</details>

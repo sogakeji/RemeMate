@@ -28,16 +28,9 @@
         <a class="packet-adopted-link"
            href="{{ url_for('intake.candidates', source_id=source_id) }}">去候选词审核</a>
         {% endif %}
-        <details class="packet-adopt-form">
-          <summary>{{ '继续拆分候选词' if source_id else '拆分为候选词' }}</summary>
-          <form method="post"
-                action="{{ url_for('partners.adopt_packet_item', packet_id=packet.id, item_id=item.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label class="form-label">想记住的词或表达，每行一个</label>
-            <textarea class="form-control" name="terms" rows="4" maxlength="4020" required>{{ item.content }}</textarea>
-            <button class="btn primary" type="submit">加入候选词</button>
-          </form>
-        </details>
+        {% with packet_id=packet.id, terms=item.content %}
+          {% include "partners/_packet_adopt_form.html" %}
+        {% endwith %}
       {% endif %}
     </article>
     {% endfor %}

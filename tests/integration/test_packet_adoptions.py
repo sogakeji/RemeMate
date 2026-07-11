@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from app.services import llm
 from tests.helpers import login, make_user, provision_user, set_uid
 
 
@@ -94,6 +95,15 @@ def _adopt(client, packet_id, item_id, term):
     )
 
 
+def _suggest(client, packet_id, item_id):
+    packet_url = f"/partner-packets/{packet_id}"
+    return client.post(
+        f"{packet_url}/items/{item_id}/suggest-terms",
+        data={"csrf_token": _csrf(client, packet_url)},
+        headers={"HX-Request": "true"},
+    )
+
+
 def test_recipient_can_edit_received_expression_before_candidate_review(
     app, client, bypass_engine,
 ):
@@ -171,6 +181,148 @@ def test_one_received_sentence_can_create_multiple_word_level_candidates(
         ), {"item": item_ids[0]}).mappings().all()
     assert [row["word"] for row in rows] == ["赞同", "观点"]
     assert {row["source_example"] for row in rows} == {context}
+
+
+def test_recipient_can_request_editable_ai_term_suggestions(
+    app, client, bypass_engine, monkeypatch,
+):
+    recipient_id = _provision_learning_user(app, "suggest-recipient@t.com")
+    sender_id = provision_user(app, "suggest-sender@t.com", PW)
+    context = "我很同意你的看法，更自然可以说我很赞同你的观点。"
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("correction", context)],
+    )
+    captured = {}
+
+    def fake_chat(messages, **kwargs):
+        captured["messages"] = messages
+        captured["kwargs"] = kwargs
+        return llm.LLMResult(
+            '{"terms":["赞同","观点","赞同"]}',
+            17, 9, "fake", "fake-extract",
+        )
+
+    monkeypatch.setattr("app.services.packets.llm.chat", fake_chat)
+    login(client, "suggest-recipient@t.com", PW)
+
+    response = _suggest(client, packet_id, item_ids[0])
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'name="terms"' in body
+    assert "赞同\n观点" in body
+    assert context not in body
+    assert "AI 建议已填入，可继续修改" in body
+    assert captured["kwargs"] == {"task": "extract", "json_mode": True}
+    prompt = str(captured["messages"])
+    assert context in prompt
+    assert "Alice" not in prompt
+    with bypass_engine.connect() as conn:
+        usage = conn.execute(text(
+            "SELECT feature,prompt_tokens,completion_tokens FROM token_usage_log "
+            "WHERE user_id=:user"
+        ), {"user": recipient_id}).mappings().one()
+        candidate_count = conn.execute(text(
+            "SELECT count(*) FROM word_candidates WHERE user_id=:user"
+        ), {"user": recipient_id}).scalar()
+    assert usage == {
+        "feature": "sessionpad_term_suggestions",
+        "prompt_tokens": 17,
+        "completion_tokens": 9,
+    }
+    assert candidate_count == 0
+
+
+def test_ai_suggestion_failure_keeps_manual_split_available(
+    app, client, bypass_engine, monkeypatch,
+):
+    sender_id = provision_user(app, "suggest-down-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "suggest-down-recipient@t.com")
+    context = "完整反馈仍需保留"
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("expression", context)],
+    )
+
+    def unavailable(*args, **kwargs):
+        raise llm.AllProvidersDown("down")
+
+    monkeypatch.setattr("app.services.packets.llm.chat", unavailable)
+    login(client, "suggest-down-recipient@t.com", PW)
+
+    response = _suggest(client, packet_id, item_ids[0])
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert context in body
+    assert "AI 暂时不可用，可继续手动拆分" in body
+    assert 'name="terms"' in body
+    with bypass_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT count(*) FROM token_usage_log WHERE user_id=:user"
+        ), {"user": recipient_id}).scalar() == 0
+
+
+def test_invalid_ai_output_falls_back_but_still_records_consumed_tokens(
+    app, client, bypass_engine, monkeypatch,
+):
+    sender_id = provision_user(app, "suggest-invalid-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "suggest-invalid-recipient@t.com")
+    context = "完整反馈"
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("expression", context)],
+    )
+
+    monkeypatch.setattr(
+        "app.services.packets.llm.chat",
+        lambda *args, **kwargs: llm.LLMResult(
+            '{"terms":[]}', 7, 3, "fake", "bad-output",
+        ),
+    )
+    login(client, "suggest-invalid-recipient@t.com", PW)
+
+    response = _suggest(client, packet_id, item_ids[0])
+    body = response.get_data(as_text=True)
+
+    assert context in body
+    assert "AI 暂时不可用，可继续手动拆分" in body
+    with bypass_engine.connect() as conn:
+        usage = conn.execute(text(
+            "SELECT feature,prompt_tokens,completion_tokens FROM token_usage_log "
+            "WHERE user_id=:user"
+        ), {"user": recipient_id}).mappings().one()
+    assert usage == {
+        "feature": "sessionpad_term_suggestions",
+        "prompt_tokens": 7,
+        "completion_tokens": 3,
+    }
+
+
+def test_non_recipient_cannot_request_ai_suggestions(
+    app, client, bypass_engine, monkeypatch,
+):
+    sender_id = provision_user(app, "suggest-denied-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "suggest-denied-recipient@t.com")
+    provision_user(app, "suggest-denied-stranger@t.com", PW)
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine, sender_id, recipient_id,
+        items=[("expression", "不应发送给模型")],
+    )
+    called = False
+
+    def fake_chat(*args, **kwargs):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr("app.services.packets.llm.chat", fake_chat)
+    login(client, "suggest-denied-stranger@t.com", PW)
+
+    response = _suggest(client, packet_id, item_ids[0])
+
+    assert response.status_code == 404
+    assert called is False
 
 
 def test_received_item_adoption_is_idempotent_and_reuses_packet_source(
