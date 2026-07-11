@@ -46,8 +46,10 @@ def _has_previous_review_word(user_id, language_code, current_word=None):
 
 
 @bp.route("/")
-@login_required
 def index():
+    if not current_user.is_authenticated:
+        return render_template("main/landing.html")
+
     lang = words_svc.get_current_language(current_user.id)
     word = None
     if lang is not None:

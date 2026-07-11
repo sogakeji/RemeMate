@@ -1397,13 +1397,37 @@ textarea.form-control {
 .brand-name {
     font-size: 20px;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--text-color);
     letter-spacing: 0.5px;
+}
+
+.brand-mate {
+    color: var(--primary-color);
 }
 
 .brand-slogan {
     font-size: 12px;
     color: var(--text-secondary);
+}
+
+.auth-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.auth-lang-toggle {
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.4px;
 }
 
 .brand-user {
