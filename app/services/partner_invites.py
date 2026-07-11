@@ -33,7 +33,23 @@ class PartnerInvitePreview:
 
 @dataclass(frozen=True)
 class PartnerInviteResult:
+    owner_user_id: int
     owner_display_name: str
+
+
+@dataclass(frozen=True)
+class ReciprocalPartnerPreview:
+    owner_user_id: int
+    owner_display_name: str
+    native_language_code: str | None
+    learning_language_code: str | None
+    existing_partner_id: int | None
+
+
+@dataclass(frozen=True)
+class ReciprocalPartnerResult:
+    partner_id: int
+    state: str
 
 
 def normalize_recipient_email(email: str | None) -> str:
@@ -222,8 +238,96 @@ def accept_partner_invite(
         "owner_user_id": parsed.owner_user_id,
     })
     return PartnerInviteResult(
+        owner_user_id=parsed.owner_user_id,
         owner_display_name=row["owner_display_name"],
     )
+
+
+def preview_reciprocal_partner(
+    conn,
+    recipient_user_id: int,
+    owner_user_id: int,
+) -> ReciprocalPartnerPreview | None:
+    """Preview B's private profile for A from an established A-to-B link."""
+    row = conn.execute(text(
+        """
+        SELECT owner.id AS owner_user_id,
+               owner.display_name AS owner_display_name,
+               source.learning_language_code AS native_language_code,
+               source.native_language_code AS learning_language_code,
+               reciprocal.id AS existing_partner_id
+        FROM language_partners source
+        JOIN users owner ON owner.id = source.user_id
+        LEFT JOIN language_partners reciprocal
+          ON reciprocal.user_id = :recipient_user_id
+         AND reciprocal.linked_user_id = owner.id
+        WHERE source.user_id = :owner_user_id
+          AND source.linked_user_id = :recipient_user_id
+          AND owner.is_active = true
+        """
+    ), {
+        "recipient_user_id": recipient_user_id,
+        "owner_user_id": owner_user_id,
+    }).mappings().first()
+    if row is None:
+        return None
+    return ReciprocalPartnerPreview(**dict(row))
+
+
+def create_reciprocal_partner(
+    conn,
+    recipient_user_id: int,
+    owner_user_id: int,
+) -> ReciprocalPartnerResult | None:
+    """Create B-to-A after A-to-B exists; never copy private relationship data."""
+    preview = preview_reciprocal_partner(
+        conn, recipient_user_id, owner_user_id,
+    )
+    if preview is None:
+        return None
+    if preview.existing_partner_id is not None:
+        return ReciprocalPartnerResult(
+            partner_id=preview.existing_partner_id,
+            state="existing",
+        )
+
+    partner_id = conn.execute(text(
+        """
+        INSERT INTO language_partners(
+            user_id, linked_user_id, display_name,
+            native_language_code, learning_language_code,
+            private_note, created_at, updated_at
+        ) VALUES (
+            :recipient_user_id, :owner_user_id, :owner_display_name,
+            :native_language_code, :learning_language_code,
+            NULL, now(), now()
+        )
+        ON CONFLICT (user_id, linked_user_id) DO NOTHING
+        RETURNING id
+        """
+    ), {
+        "recipient_user_id": recipient_user_id,
+        "owner_user_id": owner_user_id,
+        "owner_display_name": preview.owner_display_name,
+        "native_language_code": preview.native_language_code,
+        "learning_language_code": preview.learning_language_code,
+    }).scalar()
+    if partner_id is not None:
+        return ReciprocalPartnerResult(partner_id=partner_id, state="created")
+
+    existing_id = conn.execute(text(
+        """
+        SELECT id FROM language_partners
+        WHERE user_id = :recipient_user_id
+          AND linked_user_id = :owner_user_id
+        """
+    ), {
+        "recipient_user_id": recipient_user_id,
+        "owner_user_id": owner_user_id,
+    }).scalar()
+    if existing_id is None:
+        return None
+    return ReciprocalPartnerResult(partner_id=existing_id, state="existing")
 
 
 def _sign(secret: str, payload: str) -> str:

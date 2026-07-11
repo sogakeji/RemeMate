@@ -3,11 +3,7 @@
 {% block content %}
 <div class="container partner-form-page">
   <section class="form-card partner-invitation-page">
-    {% if accepted %}
-      <h1>已建立语言伙伴关系</h1>
-      <p>{{ invite.owner_display_name }} 已将你绑定为语言伙伴。只有对方主动发送的反馈包会与你共享。</p>
-      <a class="btn primary" href="{{ url_for('main.index') }}">回到首页</a>
-    {% elif unavailable %}
+    {% if unavailable %}
       <h1>邀请不可用</h1>
       <p>链接可能已过期、已被确认，或不属于当前登录账号。</p>
       <a class="btn default" href="{{ url_for('main.index') }}">回到首页</a>

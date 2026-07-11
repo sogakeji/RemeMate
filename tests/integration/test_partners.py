@@ -209,8 +209,32 @@ def test_partner_invite_requires_login_and_recipient_acceptance(
     accepted = client.post(invite_path, data={
         "csrf_token": _csrf(client, invite_path),
     })
-    assert accepted.status_code == 200
-    assert "已建立语言伙伴关系" in accepted.get_data(as_text=True)
+    assert accepted.status_code == 302
+    reciprocal_path = f"/partners/reciprocal/{owner_id}"
+    assert accepted.headers["Location"] == reciprocal_path
+
+    confirmation = client.get(reciprocal_path)
+    confirmation_body = confirmation.get_data(as_text=True)
+    assert confirmation.status_code == 200
+    assert "把 Alice 加入我的伙伴列表" in confirmation_body
+    assert "中文" in confirmation_body
+    assert "法语" in confirmation_body
+    assert "下个月准备 HSK" not in confirmation_body
+
+    reciprocal = client.post(reciprocal_path, data={
+        "csrf_token": _csrf(client, reciprocal_path),
+    })
+    assert reciprocal.status_code == 302
+    reciprocal_partner_id = int(
+        reciprocal.headers["Location"].rstrip("/").rsplit("/", 1)[-1]
+    )
+    reciprocal_page = client.get(
+        reciprocal.headers["Location"],
+    ).get_data(as_text=True)
+    assert "Alice" in reciprocal_page
+    assert "中文" in reciprocal_page
+    assert "法语" in reciprocal_page
+    assert "暂无" in reciprocal_page
     assert client.get(f"/partners/{partner_id}").status_code == 404
     assert client.get(
         f"/partners/{partner_id}/recaps/{recap_id}"
@@ -221,7 +245,38 @@ def test_partner_invite_requires_login_and_recipient_acceptance(
             "SELECT linked_user_id FROM language_partners "
             "WHERE id = :partner_id AND user_id = :owner_id"
         ), {"partner_id": partner_id, "owner_id": owner_id}).scalar()
+        reciprocal_row = conn.execute(text(
+            "SELECT linked_user_id, display_name, native_language_code, "
+            "learning_language_code, private_note FROM language_partners "
+            "WHERE id=:partner_id AND user_id=:recipient_id"
+        ), {
+            "partner_id": reciprocal_partner_id,
+            "recipient_id": recipient_id,
+        }).mappings().one()
     assert linked_user_id == recipient_id
+    assert reciprocal_row == {
+        "linked_user_id": owner_id,
+        "display_name": "Alice",
+        "native_language_code": "zh",
+        "learning_language_code": "fr",
+        "private_note": None,
+    }
+
+    repeated = client.post(reciprocal_path, data={
+        "csrf_token": _csrf(client, reciprocal_path),
+    })
+    assert repeated.status_code == 302
+    assert repeated.headers["Location"].endswith(
+        f"/partners/{reciprocal_partner_id}"
+    )
+    with bypass_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT count(*) FROM language_partners "
+            "WHERE user_id=:recipient_id AND linked_user_id=:owner_id"
+        ), {
+            "recipient_id": recipient_id,
+            "owner_id": owner_id,
+        }).scalar() == 1
 
     client.get("/logout")
     login(client, "partner-invite-owner@t.com", PW)
@@ -245,11 +300,23 @@ def test_claimed_partner_invite_cannot_be_taken_by_another_user(
     first = client.post(invite_path, data={
         "csrf_token": _csrf(client, invite_path),
     })
-    assert first.status_code == 200
+    assert first.status_code == 302
 
     client.get("/logout")
     login(client, "partner-claim-second@t.com", PW)
     assert client.get(invite_path).status_code == 410
+
+
+def test_user_cannot_forge_reciprocal_partner_confirmation(app, client):
+    owner_id = provision_user(app, "reciprocal-owner@t.com", PW, name="Owner")
+    provision_user(app, "reciprocal-stranger@t.com", PW, name="Stranger")
+    login(client, "reciprocal-stranger@t.com", PW)
+    path = f"/partners/reciprocal/{owner_id}"
+
+    assert client.get(path).status_code == 404
+    assert client.post(path, data={
+        "csrf_token": _csrf(client, "/partners/new"),
+    }).status_code == 404
 
 
 def test_new_partner_invite_invalidates_previous_link(app, client):

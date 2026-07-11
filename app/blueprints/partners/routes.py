@@ -170,9 +170,10 @@ def invitation(token):
                 return render_template(
                     "partners/invitation.html", unavailable=True,
                 ), 410
-            return render_template(
-                "partners/invitation.html", accepted=True, invite=result,
-            )
+            return redirect(url_for(
+                "partners.confirm_reciprocal",
+                owner_user_id=result.owner_user_id,
+            ))
 
         with engine.begin() as conn:
             preview = invites_svc.preview_partner_invite(
@@ -189,6 +190,45 @@ def invitation(token):
         ), 410
     return render_template(
         "partners/invitation.html", invite=preview, token=token,
+    )
+
+
+@bp.route(
+    "/partners/reciprocal/<int:owner_user_id>", methods=["GET", "POST"],
+)
+@login_required
+def confirm_reciprocal(owner_user_id):
+    engine = _dispatch_engine()
+    try:
+        with engine.begin() as conn:
+            if request.method == "POST":
+                result = invites_svc.create_reciprocal_partner(
+                    conn, _uid(), owner_user_id,
+                )
+                if result is None:
+                    abort(404)
+            else:
+                preview = invites_svc.preview_reciprocal_partner(
+                    conn, _uid(), owner_user_id,
+                )
+                if preview is None:
+                    abort(404)
+    finally:
+        engine.dispose()
+
+    if request.method == "POST":
+        flash(
+            "已加入语言伙伴"
+            if result.state == "created"
+            else "这位伙伴已经在你的列表中"
+        )
+        return redirect(url_for(
+            "partners.show", partner_id=result.partner_id,
+        ))
+    return render_template(
+        "partners/reciprocal_confirm.html",
+        reciprocal=preview,
+        language_names=_LANGUAGE_NAMES,
     )
 
 

@@ -2097,6 +2097,17 @@ textarea.form-control {
     background: var(--input-bg);
 }
 
+.partner-reciprocal-preview {
+    padding: 0 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-bg);
+}
+
+.partner-reciprocal-preview .partner-profile-row:last-child {
+    border-bottom: 0;
+}
+
 .partner-recaps-placeholder {
     margin-top: 32px;
 }
