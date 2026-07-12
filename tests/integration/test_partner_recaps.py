@@ -50,6 +50,37 @@ def _provision_learning_user(app, email, language_code="fr"):
     return user_id
 
 
+def test_recap_workflow_renders_english(app, client):
+    provision_user(app, "recap-english@t.com", PW)
+    login(client, "recap-english@t.com", PW)
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/partners"})
+    partner_id = _create_partner(client, "Camille")
+
+    form = client.get(f"/partners/{partner_id}/recaps/new").get_data(as_text=True)
+    assert "New recap" in form
+    assert "Exchange date" in form
+    assert "Create paper" in form
+
+    recap_id = _create_recap(client, partner_id)
+    recap_url = f"/partners/{partner_id}/recaps/{recap_id}"
+    page = client.get(recap_url).get_data(as_text=True)
+    assert "For myself" in page
+    assert "For my partner" in page
+    assert "Word / expression" in page
+    assert "Correction" in page
+    assert "AI recap summary" in page
+    assert "帮自己记" not in page
+
+    invalid = client.post(f"{recap_url}/items", data={
+        "side": "for_me",
+        "kind": "correction",
+        "content": "invalid",
+        "csrf_token": _csrf(client, recap_url),
+    }, follow_redirects=True).get_data(as_text=True)
+    assert "Choose a valid note type" in invalid
+    assert "记录类型不正确" not in invalid
+
+
 def test_user_can_create_recap_with_two_private_columns(app, client):
     provision_user(app, "recap-owner@t.com", PW)
     login(client, "recap-owner@t.com", PW)

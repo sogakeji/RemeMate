@@ -1,32 +1,32 @@
 {% extends "base.html" %}
-{% block title %}{% if partner %}编辑伙伴{% else %}添加伙伴{% endif %} · RemeMate{% endblock %}
+{% block title %}{{ _('partner.edit') if partner else _('partner.add') }} · RemeMate{% endblock %}
 {% block content %}
 {% set values = form_values if form_values is defined else partner %}
 <div class="container partner-form-page">
-  <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) if partner else url_for('partners.index') }}">← 语言伙伴</a>
-  <h1>{% if partner %}编辑伙伴{% else %}添加伙伴{% endif %}</h1>
+  <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) if partner else url_for('partners.index') }}">{{ _('partner.back') }}</a>
+  <h1>{{ _('partner.edit') if partner else _('partner.add') }}</h1>
   <form class="form-card" method="post"
         action="{{ url_for('partners.update', partner_id=partner.id) if partner else url_for('partners.create') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
-      <label class="form-label" for="display_name">昵称</label>
+      <label class="form-label" for="display_name">{{ _('partner.nickname') }}</label>
       <input class="form-control" id="display_name" name="display_name" maxlength="100" required
              value="{{ values.display_name if values else '' }}" autocomplete="off">
     </div>
     <div class="partner-language-grid">
       <div class="form-group">
-        <label class="form-label" for="native_language_code">母语</label>
+        <label class="form-label" for="native_language_code">{{ _('partner.native') }}</label>
         <select class="form-control" id="native_language_code" name="native_language_code">
-          <option value="">未设置</option>
+          <option value="">{{ _('partner.unset') }}</option>
           {% for code, name in language_names.items() %}
           <option value="{{ code }}" {% if values and values.native_language_code == code %}selected{% endif %}>{{ name }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label" for="learning_language_code">正在学</label>
+        <label class="form-label" for="learning_language_code">{{ _('partner.learning') }}</label>
         <select class="form-control" id="learning_language_code" name="learning_language_code">
-          <option value="">未设置</option>
+          <option value="">{{ _('partner.unset') }}</option>
           {% for code, name in language_names.items() %}
           <option value="{{ code }}" {% if values and values.learning_language_code == code %}selected{% endif %}>{{ name }}</option>
           {% endfor %}
@@ -34,12 +34,12 @@
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label" for="private_note">私人备注</label>
+      <label class="form-label" for="private_note">{{ _('partner.private_note') }}</label>
       <textarea class="form-control" id="private_note" name="private_note" rows="5" maxlength="2000">{{ values.private_note if values and values.private_note else '' }}</textarea>
     </div>
     <div class="button-group">
-      <a class="btn default" href="{{ url_for('partners.show', partner_id=partner.id) if partner else url_for('partners.index') }}">取消</a>
-      <button class="btn primary" type="submit">保存</button>
+      <a class="btn default" href="{{ url_for('partners.show', partner_id=partner.id) if partner else url_for('partners.index') }}">{{ _('common.cancel') }}</a>
+      <button class="btn primary" type="submit">{{ _('common.save') }}</button>
     </div>
   </form>
 </div>

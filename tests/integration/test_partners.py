@@ -45,6 +45,46 @@ def _create_invite(client, partner_id, recipient_email):
     return urlsplit(match.group(1).replace("&amp;", "&")).path
 
 
+def test_partner_pages_and_validation_render_english(app, client):
+    provision_user(app, "partner-english@t.com", PW)
+    login(client, "partner-english@t.com", PW)
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/partners"})
+
+    empty = client.get("/partners").get_data(as_text=True)
+    assert '<html lang="en">' in empty
+    assert "Partners" in empty
+    assert "No language partners yet." in empty
+    assert "Add your first partner" in empty
+
+    invalid = client.post("/partners", data={
+        "display_name": "",
+        "native_language_code": "fr",
+        "learning_language_code": "zh",
+        "private_note": "",
+        "csrf_token": _csrf(client, "/partners/new"),
+    })
+    invalid_body = invalid.get_data(as_text=True)
+    assert invalid.status_code == 400
+    assert "Partner nickname must be" in invalid_body
+    assert "伙伴昵称" not in invalid_body
+
+    partner_id = _create_partner(client, "Camille")
+    detail = client.get(f"/partners/{partner_id}").get_data(as_text=True)
+    assert "Native language" in detail
+    assert "French" in detail
+    assert "Learning" in detail
+    assert "Chinese" in detail
+    assert "Account not linked" in detail
+    assert "Link account" in detail
+
+    invite = client.post(f"/partners/{partner_id}/invite", data={
+        "recipient_email": "friend@example.com",
+        "csrf_token": _csrf(client, f"/partners/{partner_id}"),
+    }).get_data(as_text=True)
+    assert "Invitation link created" in invite
+    assert "Copy link" in invite
+
+
 def test_user_can_create_and_view_private_partner(app, client):
     provision_user(app, "partner-owner@t.com", PW)
     login(client, "partner-owner@t.com", PW)

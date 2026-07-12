@@ -82,12 +82,20 @@
 - 英文手动加词的语言下拉按界面语言显示；中英文目录保持键集合一致。
 - 桌面和移动端完成视觉检查；全量回归为 435 passed, 16 warnings，`flask doctor --strict` 通过。
 
+### 2026-07-12：语言伙伴闭环国际化
+- 第四批覆盖伙伴列表与编辑、账号邀请与双向确认、两栏复盘信纸、AI 会后总结、
+  反馈包收发、一次性感谢和候选词采纳。
+- 复盘类型与提示在路由适配层本地化，服务层和数据库领域值保持不变。
+- 服务层中文校验错误由伙伴路由映射为界面语言，避免英文流程只在失败时退回中文。
+- 桌面和 390px 移动端无横向溢出；全量回归为 438 passed, 16 warnings，
+  `flask doctor --strict` 通过。
+
 ## 当前 Git
 
 - 分支：`i18n-foundation`
 - 基线：当前 HEAD 以 `git log -1 --oneline` 为准
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近回归验证：435 passed, 16 warnings；`flask doctor --strict` 通过。
+- 最近回归验证：438 passed, 16 warnings；`flask doctor --strict` 通过。
 
 ## 过程归档
 

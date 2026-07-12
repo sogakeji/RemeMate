@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}收到的反馈 · RemeMate{% endblock %}
+{% block title %}{{ _('packet.inbox') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container packet-page">
   <div class="packet-page-heading">
     <div>
-      <h1>收到的反馈</h1>
-      <p>语言伙伴主动发给你的复盘内容。</p>
+      <h1>{{ _('packet.inbox') }}</h1>
+      <p>{{ _('packet.inbox_help') }}</p>
     </div>
   </div>
 
@@ -15,18 +15,18 @@
     <a class="packet-list-item" href="{{ url_for('partners.show_packet', packet_id=packet.id) }}">
       <div>
         <strong>{{ packet.sender_display_name }}</strong>
-        <span>{{ packet.recap_title or '语言交换反馈' }}</span>
+        <span>{{ packet.recap_title or _('packet.default_title') }}</span>
       </div>
       <div class="packet-list-meta">
         <span>{{ packet.session_date.isoformat() }}</span>
-        <span>{{ packet.item_count }} 条</span>
+        <span>{{ _('packet.items', count=packet.item_count) }}</span>
       </div>
     </a>
     {% endfor %}
   </div>
   {% else %}
   <div class="packet-empty">
-    <p>还没有收到反馈包。</p>
+    <p>{{ _('packet.none') }}</p>
   </div>
   {% endif %}
 </div>

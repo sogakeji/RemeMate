@@ -1,56 +1,56 @@
 {% extends "base.html" %}
-{% block title %}{{ partner.display_name }} · 语言伙伴{% endblock %}
+{% block title %}{{ partner.display_name }} · {{ _('partner.title') }}{% endblock %}
 {% block content %}
 <div class="container partner-detail-page">
-  <a class="back-link" href="{{ url_for('partners.index') }}">← 语言伙伴</a>
+  <a class="back-link" href="{{ url_for('partners.index') }}">{{ _('partner.back') }}</a>
   <div class="partners-page-header">
     <div>
       <h1>{{ partner.display_name }}</h1>
       <span class="settings-chip">
-        {{ '已绑定账号' if partner.linked_user_id else '未绑定账号' }}
+        {{ _('partner.bound') if partner.linked_user_id else _('partner.unbound') }}
       </span>
     </div>
-    <a class="btn default" href="{{ url_for('partners.edit', partner_id=partner.id) }}">编辑</a>
+    <a class="btn default" href="{{ url_for('partners.edit', partner_id=partner.id) }}">{{ _('common.edit') }}</a>
   </div>
 
   <section class="form-card partner-profile">
     <div class="partner-profile-row">
-      <span>母语</span>
-      <strong>{{ language_names.get(partner.native_language_code, '未设置') }}</strong>
+      <span>{{ _('partner.native') }}</span>
+      <strong>{{ language_names.get(partner.native_language_code, _('partner.unset')) }}</strong>
     </div>
     <div class="partner-profile-row">
-      <span>正在学</span>
-      <strong>{{ language_names.get(partner.learning_language_code, '未设置') }}</strong>
+      <span>{{ _('partner.learning') }}</span>
+      <strong>{{ language_names.get(partner.learning_language_code, _('partner.unset')) }}</strong>
     </div>
     <div class="partner-profile-note">
-      <span>私人备注</span>
-      <p>{{ partner.private_note or '暂无' }}</p>
+      <span>{{ _('partner.private_note') }}</span>
+      <p>{{ partner.private_note or _('partner.empty_note') }}</p>
     </div>
   </section>
 
   {% if not partner.linked_user_id %}
   <section class="form-card partner-invite-card">
     <div>
-      <h2>邀请绑定</h2>
-      <p>对方登录并确认后，你才能向这个账号发送反馈包。</p>
+      <h2>{{ _('partner.invite_title') }}</h2>
+      <p>{{ _('partner.invite_help') }}</p>
     </div>
     <form method="post" action="{{ url_for('partners.create_invite', partner_id=partner.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="form-label" for="recipient_email">对方的 RemeMate 登录邮箱</label>
+      <label class="form-label" for="recipient_email">{{ _('partner.invite_email') }}</label>
       <div class="partner-invite-form-row">
         <input class="form-control" id="recipient_email" name="recipient_email"
                type="email" maxlength="255" autocomplete="email" required>
-        <button class="btn primary" type="submit">生成邀请链接</button>
+        <button class="btn primary" type="submit">{{ _('partner.invite_create') }}</button>
       </div>
-      <p class="form-help">系统不会显示该邮箱是否已注册；链接仅对应账号可确认，7 天内有效。</p>
+      <p class="form-help">{{ _('partner.invite_privacy') }}</p>
     </form>
   </section>
   {% endif %}
 
   <section class="partner-recaps-placeholder">
     <div class="partner-section-header">
-      <h2>复盘</h2>
-      <a class="btn primary" href="{{ url_for('partners.new_recap', partner_id=partner.id) }}">新建复盘</a>
+      <h2>{{ _('recap.title') }}</h2>
+      <a class="btn primary" href="{{ url_for('partners.new_recap', partner_id=partner.id) }}">{{ _('recap.new') }}</a>
     </div>
     {% if recaps %}
       <div class="partner-recap-list">
@@ -59,19 +59,23 @@
         <div class="partner-recap-row" data-recap-id="{{ recap.id }}">
           <a class="partner-recap-link"
              href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id) }}">
-            <strong>{{ recap.title or '语言交换复盘' }}</strong>
+            <strong>{{ recap.title or _('recap.default_title') }}</strong>
             <span>{{ recap.session_date.isoformat() }}</span>
           </a>
           {% if delivery %}
             {% if delivery.state == 'pending' %}
             <a class="partner-recap-status pending"
                href="{{ url_for('partners.show_recap', partner_id=partner.id, recap_id=recap.id, side='for_partner') }}">
-              {{ delivery.label }}
+              {{ delivery_labels.get(delivery.state, delivery.state) }}
             </a>
             {% else %}
             <a class="partner-recap-status {{ delivery.state }}"
                href="{{ url_for('partners.show_packet', packet_id=delivery.packet_id) }}">
-              {{ delivery.label }}
+              {% if delivery.state == 'sent' %}
+                {{ _('packet.delivery.sent', count=delivery.packet_count) }}
+              {% else %}
+                {{ delivery_labels.get(delivery.state, delivery.state) }}
+              {% endif %}
             </a>
             {% endif %}
           {% endif %}
@@ -79,7 +83,7 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="word-card partner-empty"><p>还没有复盘信纸。</p></div>
+      <div class="word-card partner-empty"><p>{{ _('recap.none') }}</p></div>
     {% endif %}
   </section>
 </div>

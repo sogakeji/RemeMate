@@ -5,19 +5,19 @@
     <label class="recap-packet-select">
       <input type="checkbox" name="item_ids" value="{{ item.id }}"
              form="send-packet-form">
-      <span>选入反馈包</span>
+      <span>{{ _('recap.select_feedback') }}</span>
     </label>
     {% endif %}
   </div>
   <p>{{ item.content }}</p>
   <div class="recap-item-actions">
     <details class="recap-item-edit">
-      <summary>修改</summary>
+      <summary>{{ _('recap.edit_item') }}</summary>
       <form method="post"
             action="{{ url_for('partners.update_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="side" value="{{ item.side }}">
-        <div class="recap-edit-kinds" aria-label="记录类型">
+        <div class="recap-edit-kinds" aria-label="{{ _('recap.side_label') }}">
           {% for value, label in item_choices[item.side] %}
           <label class="recap-edit-kind">
             <input type="radio" name="kind" value="{{ value }}"
@@ -27,19 +27,19 @@
           {% endfor %}
         </div>
         <textarea class="form-control" name="content" rows="4" maxlength="2000" required>{{ item.content }}</textarea>
-        <button class="btn primary" type="submit">保存</button>
+        <button class="btn primary" type="submit">{{ _('recap.save_item') }}</button>
       </form>
     </details>
     {% if item.side == 'for_me' and item.kind in candidate_kinds %}
       {% set candidate_source_id = candidate_source_ids.get(item.id) %}
       {% if candidate_source_id %}
       <a class="recap-candidate-action"
-         href="{{ url_for('intake.candidates', source_id=candidate_source_id) }}">去候选词审核</a>
+         href="{{ url_for('intake.candidates', source_id=candidate_source_id) }}">{{ _('recap.review_candidates') }}</a>
       {% else %}
       <form method="post"
             action="{{ url_for('partners.add_recap_item_candidate', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="recap-candidate-action" type="submit">加入候选词</button>
+        <button class="recap-candidate-action" type="submit">{{ _('recap.add_candidate') }}</button>
       </form>
       {% endif %}
     {% endif %}
@@ -47,7 +47,7 @@
           action="{{ url_for('partners.delete_recap_item', partner_id=partner.id, recap_id=recap.id, item_id=item.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="recap-delete-action" type="submit"
-              onclick="return confirm('删除这条记录？')">删除</button>
+              onclick="return confirm({{ _('recap.delete_confirm')|tojson }})">{{ _('recap.delete_item') }}</button>
     </form>
   </div>
 </article>

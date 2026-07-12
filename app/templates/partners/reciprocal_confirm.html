@@ -1,40 +1,40 @@
 {% extends "base.html" %}
-{% block title %}确认语言伙伴 · RemeMate{% endblock %}
+{% block title %}{{ _('partner.invitation_title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container partner-form-page">
   <section class="form-card partner-invitation-page">
     {% if reciprocal.existing_partner_id %}
-    <h1>{{ reciprocal.owner_display_name }} 已在伙伴列表中</h1>
-    <p>双方的伙伴关系已经建立，可以开始各自记录复盘。</p>
+    <h1>{{ _('partner.reciprocal_exists', name=reciprocal.owner_display_name) }}</h1>
+    <p>{{ _('partner.reciprocal_exists_help') }}</p>
     {% else %}
-    <h1>把 {{ reciprocal.owner_display_name }} 加入我的伙伴列表</h1>
-    <p>邀请已经确认。再建立一份属于你的伙伴档案，之后你也可以给对方写复盘。</p>
+    <h1>{{ _('partner.reciprocal_title', name=reciprocal.owner_display_name) }}</h1>
+    <p>{{ _('partner.reciprocal_help') }}</p>
     {% endif %}
 
     <div class="partner-reciprocal-preview">
       <div class="partner-profile-row">
-        <span>昵称</span>
+        <span>{{ _('partner.nickname') }}</span>
         <strong>{{ reciprocal.owner_display_name }}</strong>
       </div>
       <div class="partner-profile-row">
-        <span>母语</span>
-        <strong>{{ language_names.get(reciprocal.native_language_code, '未设置') }}</strong>
+        <span>{{ _('partner.native') }}</span>
+        <strong>{{ language_names.get(reciprocal.native_language_code, _('partner.unset')) }}</strong>
       </div>
       <div class="partner-profile-row">
-        <span>正在学</span>
-        <strong>{{ language_names.get(reciprocal.learning_language_code, '未设置') }}</strong>
+        <span>{{ _('partner.learning') }}</span>
+        <strong>{{ language_names.get(reciprocal.learning_language_code, _('partner.unset')) }}</strong>
       </div>
     </div>
 
-    <p class="partner-invite-privacy">只预填账号昵称和双方语言方向，不会复制对方的私人备注或历史复盘。</p>
+    <p class="partner-invite-privacy">{{ _('partner.reciprocal_privacy') }}</p>
     <form method="post"
           action="{{ url_for('partners.confirm_reciprocal', owner_user_id=reciprocal.owner_user_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="button-group">
         <button class="btn primary" type="submit">
-          {{ '查看伙伴' if reciprocal.existing_partner_id else '确认加入伙伴列表' }}
+          {{ _('partner.reciprocal_view') if reciprocal.existing_partner_id else _('partner.reciprocal_confirm') }}
         </button>
-        <a class="btn default" href="{{ url_for('partners.index') }}">暂不添加</a>
+        <a class="btn default" href="{{ url_for('partners.index') }}">{{ _('partner.reciprocal_later') }}</a>
       </div>
     </form>
   </section>
