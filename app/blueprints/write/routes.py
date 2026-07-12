@@ -9,6 +9,7 @@ from flask import (Blueprint, render_template, redirect, url_for, request,
                    flash, abort, session)
 from flask_login import login_required, current_user
 
+from app.i18n import localized_language_names, translate as _
 from app.services import writing as writing_svc
 from app.services import quota as quota_svc
 
@@ -40,7 +41,7 @@ def compose():
         diary_prompt=writing_svc.random_diary_prompt(feedback_lang),
         mode=mode,
         current_language=lang,
-        lang_name=words_svc._language_name(lang) if lang else None,
+        lang_name=localized_language_names().get(lang, lang) if lang else None,
     )
 
 
@@ -83,7 +84,10 @@ def submit():
 
     if result.degraded:
         session.pop("pending", None)
-        return render_template("write/_result.html", r=result, degraded=True)
+        return render_template(
+            "write/_result.html", r=result, degraded=True,
+            degraded_message=_("write.ai_unavailable"),
+        )
 
     # 暂存待保存内容到签名 session（含可信 is_nsfw），不入库
     # 只存 save 需要的字段，避免把 LLM 返回的 errors[] 整列塞进签名 cookie（4KB 限）。
@@ -134,7 +138,7 @@ def publish(entry_id):
     if not ok:
         abort(400)                       # 不存在 / NSFW 不可公开
     if not request.headers.get("HX-Request"):
-        flash("已公开到句子广场")
+        flash(_("write.published"))
         return redirect(url_for("write.history"))
     return render_template("write/_published.html")
 
@@ -145,7 +149,7 @@ def unpublish(entry_id):
     ok = writing_svc.unpublish_entry(_uid(), entry_id)
     if not ok:
         abort(400)
-    flash("已取消公开")
+    flash(_("write.unpublished"))
     if request.form.get("next") == "square":
         lang = request.form.get("lang") or "all"
         content_type = request.form.get("kind") or request.form.get("type") or "all"

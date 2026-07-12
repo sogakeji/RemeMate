@@ -1,38 +1,38 @@
 {% extends "base.html" %}
-{% block title %}广场 · 写一写 · RemeMate{% endblock %}
+{% block title %}{{ _('square.title') }} · {{ _('write.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   {% with write_section='square' %}{% include "write/_section_nav.html" %}{% endwith %}
   <div class="header-section">
-    <h1>句子广场</h1>
-    <p><small>公开的造句和三行日记，只展示用户主动发布的内容。</small></p>
+    <h1>{{ _('square.title') }}</h1>
+    <p><small>{{ _('square.subtitle') }}</small></p>
   </div>
 
   {% set lang_param = selected_language or 'all' %}
-  {% set type_labels = {'all': '全部内容', 'sentence': '造句', 'diary': '三行日记'} %}
-  {% set current_scope = lang_choices.get(selected_language, selected_language) if selected_language else '全部语言' %}
+  {% set type_labels = {'all': _('square.all_content'), 'sentence': _('square.sentence'), 'diary': _('square.diary')} %}
+  {% set current_scope = ui_language_names.get(selected_language, selected_language) if selected_language else _('square.all_languages') %}
 
-  <div class="square-type-tabs" aria-label="内容类型">
+  <div class="square-type-tabs" aria-label="{{ _('square.content_type') }}">
     <a class="square-type-tab {% if selected_type == 'all' %}active{% endif %}"
        {% if selected_type == 'all' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
-       href="{{ url_for('square.index', lang=lang_param, kind='all') }}">全部</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='all') }}">{{ _('square.all') }}</a>
     <a class="square-type-tab {% if selected_type == 'sentence' %}active{% endif %}"
        {% if selected_type == 'sentence' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
-       href="{{ url_for('square.index', lang=lang_param, kind='sentence') }}">造句</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='sentence') }}">{{ _('write.section_compose') }}</a>
     <a class="square-type-tab {% if selected_type == 'diary' %}active{% endif %}"
        {% if selected_type == 'diary' %}style="background:var(--primary-color);color:#fff;border-color:var(--primary-color);box-shadow:0 6px 16px rgba(74,108,247,0.22);"{% endif %}
-       href="{{ url_for('square.index', lang=lang_param, kind='diary') }}">三行日记</a>
+       href="{{ url_for('square.index', lang=lang_param, kind='diary') }}">{{ _('write.diary_mode') }}</a>
   </div>
 
   <div class="square-scope-bar">
     <div>
-      <span>正在看</span>
+      <span>{{ _('square.now_viewing') }}</span>
       <strong>{{ current_scope }}</strong>
-      <span>· {{ type_labels.get(selected_type, '全部内容') }}</span>
+      <span>· {{ type_labels.get(selected_type, _('square.all_content')) }}</span>
     </div>
     {% if selected_language %}
       <a class="btn default" href="{{ url_for('square.index', lang='all', kind=selected_type) }}">
-        看全部语言{% if all_language_count %}（{{ all_language_count }}）{% endif %}
+        {{ _('square.view_all_languages') }}{% if all_language_count %} ({{ all_language_count }}){% endif %}
       </a>
     {% endif %}
   </div>
@@ -42,35 +42,35 @@
     {% set is_diary = entry.word_id is none %}
     <div class="word-card square-entry {% if is_diary %}square-entry-diary{% endif %}">
       <div class="square-entry-head">
-        <span class="square-entry-type">{{ '三行日记' if is_diary else '造句' }}</span>
-        <span>{{ lang_choices.get(entry.language_code, entry.language_code) }}</span>
+        <span class="square-entry-type">{{ _('square.entry_diary') if is_diary else _('square.entry_sentence') }}</span>
+        <span>{{ ui_language_names.get(entry.language_code, entry.language_code) }}</span>
       </div>
       <p class="square-entry-text">{{ entry.corrected }}</p>
       {% if entry.translation %}
         <p class="square-entry-translation">{{ entry.translation }}</p>
       {% endif %}
       <small class="square-entry-meta">
-        {{ '主题' if is_diary else '词' }}：{{ entry.word_text }}
-        · @{{ author.display_name }} · {{ vote_count }} 夯
+        {{ _('square.topic') if is_diary else _('square.word') }}: {{ _('write.diary_mode') if is_diary else entry.word_text }}
+        · @{{ author.display_name }} · {{ vote_count }} {{ _('square.props') }}
       </small>
       <div class="button-group" style="margin-top:14px;">
         {% if entry.user_id == current_user.id %}
-          <span class="btn default" aria-disabled="true">自己的句子</span>
+          <span class="btn default" aria-disabled="true">{{ _('square.own_sentence') }}</span>
           <form method="post" action="{{ url_for('write.unpublish', entry_id=entry.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="square">
             <input type="hidden" name="lang" value="{{ lang_param }}">
             <input type="hidden" name="kind" value="{{ selected_type }}">
-            <button type="submit" class="btn default">取消公开</button>
+            <button type="submit" class="btn default">{{ _('square.unpublish') }}</button>
           </form>
         {% elif upvoted %}
-          <span class="btn success" aria-disabled="true">已夯</span>
+          <span class="btn success" aria-disabled="true">{{ _('square.propped') }}</span>
         {% else %}
           <form method="post" action="{{ url_for('square.upvote', entry_id=entry.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="lang" value="{{ lang_param }}">
             <input type="hidden" name="kind" value="{{ selected_type }}">
-            <button type="submit" class="btn primary">夯一下</button>
+            <button type="submit" class="btn primary">{{ _('square.give_props') }}</button>
           </form>
         {% endif %}
       </div>
@@ -80,15 +80,15 @@
     <div class="word-card" style="text-align:center;">
       {% if selected_language and all_language_count %}
         <p style="color:var(--text-secondary);margin-bottom:14px;">
-          {{ current_scope }}还没有公开的{{ type_labels.get(selected_type, '内容') }}，可以先看看其他语言。
+          {{ _('square.empty_scope', scope=current_scope, content=type_labels.get(selected_type, _('square.content'))) }}
         </p>
         <div class="square-empty-actions">
-          <a class="btn primary" href="{{ url_for('square.index', lang='all', kind=selected_type) }}">看全部语言</a>
-          <a class="btn success" href="{{ url_for('write.compose') }}">去写一句</a>
+          <a class="btn primary" href="{{ url_for('square.index', lang='all', kind=selected_type) }}">{{ _('square.view_all_languages') }}</a>
+          <a class="btn success" href="{{ url_for('write.compose') }}">{{ _('square.write') }}</a>
         </div>
       {% else %}
-        <p style="color:var(--text-secondary);margin-bottom:14px;">这里还没有公开内容。</p>
-        <a class="btn success" href="{{ url_for('write.compose') }}">去写一句</a>
+        <p style="color:var(--text-secondary);margin-bottom:14px;">{{ _('square.empty') }}</p>
+        <a class="btn success" href="{{ url_for('write.compose') }}">{{ _('square.write') }}</a>
       {% endif %}
     </div>
   {% endif %}

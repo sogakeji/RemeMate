@@ -6,6 +6,44 @@ from tests.helpers import login, provision_user
 PW = "pw12345678"
 
 
+def _switch_ui_to_english(client):
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/square"})
+
+
+def test_square_renders_english_navigation_entries_and_actions(app, client, bypass_engine):
+    author = provision_user(app, "square-author-en@t.com", PW, name="Author")
+    provision_user(app, "square-viewer-en@t.com", PW, name="Viewer")
+    word_id = _make_word(bypass_engine, author, "fr", "livre")
+    _make_entry(bypass_engine, author, word_id, "Je lis un livre.")
+
+    login(client, "square-viewer-en@t.com", PW)
+    _switch_ui_to_english(client)
+    page = client.get("/square?lang=fr&kind=sentence").get_data(as_text=True)
+
+    assert '<html lang="en">' in page
+    assert "Sentence Square" in page
+    assert "Public sentences and three-line diaries" in page
+    assert "Viewing" in page
+    assert "French" in page
+    assert "Sentence" in page
+    assert "Word:" in page
+    assert "Give props" in page
+    assert "句子广场" not in page
+
+
+def test_square_localizes_legacy_diary_word_snapshot(app, client, bypass_engine):
+    author = provision_user(app, "square-diary-author-en@t.com", PW, name="Author")
+    provision_user(app, "square-diary-viewer-en@t.com", PW, name="Viewer")
+    _make_diary_entry(bypass_engine, author, "Bonjour.\nJe lis.\nJe souris.")
+
+    login(client, "square-diary-viewer-en@t.com", PW)
+    _switch_ui_to_english(client)
+    page = client.get("/square?lang=fr&kind=diary").get_data(as_text=True)
+
+    assert "Prompt: Three-line diary" in page
+    assert "Prompt: 三行日记" not in page
+
+
 def _make_word(bypass_engine, user_id, language_code, word):
     with bypass_engine.begin() as c:
         lid = c.execute(text(

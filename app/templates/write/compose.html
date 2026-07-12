@@ -1,37 +1,37 @@
 {% extends "base.html" %}
-{% block title %}写一写 · RemeMate{% endblock %}
+{% block title %}{{ _('write.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   {% with write_section='compose' %}{% include "write/_section_nav.html" %}{% endwith %}
   <div class="write-header">
     <div>
-      <h1>{% if mode == 'diary' %}写三行日记{% else %}今天写一句{% endif %}</h1>
-      <p class="write-quota">今日 {{ quota.used }}/{{ quota.limit }}{% if quota.own_key %} · 自带 key{% endif %}</p>
+      <h1>{% if mode == 'diary' %}{{ _('write.diary_title') }}{% else %}{{ _('write.sentence_title') }}{% endif %}</h1>
+      <p class="write-quota">{{ _('write.today_quota', used=quota.used, limit=quota.limit) }}{% if quota.own_key %} · {{ _('write.own_key') }}{% endif %}</p>
     </div>
   </div>
 
-  <div class="write-mode-tabs" aria-label="造句模式">
+  <div class="write-mode-tabs" aria-label="{{ _('write.mode_label') }}">
     <a class="write-mode-tab {% if mode == 'sentence' %}active{% endif %}"
        href="{{ url_for('write.compose') }}" {% if mode == 'sentence' %}aria-current="page"{% endif %}>
-      <span>推荐词</span>
-      <strong>单句造句</strong>
+      <span>{{ _('write.recommended_word') }}</span>
+      <strong>{{ _('write.sentence_mode') }}</strong>
     </a>
     <a class="write-mode-tab {% if mode == 'diary' %}active{% endif %}"
        href="{{ url_for('write.compose', mode='diary') }}" {% if mode == 'diary' %}aria-current="page"{% endif %}>
-      <span>随机问题</span>
-      <strong>三行日记</strong>
+      <span>{{ _('write.random_prompt') }}</span>
+      <strong>{{ _('write.diary_mode') }}</strong>
     </a>
   </div>
 
   {% if not current_language %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">先选一个正在学的语言，再开始造句。</p>
-    <a class="btn success" href="{{ url_for('main.settings') }}">去设置</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.choose_learning') }}</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">{{ _('write.open_settings') }}</a>
   </div>
   {% elif quota.used >= quota.limit %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">今日造句额度已用完（{{ quota.used }}/{{ quota.limit }}）。
-      {% if not quota.own_key %}可在设置页配置自己的 key 解除限制。{% endif %}</p>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.quota_exceeded', used=quota.used, limit=quota.limit) }}
+      {% if not quota.own_key %}{{ _('write.own_key_hint') }}{% endif %}</p>
   </div>
   {% elif mode == 'diary' %}
   <div class="form-card write-card">
@@ -40,26 +40,26 @@
       <input type="hidden" name="mode" value="diary">
       <input type="hidden" name="prompt" value="{{ diary_prompt }}">
       <div class="form-group">
-        <label class="form-label">提示问题</label>
+        <label class="form-label">{{ _('write.prompt_question') }}</label>
         <div class="write-prompt-card">
-          <span class="write-target-label">今日问题</span>
+          <span class="write-target-label">{{ _('write.today_question') }}</span>
           <strong>{{ diary_prompt }}</strong>
         </div>
       </div>
       <div class="form-group">
         <textarea name="diary" rows="5" maxlength="{{ diary_line_count * diary_line_chars + 6 }}"
                   required class="form-control"
-                  placeholder="第一行&#10;第二行&#10;第三行"></textarea>
-        <span class="form-text">写满 {{ diary_line_count }} 行后提交</span>
+                  placeholder="{{ _('write.diary_placeholder') }}"></textarea>
+        <span class="form-text">{{ _('write.diary_lines_hint', count=diary_line_count) }}</span>
       </div>
-      <button type="submit" class="btn primary write-submit">批改日记</button>
-      <span class="htmx-indicator loading" style="margin-left:10px;">批改中…</span>
+      <button type="submit" class="btn primary write-submit">{{ _('write.correct_diary') }}</button>
+      <span class="htmx-indicator loading" style="margin-left:10px;">{{ _('write.correcting') }}</span>
     </form>
   </div>
   {% elif not words %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ lang_name }}还没有词，先去加词。</p>
-    <a class="btn success" href="{{ url_for('words.add_center') }}">去加词</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.no_words', language=lang_name) }}</p>
+    <a class="btn success" href="{{ url_for('words.add_center') }}">{{ _('write.add_words') }}</a>
   </div>
   {% else %}
   <div class="form-card write-card">
@@ -68,10 +68,10 @@
       <input type="hidden" name="mode" value="sentence">
       <input type="hidden" name="word_id" value="{{ target_word.id }}">
       <div class="form-group">
-        <label class="form-label">目标词</label>
+        <label class="form-label">{{ _('write.target_word') }}</label>
         <div class="write-target-word">
           <div class="write-target-main">
-            <span class="write-target-label">今日推荐</span>
+            <span class="write-target-label">{{ _('write.today_recommendation') }}</span>
             <strong>{{ target_word.word }}</strong>
           </div>
           {% if target_word.definitions %}
@@ -89,11 +89,11 @@
         <textarea name="sentence" rows="3" maxlength="{{ max_chars }}" required
                   class="form-control"
                   oninput="document.getElementById('cc').textContent = this.value.length"
-                  placeholder="用“{{ target_word.word }}”造一个句子（≤ {{ max_chars }} 字符）"></textarea>
+                  placeholder="{{ _('write.sentence_placeholder', word=target_word.word, max_chars=max_chars) }}"></textarea>
         <span class="form-text"><span id="cc">0</span>/{{ max_chars }}</span>
       </div>
-      <button type="submit" class="btn primary write-submit">批改这句</button>
-      <span class="htmx-indicator loading" style="margin-left:10px;">批改中…</span>
+      <button type="submit" class="btn primary write-submit">{{ _('write.correct_sentence') }}</button>
+      <span class="htmx-indicator loading" style="margin-left:10px;">{{ _('write.correcting') }}</span>
     </form>
   </div>
   {% endif %}

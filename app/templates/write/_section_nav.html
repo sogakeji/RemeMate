@@ -1,11 +1,11 @@
-<nav class="write-section-nav" aria-label="写一写">
+<nav class="write-section-nav" aria-label="{{ _('write.section_label') }}">
   <a class="write-section-link {% if write_section == 'compose' %}active{% endif %}"
      href="{{ url_for('write.compose') }}"
-     {% if write_section == 'compose' %}aria-current="page"{% endif %}>造句</a>
+     {% if write_section == 'compose' %}aria-current="page"{% endif %}>{{ _('write.section_compose') }}</a>
   <a class="write-section-link {% if write_section == 'history' %}active{% endif %}"
      href="{{ url_for('write.history') }}"
-     {% if write_section == 'history' %}aria-current="page"{% endif %}>历史</a>
+     {% if write_section == 'history' %}aria-current="page"{% endif %}>{{ _('write.section_history') }}</a>
   <a class="write-section-link {% if write_section == 'square' %}active{% endif %}"
      href="{{ url_for('square.index') }}"
-     {% if write_section == 'square' %}aria-current="page"{% endif %}>广场</a>
+     {% if write_section == 'square' %}aria-current="page"{% endif %}>{{ _('write.section_square') }}</a>
 </nav>
