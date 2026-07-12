@@ -74,13 +74,20 @@
 - 同一条采纳幂等；下次建议不入库，AI 不参与拆词或保存。
 - 采纳映射启用 FORCE RLS，仅接收方可见，发送者看不到采纳状态。
 
+### 2026-07-12：全站国际化前三批
+- 建立独立于学习语言和反馈语言的 `ui_locale`，服务端 JSON 词典与全局界面语言切换。
+- 第一批覆盖导航、登录、首页复习、每日任务和设置；第二批覆盖写作、三行日记、
+  AI/HTMX 状态、历史和广场。
+- 第三批覆盖生词本、词条详情/编辑、手动加词、文本抽词、CSV 导入、处理状态和候选词审核。
+- 英文手动加词的语言下拉按界面语言显示；中英文目录保持键集合一致。
+- 桌面和移动端完成视觉检查；全量回归为 435 passed, 16 warnings，`flask doctor --strict` 通过。
+
 ## 当前 Git
 
-- 分支：`sessionpad-recaps-v1`
-- 部署基线：54d8afc（当前 HEAD 以 git log -1 --oneline 为准）
+- 分支：`i18n-foundation`
+- 基线：当前 HEAD 以 `git log -1 --oneline` 为准
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近回归验证：397 passed, 16 warnings；SessionPad 的伙伴、邀请、复盘、反馈包、感谢和采纳
-  相关测试 49 passed。
+- 最近回归验证：435 passed, 16 warnings；`flask doctor --strict` 通过。
 
 ## 过程归档
 

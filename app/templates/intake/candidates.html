@@ -1,27 +1,27 @@
 {% extends "base.html" %}
-{% block title %}候选词审核 · 记搭{% endblock %}
+{% block title %}{{ _('candidate.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <div>
-      <h1>候选词审核</h1>
-      <p><small>来源：{{ source.original_name }} · 共 {{ candidates|length }} 个候选词</small></p>
+      <h1>{{ _('candidate.title') }}</h1>
+      <p><small>{{ _('candidate.source_summary', name=source.original_name, count=candidates|length) }}</small></p>
     </div>
     {% if document %}
-    <a class="btn secondary" href="{{ url_for('reading.show', doc_id=document.id) }}">← 返回书本</a>
+    <a class="btn secondary" href="{{ url_for('reading.show', doc_id=document.id) }}">← {{ _('candidate.back_reading') }}</a>
     {% endif %}
   </div>
 
   <div class="action-bar" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <div style="display:flex;gap:4px;">
       <a href="{{ url_for('intake.candidates', source_id=source.id) }}"
-         class="btn {{ 'primary' if not current_status else 'secondary' }}" style="font-size:13px;">全部</a>
+         class="btn {{ 'primary' if not current_status else 'secondary' }}" style="font-size:13px;">{{ _('candidate.all') }}</a>
       <a href="{{ url_for('intake.candidates', source_id=source.id, status='pending') }}"
-         class="btn {{ 'primary' if current_status == 'pending' else 'secondary' }}" style="font-size:13px;">待审核</a>
+         class="btn {{ 'primary' if current_status == 'pending' else 'secondary' }}" style="font-size:13px;">{{ _('candidate.pending') }}</a>
       <a href="{{ url_for('intake.candidates', source_id=source.id, status='accepted') }}"
-         class="btn {{ 'primary' if current_status == 'accepted' else 'secondary' }}" style="font-size:13px;">已接受</a>
+         class="btn {{ 'primary' if current_status == 'accepted' else 'secondary' }}" style="font-size:13px;">{{ _('candidate.accepted') }}</a>
       <a href="{{ url_for('intake.candidates', source_id=source.id, status='ignored') }}"
-         class="btn {{ 'primary' if current_status == 'ignored' else 'secondary' }}" style="font-size:13px;">已忽略</a>
+         class="btn {{ 'primary' if current_status == 'ignored' else 'secondary' }}" style="font-size:13px;">{{ _('candidate.ignored') }}</a>
     </div>
   </div>
 
@@ -29,39 +29,39 @@
   <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="{{ url_for('intake.commit_all', source_id=source.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn primary">一键入库</button>
+      <button type="submit" class="btn primary">{{ _('candidate.accept_all') }}</button>
     </form>
     <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
-          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+          onsubmit="return confirm({{ _('candidate.clean_confirm')|tojson }});">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn secondary">一键清理</button>
+      <button type="submit" class="btn secondary">{{ _('candidate.clean') }}</button>
     </form>
   </div>
   {% elif current_status == 'pending' %}
   <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn primary">提交入库（已接受的）</button>
+      <button type="submit" class="btn primary">{{ _('candidate.commit') }}</button>
     </form>
   </div>
   {% elif current_status == 'accepted' %}
   <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="{{ url_for('intake.commit', source_id=source.id) }}" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn primary">一键入库</button>
+      <button type="submit" class="btn primary">{{ _('candidate.accept_all') }}</button>
     </form>
     <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
-          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+          onsubmit="return confirm({{ _('candidate.clean_confirm')|tojson }});">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn secondary">一键清理</button>
+      <button type="submit" class="btn secondary">{{ _('candidate.clean') }}</button>
     </form>
   </div>
   {% elif current_status == 'ignored' %}
   <div class="action-bar" style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="{{ url_for('intake.cleanup_all', source_id=source.id) }}" style="display:inline"
-          onsubmit="return confirm('确定清理所有已忽略和已接受的候选词吗？（不可恢复）');">
+          onsubmit="return confirm({{ _('candidate.clean_confirm')|tojson }});">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn secondary">一键清理</button>
+      <button type="submit" class="btn secondary">{{ _('candidate.clean') }}</button>
     </form>
   </div>
   {% endif %}
@@ -73,26 +73,26 @@
       <small style="color:var(--text-secondary);">{{ c.created_at.strftime('%m-%d %H:%M') if c.created_at else '' }}</small>
     </div>
     {% if c.status != 'pending' %}
-      <span class="badge">{{ '已接受' if c.status == 'accepted' else '已忽略' }}</span>
+      <span class="badge">{{ _('candidate.accepted') if c.status == 'accepted' else _('candidate.ignored') }}</span>
     {% else %}
       <form hx-post="{{ url_for('intake.accept', candidate_id=c.id) }}"
             hx-target="#cand-{{ c.id }}" hx-swap="innerHTML" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <input name="word" value="{{ c.word }}" class="form-control" style="width:auto;min-width:100px;">
-        <input name="part_of_speech" value="{{ c.part_of_speech or '' }}" class="form-control" style="width:70px;" placeholder="词性">
-        <input name="meaning" value="{{ c.meaning or '' }}" class="form-control" style="width:160px;" placeholder="释义">
-        <input name="example" value="{{ c.example or '' }}" class="form-control" style="width:200px;" placeholder="例句">
-        {% if is_dup %}<span title="该词表已有此词" style="color:var(--warning-color);">⚠重复</span>{% endif %}
-        <button type="submit" class="btn success" style="padding:6px 14px;font-size:13px;">接受</button>
+        <input name="part_of_speech" value="{{ c.part_of_speech or '' }}" class="form-control" style="width:70px;" placeholder="{{ _('word.part_of_speech') }}">
+        <input name="meaning" value="{{ c.meaning or '' }}" class="form-control" style="width:160px;" placeholder="{{ _('word.meaning') }}">
+        <input name="example" value="{{ c.example or '' }}" class="form-control" style="width:200px;" placeholder="{{ _('word.example') }}">
+        {% if is_dup %}<span title="{{ _('candidate.duplicate') }}" style="color:var(--warning-color);">⚠ {{ _('candidate.duplicate') }}</span>{% endif %}
+        <button type="submit" class="btn success" style="padding:6px 14px;font-size:13px;">{{ _('candidate.accept') }}</button>
       </form>
       <button class="btn default" style="margin-top:8px;padding:6px 14px;font-size:13px;"
               hx-post="{{ url_for('intake.ignore', candidate_id=c.id) }}"
-              hx-target="#cand-{{ c.id }}" hx-swap="innerHTML">忽略</button>
+              hx-target="#cand-{{ c.id }}" hx-swap="innerHTML">{{ _('candidate.ignore') }}</button>
     {% endif %}
   </div>
   {% endfor %}
 
   {% if not candidates %}
-  <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">暂无候选词</p>
+  <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">{{ _('candidate.empty') }}</p>
   {% endif %}
 </div>
 {% endblock %}

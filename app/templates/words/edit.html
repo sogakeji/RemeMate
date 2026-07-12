@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}修改词条 · 记搭{% endblock %}
+{% block title %}{{ _('word.edit_title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
-  <p><a class="nav-link" href="{{ url_for('words.lists') }}">← 词库</a></p>
+  <p><a class="nav-link" href="{{ url_for('words.lists') }}">← {{ _('vocab.back') }}</a></p>
   <div class="header-section">
-    <h1>修改词条</h1>
+    <h1>{{ _('word.edit_title') }}</h1>
   </div>
 
   <div class="form-card">
     <form method="post" action="{{ url_for('words.update_word', word_id=word.id) }}" id="edit-word-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label class="form-label">词</label>
+        <label class="form-label">{{ _('vocab.word') }}</label>
         <input name="word" class="form-control" maxlength="200" required value="{{ word.word }}">
       </div>
 
@@ -19,55 +19,55 @@
         {% for d in word.definitions %}
         <div class="definition-form">
           <div class="definition-head">
-            <h3>词义 #{{ loop.index }}</h3>
-            <button type="button" class="btn danger remove-def" {% if loop.length == 1 %}style="display:none;"{% endif %}>移除</button>
+            <h3>{{ _('word.definition', index=loop.index) }}</h3>
+            <button type="button" class="btn danger remove-def" {% if loop.length == 1 %}style="display:none;"{% endif %}>{{ _('word.remove') }}</button>
           </div>
           <div class="form-group">
-            <label class="form-label">词性</label>
+            <label class="form-label">{{ _('word.part_of_speech') }}</label>
             <select name="part_of_speech" class="form-control">
               {% for p in pos_choices %}
-              <option value="{{ p }}" {% if p == (d.part_of_speech or '') %}selected{% endif %}>{{ p or '-- 词性 --' }}</option>
+              <option value="{{ p }}" {% if p == (d.part_of_speech or '') %}selected{% endif %}>{{ p or _('word.part_of_speech_placeholder') }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">释义</label>
+            <label class="form-label">{{ _('word.meaning') }}</label>
             <input name="meaning" class="form-control" value="{{ d.meaning or '' }}">
           </div>
           <div class="form-group">
-            <label class="form-label">例句</label>
+            <label class="form-label">{{ _('word.example') }}</label>
             <textarea name="example" class="form-control">{{ d.example or '' }}</textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">笔记</label>
+            <label class="form-label">{{ _('word.note') }}</label>
             <textarea name="note" class="form-control">{{ d.note or '' }}</textarea>
           </div>
         </div>
         {% else %}
         <div class="definition-form">
           <div class="definition-head">
-            <h3>词义 #1</h3>
-            <button type="button" class="btn danger remove-def" style="display:none;">移除</button>
+            <h3>{{ _('word.definition', index=1) }}</h3>
+            <button type="button" class="btn danger remove-def" style="display:none;">{{ _('word.remove') }}</button>
           </div>
           <div class="form-group">
-            <label class="form-label">词性</label>
+            <label class="form-label">{{ _('word.part_of_speech') }}</label>
             <select name="part_of_speech" class="form-control">
               {% for p in pos_choices %}
-              <option value="{{ p }}">{{ p or '-- 词性 --' }}</option>
+              <option value="{{ p }}">{{ p or _('word.part_of_speech_placeholder') }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group"><label class="form-label">释义</label><input name="meaning" class="form-control"></div>
-          <div class="form-group"><label class="form-label">例句</label><textarea name="example" class="form-control"></textarea></div>
-          <div class="form-group"><label class="form-label">笔记</label><textarea name="note" class="form-control"></textarea></div>
+          <div class="form-group"><label class="form-label">{{ _('word.meaning') }}</label><input name="meaning" class="form-control"></div>
+          <div class="form-group"><label class="form-label">{{ _('word.example') }}</label><textarea name="example" class="form-control"></textarea></div>
+          <div class="form-group"><label class="form-label">{{ _('word.note') }}</label><textarea name="note" class="form-control"></textarea></div>
         </div>
         {% endfor %}
       </div>
 
-      <button type="button" class="btn default" id="add-def-btn">+ 加一条词义</button>
+      <button type="button" class="btn default" id="add-def-btn">{{ _('word.add_definition') }}</button>
       <div class="button-group" style="margin-top:18px;">
-        <button type="submit" class="btn primary">保存修改</button>
-        <a class="btn default" href="{{ url_for('words.lists') }}">取消</a>
+        <button type="submit" class="btn primary">{{ _('word.save_changes') }}</button>
+        <a class="btn default" href="{{ url_for('words.lists') }}">{{ _('common.cancel') }}</a>
       </div>
     </form>
   </div>
@@ -77,13 +77,22 @@
 {% block scripts %}
 <script>
 (function () {
+  var i18n = {{ {
+    'definition': _('word.definition', index='__INDEX__'),
+    'remove': _('word.remove'),
+    'pos': _('word.part_of_speech'),
+    'posPlaceholder': _('word.part_of_speech_placeholder'),
+    'meaning': _('word.meaning'),
+    'example': _('word.example'),
+    'note': _('word.note')
+  }|tojson }};
   var posChoices = {{ pos_choices|tojson }};
   var wrap = document.getElementById('definitions-container');
   var add = document.getElementById('add-def-btn');
 
   function options() {
     return posChoices.map(function (p) {
-      return '<option value="' + p + '">' + (p || '-- 词性 --') + '</option>';
+      return '<option value="' + p + '">' + (p || i18n.posPlaceholder) + '</option>';
     }).join('');
   }
 
@@ -91,19 +100,19 @@
     var div = document.createElement('div');
     div.className = 'definition-form';
     div.innerHTML =
-      '<div class="definition-head"><h3>词义 #1</h3>' +
-      '<button type="button" class="btn danger remove-def">移除</button></div>' +
-      '<div class="form-group"><label class="form-label">词性</label>' +
+      '<div class="definition-head"><h3>' + i18n.definition.replace('__INDEX__', '1') + '</h3>' +
+      '<button type="button" class="btn danger remove-def">' + i18n.remove + '</button></div>' +
+      '<div class="form-group"><label class="form-label">' + i18n.pos + '</label>' +
       '<select name="part_of_speech" class="form-control">' + options() + '</select></div>' +
-      '<div class="form-group"><label class="form-label">释义</label><input name="meaning" class="form-control"></div>' +
-      '<div class="form-group"><label class="form-label">例句</label><textarea name="example" class="form-control"></textarea></div>' +
-      '<div class="form-group"><label class="form-label">笔记</label><textarea name="note" class="form-control"></textarea></div>';
+      '<div class="form-group"><label class="form-label">' + i18n.meaning + '</label><input name="meaning" class="form-control"></div>' +
+      '<div class="form-group"><label class="form-label">' + i18n.example + '</label><textarea name="example" class="form-control"></textarea></div>' +
+      '<div class="form-group"><label class="form-label">' + i18n.note + '</label><textarea name="note" class="form-control"></textarea></div>';
     return div;
   }
 
   function renumber() {
     [].forEach.call(wrap.children, function (item, i) {
-      item.querySelector('h3').textContent = '词义 #' + (i + 1);
+      item.querySelector('h3').textContent = i18n.definition.replace('__INDEX__', i + 1);
       var remove = item.querySelector('.remove-def');
       if (remove) remove.style.display = wrap.children.length > 1 ? '' : 'none';
     });

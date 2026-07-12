@@ -36,6 +36,54 @@ def _csrf(client):
     return m.group(1) if m else ""
 
 
+def test_vocabulary_and_manual_add_render_english(app, client, bypass_engine):
+    uid = _auth(client, app)
+    client.post("/settings", data={"languages": ["fr"]})
+    response = client.post("/words/add", json={
+        "language_code": "fr",
+        "word": "retrouver",
+        "definitions": [{"part_of_speech": "v.", "meaning": "to find again"}],
+    })
+    word_id = response.get_json()["word_id"]
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/words"})
+
+    vocabulary = client.get("/words").get_data(as_text=True)
+    assert '<html lang="en">' in vocabulary
+    assert "Vocabulary" in vocabulary
+    assert "Current language: French" in vocabulary
+    assert "Recently added" in vocabulary
+    assert "Most forgotten" in vocabulary
+    assert "Search words, definitions, examples, or notes" in vocabulary
+    assert "Delete word" in vocabulary
+    assert "生词本" not in vocabulary
+
+    add_page = client.get("/words/add").get_data(as_text=True)
+    assert "Add a word" in add_page
+    assert "AI fill" in add_page
+    assert "Add to vocabulary" in add_page
+    assert "Generate example" in add_page
+    assert '>French</option>' in add_page
+    assert '>法语</option>' not in add_page
+
+    edit_page = client.get(f"/words/{word_id}/edit").get_data(as_text=True)
+    assert "Edit vocabulary entry" in edit_page
+    assert "Part of speech" in edit_page
+    assert "Save changes" in edit_page
+
+
+def test_manual_add_json_errors_follow_interface_language(app, client):
+    _auth(client, app)
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/words/add"})
+
+    response = client.post("/words/add", json={
+        "language_code": "",
+        "word": "",
+        "definitions": [],
+    })
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Choose a language first"
+
+
 def test_add_center_handcrafts_multidef(app, client, bypass_engine):
     """GET /words/add 200；POST 多词义 JSON 入库到该语言隐式词表。"""
     uid = _auth(client, app)

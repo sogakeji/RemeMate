@@ -9,6 +9,7 @@ from flask import (Blueprint, render_template, request, abort, jsonify,
 from flask_login import login_required, current_user
 from sqlalchemy import create_engine
 
+from app.i18n import localized_language_names, translate as _
 from app.services import words as words_svc
 from app.services import llm as llm_svc
 from app.services import review_links
@@ -73,12 +74,17 @@ def _current_review_word():
 @login_required
 def add_center():
     form = LanguageChoiceForm()
+    language_names = localized_language_names()
+    form.language_code.choices = [
+        (code, language_names.get(code, label))
+        for code, label in form.language_code.choices
+    ]
     # 默认选当前语言（用户切了语言，进加词中心就该是该语言；仍可下拉切其它语言加多语言）
     cur = words_svc.get_current_language(_uid())
     if cur:
         form.language_code.data = cur
     return render_template("words/add.html", form=form, pos_choices=_POS_CHOICES,
-                           lang_map=words_svc._LANGUAGE_NAMES,
+                           lang_map=language_names,
                            ai_enabled=bool(llm_svc.get_chain("general")))
 
 
@@ -95,11 +101,11 @@ def add_submit():
     word = (data.get("word") or "").strip()
     defs = data.get("definitions") or []
     if lang not in words_svc._LANGUAGE_NAMES:
-        return jsonify({"error": "请选择语言"}), 400
+        return jsonify({"error": _("manual.select_language")}), 400
     if not word or len(word) > 200:
-        return jsonify({"error": "请输入词（≤200 字）"}), 400
+        return jsonify({"error": _("manual.word_invalid")}), 400
     if not defs or not isinstance(defs, list):
-        return jsonify({"error": "至少填一条释义"}), 400
+        return jsonify({"error": _("manual.definition_required")}), 400
     # 清洗：允许空字段，但要求每条至少有词性或释义
     cleaned = []
     for d in defs:
@@ -114,14 +120,14 @@ def add_submit():
         cleaned.append({"part_of_speech": pos or None, "meaning": meaning or None,
                          "example": example or None, "note": note or None})
     if not cleaned:
-        return jsonify({"error": "至少填一条带词性或释义的项"}), 400
+        return jsonify({"error": _("manual.definition_content_required")}), 400
 
     # 加词到某语言也代表用户正在学该语言，和首页切语言保持同一收敛口径。
     words_svc.set_current_language(_uid(), lang)
     wl = words_svc.get_or_create_language_list(_uid(), lang)
     w = words_svc.add_word(_uid(), wl.id, word, definitions=cleaned)
     if w is None:
-        return jsonify({"error": "加词失败"}), 500
+        return jsonify({"error": _("manual.add_failed")}), 500
     return jsonify({"ok": True, "word_id": w.id, "word": word,
                     "list_id": wl.id})
 
@@ -134,16 +140,18 @@ def ai_fill():
     word = (data.get("word") or "").strip()
     lang = data.get("language_code", "").strip()
     if not word:
-        return jsonify({"error": "请输入词"}), 400
+        return jsonify({"error": _("manual.enter_word")}), 400
     if lang not in words_svc._LANGUAGE_NAMES:
-        return jsonify({"error": "请选择语言"}), 400
+        return jsonify({"error": _("manual.select_language")}), 400
     info = llm_svc.generate_full_word_info(
         word,
         language=words_svc._language_name(lang),
         feedback_language=words_svc._feedback_language_name(
             words_svc.get_feedback_language(_uid())),
     )
-    return jsonify(info)        # 成功带 definitions；失败带 error
+    if info.get("error"):
+        return jsonify({"error": _("manual.ai_unavailable")})
+    return jsonify(info)
 
 
 @bp.post("/words/generate-example")
@@ -156,15 +164,15 @@ def generate_example():
     meaning = (data.get("meaning") or "").strip()
     lang = data.get("language_code", "").strip()
     if not word or not meaning:
-        return jsonify({"error": "词与释义都要填"}), 400
+        return jsonify({"error": _("manual.required")}), 400
     if lang not in words_svc._LANGUAGE_NAMES:
-        return jsonify({"error": "请选择语言"}), 400
+        return jsonify({"error": _("manual.select_language")}), 400
     out = llm_svc.generate_example(word, pos, meaning,
                                    language=words_svc._language_name(lang),
                                    feedback_language=words_svc._feedback_language_name(
                                        words_svc.get_feedback_language(_uid())))
     if out is None:
-        return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
+        return jsonify({"error": _("manual.ai_unavailable")}), 503
     return jsonify({"example": out})
 
 
@@ -178,15 +186,15 @@ def generate_note():
     meaning = (data.get("meaning") or "").strip()
     lang = data.get("language_code", "").strip()
     if not word or not meaning:
-        return jsonify({"error": "词与释义都要填"}), 400
+        return jsonify({"error": _("manual.required")}), 400
     if lang not in words_svc._LANGUAGE_NAMES:
-        return jsonify({"error": "请选择语言"}), 400
+        return jsonify({"error": _("manual.select_language")}), 400
     out = llm_svc.generate_note(word, pos, meaning,
                                 language=words_svc._language_name(lang),
                                 feedback_language=words_svc._feedback_language_name(
                                     words_svc.get_feedback_language(_uid())))
     if out is None:
-        return jsonify({"error": "AI 暂不可用，稍后再试"}), 503
+        return jsonify({"error": _("manual.ai_unavailable")}), 503
     return jsonify({"note": out})
 
 
@@ -208,19 +216,19 @@ def update_word(word_id):
     new_word = (request.form.get("word") or "").strip()
     definitions = _clean_definitions_from_form()
     if not new_word:
-        flash("词不能为空")
+        flash(_("word.empty_error"))
         return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
     if not definitions:
-        flash("至少保留一条词义、例句或笔记")
+        flash(_("word.definition_error"))
         return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
     try:
         updated = words_svc.update_word(_uid(), word_id, new_word, definitions)
-    except ValueError as e:
-        flash(str(e))
+    except ValueError:
+        flash(_("manual.add_failed"))
         return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
     if updated is None:
         abort(404)
-    flash("词条已更新")
+    flash(_("word.updated"))
     return redirect(url_for("words.lists"))
 
 
@@ -240,7 +248,7 @@ def toggle_marked(word_id):
 def delete_word(word_id):
     if not words_svc.delete_word(_uid(), word_id):
         abort(404)
-    flash("词条已删除")
+    flash(_("word.deleted"))
     return redirect(url_for("words.lists"))
 
 
@@ -255,7 +263,7 @@ def lists():
     lang, ws = words_svc.get_words_for_current_language(_uid(), sort=sort)
     return render_template("words/list.html", words=ws,
                            current_language=lang,
-                           lang_name=words_svc._language_name(lang) if lang else None,
+                           lang_name=localized_language_names().get(lang, lang) if lang else None,
                            current_sort=sort)
 
 
@@ -364,4 +372,4 @@ def stats():
     return render_template("words/stats.html",
                            stats=words_svc.get_stats(_uid(), language_code=lang),
                            current_language=lang,
-                           lang_name=words_svc._language_name(lang) if lang else None)
+                           lang_name=localized_language_names().get(lang, lang) if lang else None)

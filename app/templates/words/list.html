@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}生词本 · 记搭{% endblock %}
+{% block title %}{{ _('vocab.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-    <h1>生词本</h1>
+    <h1>{{ _('vocab.title') }}</h1>
     {% if current_language %}
     <span style="color:var(--text-secondary);font-size:14px;">
-      当前语言：<strong>{{ lang_name }}</strong> · 共 {{ words|length }} 个词
+      {{ _('vocab.current_summary', language=lang_name, count=words|length) }}
     </span>
     {% endif %}
   </div>
@@ -16,29 +16,29 @@
     <div class="word-card">
       <p class="card-word">📖</p>
       <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
-        先选一个正在学的语言，生词本按语言分类。
+        {{ _('vocab.choose_language') }}
       </p>
       <div class="button-group">
-        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+        <a class="btn primary" href="{{ url_for('main.settings') }}">{{ _('review.open_settings') }}</a>
       </div>
     </div>
   {% else %}
-    <div class="word-intake-grid" aria-label="收词入口">
+    <div class="word-intake-grid" aria-label="{{ _('vocab.intake_aria') }}">
       <a class="word-intake-link" href="{{ url_for('words.add_center') }}">
-        <strong>手动加词</strong>
-        <span>自己填写词条，或让 AI 补释义、例句和笔记。</span>
+        <strong>{{ _('vocab.manual') }}</strong>
+        <span>{{ _('vocab.manual_desc') }}</span>
       </a>
       <a class="word-intake-link" href="{{ url_for('intake.extract_page') }}">
-        <strong>文本抽词</strong>
-        <span>从文章或笔记里提取候选词。</span>
+        <strong>{{ _('vocab.extract') }}</strong>
+        <span>{{ _('vocab.extract_desc') }}</span>
       </a>
       <a class="word-intake-link" href="{{ url_for('reading.index') }}">
-        <strong>阅读收词</strong>
-        <span>上传 PDF，阅读时把遇到的词加入候选词。</span>
+        <strong>{{ _('vocab.reading') }}</strong>
+        <span>{{ _('vocab.reading_desc') }}</span>
       </a>
       <a class="word-intake-link" href="{{ url_for('intake.import_page') }}">
-        <strong>CSV 导入</strong>
-        <span>从表格批量导入已有词表。</span>
+        <strong>{{ _('vocab.csv') }}</strong>
+        <span>{{ _('vocab.csv_desc') }}</span>
       </a>
     </div>
   {% endif %}
@@ -46,33 +46,33 @@
   {% if current_language and not words %}
     <div class="word-card">
       <p style="text-align:center;color:var(--text-secondary);margin-bottom:20px;">
-        {{ lang_name }} 词库还空着，先选一种收词方式。
+        {{ _('vocab.empty', language=lang_name) }}
       </p>
       <div class="button-group">
-        <a class="btn success" href="{{ url_for('words.add_center') }}">手动加词 →</a>
+        <a class="btn success" href="{{ url_for('words.add_center') }}">{{ _('vocab.manual') }} →</a>
       </div>
     </div>
   {% elif current_language %}
     <div class="word-library-tools">
-      <div class="word-sort-actions" aria-label="生词本排序">
+      <div class="word-sort-actions" aria-label="{{ _('vocab.sort_aria') }}">
         <a class="word-sort-link {% if current_sort == 'recent' %}active{% endif %}"
-           href="{{ url_for('words.lists', sort='recent') }}">按最近导入排序</a>
+           href="{{ url_for('words.lists', sort='recent') }}">{{ _('vocab.sort_recent') }}</a>
         <a class="word-sort-link {% if current_sort == 'lapses' %}active{% endif %}"
-           href="{{ url_for('words.lists', sort='lapses') }}">按遗忘度排序</a>
+           href="{{ url_for('words.lists', sort='lapses') }}">{{ _('vocab.sort_lapses') }}</a>
       </div>
       <div class="word-library-search">
         <div class="search-box">
           <input type="search" id="word-search" class="search-input"
-                 placeholder="搜索单词、释义、例句或笔记">
+                 placeholder="{{ _('vocab.search') }}">
           <button type="button" id="clear-word-search" class="clear-search-btn"
-                  title="清空搜索" aria-label="清空搜索">×</button>
+                  title="{{ _('vocab.clear_search') }}" aria-label="{{ _('vocab.clear_search') }}">×</button>
         </div>
         <span id="word-search-status" class="word-search-status"></span>
       </div>
     </div>
     <div class="table-container word-library">
       <table class="word-table word-rich-table">
-        <thead><tr><th>词</th><th>词条内容</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>{{ _('vocab.word') }}</th><th>{{ _('vocab.content') }}</th><th>{{ _('vocab.status') }}</th><th>{{ _('vocab.actions') }}</th></tr></thead>
         <tbody>
           {% for w in words %}
           <tr class="word-row" data-search-text="{{ (w.word ~ ' ' ~ (w.definitions | map(attribute='part_of_speech') | join(' ')) ~ ' ' ~ (w.definitions | map(attribute='meaning') | join(' ')) ~ ' ' ~ (w.definitions | map(attribute='example') | join(' ')) ~ ' ' ~ (w.definitions | map(attribute='note') | join(' '))) | lower }}">
@@ -93,26 +93,26 @@
               {% endfor %}
             </td>
             <td><small style="color:var(--text-secondary);">
-              due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}
-              {% if w.lapses %} · 忘 {{ w.lapses }}{% endif %}
+              {{ _('vocab.due') }} {{ w.due_date.strftime('%Y-%m-%d') }} · {{ _('vocab.interval') }} {{ w.interval }} · {{ _('vocab.ease') }} {{ '%.2f'|format(w.ease) }}
+              {% if w.lapses %} · {{ _('vocab.lapses', count=w.lapses) }}{% endif %}
             </small></td>
             <td>
               <div class="row-actions">
-                <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+                <button type="button" class="action-icon-btn speak-action" title="{{ _('vocab.speak') }}" aria-label="{{ _('vocab.speak') }}"
                         data-speak="{{ w.word }}" data-lang="{{ current_language }}">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 </button>
                 <a class="action-icon-btn" href="{{ url_for('words.edit_word', word_id=w.id) }}"
-                   title="编辑单词" aria-label="编辑单词">
+                   title="{{ _('vocab.edit') }}" aria-label="{{ _('vocab.edit') }}">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 </a>
                 <form method="post" action="{{ url_for('words.toggle_marked', word_id=w.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="action-icon-btn {% if w.marked %}marked{% endif %}"
-                          title="{% if w.marked %}取消标记{% else %}标记单词{% endif %}"
-                          aria-label="{% if w.marked %}取消标记{% else %}标记单词{% endif %}">
+                          title="{% if w.marked %}{{ _('vocab.unmark') }}{% else %}{{ _('vocab.mark') }}{% endif %}"
+                          aria-label="{% if w.marked %}{{ _('vocab.unmark') }}{% else %}{{ _('vocab.mark') }}{% endif %}">
                     {% if w.marked %}
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -125,8 +125,8 @@
                 <form method="post" action="{{ url_for('words.delete_word', word_id=w.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="action-icon-btn danger"
-                          title="删除单词" aria-label="删除单词"
-                          onclick="return confirm('确定删除这个词条吗？');">
+                          title="{{ _('vocab.delete') }}" aria-label="{{ _('vocab.delete') }}"
+                          onclick="return confirm({{ _('vocab.delete_confirm')|tojson }});">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
                   </button>
@@ -148,6 +148,7 @@
   var clear = document.getElementById('clear-word-search');
   var status = document.getElementById('word-search-status');
   var rows = Array.prototype.slice.call(document.querySelectorAll('.word-row'));
+  var foundTemplate = {{ _('vocab.search_found', count='__COUNT__')|tojson }};
   function applySearch() {
     var q = (input.value || '').trim().toLowerCase();
     var shown = 0;
@@ -156,7 +157,7 @@
       row.style.display = hit ? '' : 'none';
       if (hit) shown++;
     });
-    status.textContent = q ? ('找到 ' + shown + ' 个') : '';
+    status.textContent = q ? foundTemplate.replace('__COUNT__', shown) : '';
   }
   input.addEventListener('input', applySearch);
   clear.addEventListener('click', function () {

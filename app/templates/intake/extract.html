@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}文本抽词 · 记搭{% endblock %}
+{% block title %}{{ _('intake.extract_title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section">
-    <h1>文本抽词</h1>
-    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词</small></p>
+    <h1>{{ _('intake.extract_title') }}</h1>
+    <p><small>{{ _('intake.today', used=quota.used, limit=quota.limit) }}</small></p>
   </div>
 
   {% if not available_languages %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">先在设置里选择正在学的语言。</p>
-    <a class="btn success" href="{{ url_for('main.settings') }}">去设置选语言</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('intake.choose_learning') }}</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">{{ _('review.open_settings') }}</a>
   </div>
   {% else %}
   <div class="form-card">
     <form method="post" action="{{ url_for('intake.extract') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label class="form-label">语言
+        <label class="form-label">{{ _('intake.language') }}
           <select name="language_code" class="form-control" required>
             {% for code, name in available_languages %}
             <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
@@ -29,10 +29,10 @@
         <textarea name="text" rows="10" maxlength="{{ max_chars }}" required
                   class="form-control"
                   oninput="document.getElementById('cc').textContent=this.value.length"
-                  placeholder="粘贴文章/字幕（≤ {{ max_chars }} 字符），最多抽 50 个生词"></textarea>
+                  placeholder="{{ _('intake.extract_placeholder', max_chars=max_chars) }}"></textarea>
         <span class="form-text"><span id="cc">0</span>/{{ max_chars }}</span>
       </div>
-      <button type="submit" class="btn primary">抽词</button>
+      <button type="submit" class="btn primary">{{ _('intake.extract_submit') }}</button>
     </form>
   </div>
   {% endif %}

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}手动加词 · 记搭{% endblock %}
+{% block title %}{{ _('manual.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section">
-    <h1>手动加词</h1>
+    <h1>{{ _('manual.title') }}</h1>
     <p style="color:var(--text-secondary);font-size:14px;">
-      手工加完整词条，或让 AI 一键填充词性、释义、例句和笔记。
-      <small>选个语言开始——系统会自动归类到该语言的词库。</small>
+      {{ _('manual.description') }}
+      <small>{{ _('manual.language_hint') }}</small>
     </p>
   </div>
 
@@ -14,25 +14,25 @@
     <!-- 语言选择（隐式词表入口） -->
     {{ form.csrf_token }}
     <div class="form-group">
-      <label class="form-label">语言</label>
+      <label class="form-label">{{ _('intake.language') }}</label>
       {{ form.language_code(class="form-control", id="lang-select") }}
     </div>
 
     <div class="form-group">
-      <label class="form-label">词</label>
+      <label class="form-label">{{ _('vocab.word') }}</label>
       <div class="input-with-button" style="display:flex;gap:8px;">
-        <input type="text" id="word-input" class="form-control" placeholder="输入单词或短语" style="flex:1;">
-        <button type="button" class="btn" id="ai-fill-btn" title="AI 一键填充词性/释义/例句/笔记">AI 填充</button>
+        <input type="text" id="word-input" class="form-control" placeholder="{{ _('manual.word_placeholder') }}" style="flex:1;">
+        <button type="button" class="btn" id="ai-fill-btn" title="{{ _('manual.ai_fill_title') }}">{{ _('manual.ai_fill') }}</button>
       </div>
     </div>
 
     <div id="definitions-container">
       <!-- 多词义条由 JS 动态生成；初始一条 -->
     </div>
-    <button type="button" class="btn default" id="add-def-btn" style="margin:10px 0;">+ 加一条词义</button>
+    <button type="button" class="btn default" id="add-def-btn" style="margin:10px 0;">{{ _('word.add_definition') }}</button>
 
     <div class="button-group">
-      <button type="button" class="btn primary" id="submit-btn">加入词库</button>
+      <button type="button" class="btn primary" id="submit-btn">{{ _('manual.submit') }}</button>
     </div>
     <p id="msg" style="margin-top:10px;color:var(--text-secondary);font-size:14px;"></p>
   </div>
@@ -40,6 +40,25 @@
 
 <script>
 (function () {
+  var i18n = {{ {
+    'definition': _('word.definition', index='__INDEX__'),
+    'pos': _('word.part_of_speech'),
+    'posPlaceholder': _('word.part_of_speech_placeholder'),
+    'meaning': _('word.meaning'),
+    'example': _('word.example'),
+    'note': _('word.note'),
+    'generateExample': _('manual.generate_example'),
+    'generateNote': _('manual.generate_note'),
+    'remove': _('word.remove'),
+    'required': _('manual.required'),
+    'generateFailed': _('manual.generate_failed'),
+    'enterWord': _('manual.enter_word'),
+    'selectLanguage': _('manual.select_language'),
+    'aiFilled': _('manual.ai_filled', count='__COUNT__'),
+    'aiUnavailable': _('manual.ai_unavailable'),
+    'added': _('manual.added', word='__WORD__'),
+    'addFailed': _('manual.add_failed')
+  }|tojson }};
   var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   var posChoices = {{ pos_choices|tojson }};
   var langSelect = document.getElementById('lang-select');
@@ -52,25 +71,25 @@
     div.className = 'definition-form';
     div.style.cssText = 'border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:12px;';
     var opts = posChoices.map(function (p) {
-      return '<option value="' + p + '">' + (p || '-- 词性 --') + '</option>';
+      return '<option value="' + p + '">' + (p || i18n.posPlaceholder) + '</option>';
     }).join('');
     div.innerHTML =
-      '<h3 style="font-size:15px;margin:0 0 10px;">词义 #' + index + '</h3>' +
-      '<div class="form-group"><label class="form-label">词性</label>' +
+      '<h3 style="font-size:15px;margin:0 0 10px;">' + i18n.definition.replace('__INDEX__', index) + '</h3>' +
+      '<div class="form-group"><label class="form-label">' + i18n.pos + '</label>' +
         '<select name="part_of_speech" class="form-control">' + opts + '</select></div>' +
-      '<div class="form-group"><label class="form-label">释义</label>' +
+      '<div class="form-group"><label class="form-label">' + i18n.meaning + '</label>' +
         '<input type="text" name="meaning" class="form-control"></div>' +
-      '<div class="form-group"><label class="form-label">例句</label>' +
+      '<div class="form-group"><label class="form-label">' + i18n.example + '</label>' +
         '<div style="display:flex;gap:8px;">' +
           '<textarea name="example" class="form-control" style="flex:1;"></textarea>' +
-          '<button type="button" class="btn gen-example">生成例句</button>' +
+          '<button type="button" class="btn gen-example">' + i18n.generateExample + '</button>' +
         '</div></div>' +
-      '<div class="form-group"><label class="form-label">笔记</label>' +
+      '<div class="form-group"><label class="form-label">' + i18n.note + '</label>' +
         '<div style="display:flex;gap:8px;">' +
           '<textarea name="note" class="form-control" style="flex:1;"></textarea>' +
-          '<button type="button" class="btn gen-note">生成笔记</button>' +
+          '<button type="button" class="btn gen-note">' + i18n.generateNote + '</button>' +
         '</div></div>' +
-      (index > 1 ? '<button type="button" class="btn danger remove-def" style="margin-top:6px;font-size:13px;">移除</button>' : '');
+      (index > 1 ? '<button type="button" class="btn danger remove-def" style="margin-top:6px;font-size:13px;">' + i18n.remove + '</button>' : '');
     return div;
   }
 
@@ -91,7 +110,7 @@
 
   function renumber() {
     [].forEach.call(defsWrap.children, function (row, i) {
-      var h = row.querySelector('h3'); if (h) h.textContent = '词义 #' + (i + 1);
+      var h = row.querySelector('h3'); if (h) h.textContent = i18n.definition.replace('__INDEX__', i + 1);
       var rm = row.querySelector('.remove-def'); if (rm) rm.style.display = (i >= 1) ? '' : 'none';
     });
   }
@@ -116,13 +135,13 @@
     var word = wordInput.value.trim();
     var pos = (row.querySelector('[name="part_of_speech"]') || {}).value;
     var meaning = (row.querySelector('[name="meaning"]') || {}).value;
-    if (!word || !meaning) { alert('词与释义都要填'); return; }
+    if (!word || !meaning) { alert(i18n.required); return; }
     var url = kind === 'example' ? '{{ url_for("words.generate_example") }}' : '{{ url_for("words.generate_note") }}';
     post(url, {word: word, part_of_speech: pos, meaning: meaning, language_code: lang})
       .then(function (r) {
         var field = row.querySelector('[name="' + kind + '"]');
         if (r.ok && r.data[kind]) { field.value = r.data[kind]; msg.textContent = ''; }
-        else { msg.textContent = r.data.error || '生成失败'; }
+        else { msg.textContent = r.data.error || i18n.generateFailed; }
       });
   }
 
@@ -130,8 +149,8 @@
   document.getElementById('ai-fill-btn').onclick = function () {
     var word = wordInput.value.trim();
     var lang = langSelect.value;
-    if (!word) { alert('先输入词'); return; }
-    if (!lang) { alert('先选语言'); return; }
+    if (!word) { alert(i18n.enterWord); return; }
+    if (!lang) { alert(i18n.selectLanguage); return; }
     post('{{ url_for("words.ai_fill") }}', {word: word, language_code: lang})
       .then(function (r) {
         if (r.ok && r.data.definitions) {
@@ -145,28 +164,28 @@
             var ex = row.querySelector('[name="example"]'); if (ex) ex.value = d.example || '';
             var nt = row.querySelector('[name="note"]'); if (nt) nt.value = d.note || '';
           });
-          msg.textContent = 'AI 已填充 ' + r.data.definitions.length + ' 条词义';
-        } else { msg.textContent = r.data.error || 'AI 暂不可用'; }
+          msg.textContent = i18n.aiFilled.replace('__COUNT__', r.data.definitions.length);
+        } else { msg.textContent = r.data.error || i18n.aiUnavailable; }
       });
   };
 
   document.getElementById('submit-btn').onclick = function () {
     var word = wordInput.value.trim();
     var lang = langSelect.value;
-    if (!word) { msg.textContent = '请输入词'; return; }
-    if (!lang) { msg.textContent = '请选语言'; return; }
+    if (!word) { msg.textContent = i18n.enterWord; return; }
+    if (!lang) { msg.textContent = i18n.selectLanguage; return; }
     post('{{ url_for("words.add_submit") }}',
          {word: word, language_code: lang, definitions: collectDefs()})
       .then(function (r) {
         if (r.ok) {
           msg.style.color = 'var(--success-color)';
-          msg.textContent = '已加「' + word + '」';
+          msg.textContent = i18n.added.replace('__WORD__', word);
           wordInput.value = '';
           defsWrap.innerHTML = '';
           addDef();
         } else {
           msg.style.color = 'var(--danger-color)';
-          msg.textContent = r.data.error || '加词失败';
+          msg.textContent = r.data.error || i18n.addFailed;
         }
       });
   };
