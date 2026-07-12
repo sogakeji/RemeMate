@@ -74,7 +74,7 @@ def switch_language():
            or _safe_next_target(request.referrer)
            or url_for("main.index"))
     if code not in words_svc._LANGUAGE_NAMES:
-        flash("未知语言")
+        flash(_("language.unknown"))
         return redirect(nxt)
     words_svc.set_current_language(current_user.id, code)
     return redirect(nxt)

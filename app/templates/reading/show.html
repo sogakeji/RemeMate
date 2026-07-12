@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ document.title }} · 阅读收词 · 记搭{% endblock %}
+{% block title %}{{ document.title }} · {{ _('reading.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="reader-layout">
 <div class="reader-main" style="flex:1;min-width:0;">
@@ -7,17 +7,17 @@
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <h1>{{ document.title }}</h1>
     <div style="display:flex;gap:8px;">
-      <a class="btn secondary" href="{{ url_for('reading.index') }}">返回阅读收词</a>
+      <a class="btn secondary" href="{{ url_for('reading.index') }}">{{ _('reading.back') }}</a>
       {% if document.intake_source_id %}
-      <a class="btn primary" href="{{ url_for('intake.candidates', source_id=document.intake_source_id) }}">审核候选词</a>
+      <a class="btn primary" href="{{ url_for('intake.candidates', source_id=document.intake_source_id) }}">{{ _('reading.review_candidates') }}</a>
       {% endif %}
     </div>
   </div>
 
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
     <span>{{ document.language_code | upper }}</span>
-    <span style="margin-left:12px;">{{ document.page_count }} 页</span>
-    <span style="margin-left:12px;">{{ document.content_text | length }} 字符</span>
+    <span style="margin-left:12px;">{{ _('reading.pages', count=document.page_count) }}</span>
+    <span style="margin-left:12px;">{{ _('reading.characters', count=document.content_text | length) }}</span>
   </div>
 
   <div id="reader-content" style="max-height:75vh;overflow:auto;">
@@ -29,29 +29,29 @@
 
   {# 阅读工具栏：字号 / 行距 / 字体 / 沉浸模式 #}
   <div class="reader-toolbar" id="reader-toolbar">
-    <button type="button" class="tb-btn" id="tb-font-down" title="缩小字号">A-</button>
+    <button type="button" class="tb-btn" id="tb-font-down" title="{{ _('reading.font_smaller') }}">A-</button>
     <span class="tb-label" id="tb-font-label">16px</span>
-    <button type="button" class="tb-btn" id="tb-font-up" title="加大字号">A+</button>
+    <button type="button" class="tb-btn" id="tb-font-up" title="{{ _('reading.font_larger') }}">A+</button>
     <span class="tb-sep"></span>
-    <button type="button" class="tb-btn" id="tb-line-height" title="切换行距">↕</button>
+    <button type="button" class="tb-btn" id="tb-line-height" title="{{ _('reading.line_height') }}">↕</button>
     <span class="tb-sep"></span>
-    <button type="button" class="tb-btn" id="tb-font-family" title="切换字体">A</button>
+    <button type="button" class="tb-btn" id="tb-font-family" title="{{ _('reading.font_family') }}">A</button>
     <span class="tb-sep"></span>
-    <button type="button" class="tb-btn tb-immersive" id="tb-immersive" title="阅读模式">⛶</button>
+    <button type="button" class="tb-btn tb-immersive" id="tb-immersive" title="{{ _('reading.mode') }}">⛶</button>
     <span class="tb-sep"></span>
-    <span class="tb-label" id="tb-stats" title="已查 / 已加学习">--</span>
+    <span class="tb-label" id="tb-stats" title="{{ _('reading.stats_title') }}">--</span>
   </div>
 </div>
 </div>{# end .reader-main #}
 
 <aside class="reader-sidebar" id="candidate-sidebar" style="display:none;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <h3 style="margin:0;font-size:16px;">候选词列表</h3>
-    <span id="candidate-count" style="font-size:13px;color:var(--text-secondary);">0 个</span>
+    <h3 style="margin:0;font-size:16px;">{{ _('reading.candidate_list') }}</h3>
+    <span id="candidate-count" style="font-size:13px;color:var(--text-secondary);">{{ _('reading.count', count=0) }}</span>
   </div>
   <ul id="candidate-list" style="list-style:none;padding:0;margin:0 0 16px 0;max-height:55vh;overflow:auto;"></ul>
-  <a id="candidate-review-link" href="#" class="btn primary" style="width:100%;text-align:center;display:none;">去筛选</a>
-  <p id="candidate-empty-hint" style="font-size:13px;color:var(--text-secondary);text-align:center;margin:0;">点击单词弹卡，再点「加入学习」</p>
+  <a id="candidate-review-link" href="#" class="btn primary" style="width:100%;text-align:center;display:none;">{{ _('reading.review') }}</a>
+  <p id="candidate-empty-hint" style="font-size:13px;color:var(--text-secondary);text-align:center;margin:0;">{{ _('reading.empty_candidates') }}</p>
 </aside>
 
 </div>{# end .reader-layout #}
@@ -61,6 +61,16 @@
 
 <script>
 var KNOWN_WORDS = {{ known_words | tojson }};
+var READER_I18N = {{ {
+  'existingShort': _('reading.existing_short'),
+  'addLearning': _('reading.add_learning'),
+  'count': _('reading.count', count='__COUNT__'),
+  'stats': _('reading.stats', looked='__LOOKED__', added='__ADDED__'),
+  'sans': _('reading.font.sans'),
+  'serif': _('reading.font.serif'),
+  'mono': _('reading.font.mono'),
+  'fontTitle': _('reading.font_title', name='__NAME__')
+}|tojson }};
 </script>
 <script>
 // Global card closer — callable from any IIFE or inline onclick
@@ -104,14 +114,14 @@ var ReaderAddCandidate = (function () {
         }
         _closeLookupCard();
       } else {
-        btn.textContent = data.message || '词库中已存在';
-        setTimeout(function () { btn.disabled = false; btn.textContent = '加入学习'; }, 1500);
+        btn.textContent = data.message || READER_I18N.existingShort;
+        setTimeout(function () { btn.disabled = false; btn.textContent = READER_I18N.addLearning; }, 1500);
       }
     })
     .catch(function (err) {
       console.error('add-candidate failed:', err);
       btn.disabled = false;
-      btn.textContent = '加入学习';
+      btn.textContent = READER_I18N.addLearning;
     });
   }
 
@@ -119,7 +129,7 @@ var ReaderAddCandidate = (function () {
     sidebar.style.display = '';
     emptyHint.style.display = 'none';
     countNum++;
-    count.textContent = countNum + ' 个';
+    count.textContent = READER_I18N.count.replace('__COUNT__', countNum);
     var li = document.createElement('li');
     li.className = 'candidate-item';
     li.textContent = term;
@@ -219,9 +229,9 @@ var ReaderAddCandidate = (function () {
   var FONT_SIZES = [12, 14, 16, 18, 20, 22, 26, 30];
   var LINE_HEIGHTS = [1.4, 1.8, 2.2, 2.6];
   var FONT_FAMILIES = [
-    { title: '无衬线', css: '"Noto Sans SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, sans-serif', preview: '"Noto Sans SC", sans-serif' },
-    { title: '衬线', css: '"Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", serif', preview: '"Noto Serif SC", Georgia, serif' },
-    { title: '等宽', css: '"JetBrains Mono", "Noto Sans Mono SC", "SF Mono", Consolas, monospace', preview: '"JetBrains Mono", "SF Mono", Consolas, monospace' }
+    { title: READER_I18N.sans, css: '"Noto Sans SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, sans-serif', preview: '"Noto Sans SC", sans-serif' },
+    { title: READER_I18N.serif, css: '"Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", serif', preview: '"Noto Serif SC", Georgia, serif' },
+    { title: READER_I18N.mono, css: '"JetBrains Mono", "Noto Sans Mono SC", "SF Mono", Consolas, monospace', preview: '"JetBrains Mono", "SF Mono", Consolas, monospace' }
   ];
 
   var statsEl = document.getElementById('tb-stats');
@@ -229,7 +239,9 @@ var ReaderAddCandidate = (function () {
   function updateStats() {
     var looked = lookedUpSet.size;
     if (looked || addedCount) {
-      statsEl.textContent = '查 ' + looked + ' · 加 ' + addedCount;
+      statsEl.textContent = READER_I18N.stats
+        .replace('__LOOKED__', looked)
+        .replace('__ADDED__', addedCount);
     }
   }
   window._readerStatsAdd = function () { addedCount++; updateStats(); };
@@ -263,7 +275,7 @@ var ReaderAddCandidate = (function () {
     readerText.style.setProperty('--reader-font-family', fam.css);
     var btn = document.getElementById('tb-font-family');
     btn.style.fontFamily = fam.preview;
-    btn.title = '字体：' + fam.title;
+    btn.title = READER_I18N.fontTitle.replace('__NAME__', fam.title);
     _savePref('familyIndex', familyIndex);
   }
   function applyImmersive() {

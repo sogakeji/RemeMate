@@ -195,6 +195,53 @@ class TestReadingPosition:
 
 
 class TestReadingShelf:
+    def test_reading_collection_and_reader_render_english(self, app, client):
+        uid = _user(app, "reading-english@t.com")
+        _login(client, "reading-english@t.com")
+        doc_id = _create_doc(app, uid, content_hash="reading-english-hash")
+        client.post(
+            "/ui-language",
+            data={"ui_locale": "en", "next": "/reading"},
+        )
+
+        shelf = client.get("/reading").get_data(as_text=True)
+        assert '<html lang="en">' in shelf
+        assert "Collect from reading" in shelf
+        assert "Upload PDF" in shelf
+        assert "1 pages" in shelf
+
+        upload = client.get("/reading/new").get_data(as_text=True)
+        assert "Upload reading material" in upload
+        assert ">Chinese</option>" in upload
+        assert ">Japanese</option>" in upload
+        assert "Text-based PDFs only" in upload
+
+        reader = client.get(f"/reading/{doc_id}").get_data(as_text=True)
+        assert "Back to reading collection" in reader
+        assert "Candidate list" in reader
+        assert "Add to learning" in reader
+        assert "阅读收词" not in reader
+
+    def test_reading_upload_error_follows_interface_language(self, app, client):
+        _user(app, "reading-error-english@t.com")
+        _login(client, "reading-error-english@t.com")
+        client.post(
+            "/ui-language",
+            data={"ui_locale": "en", "next": "/reading/new"},
+        )
+        response = client.post(
+            "/reading",
+            data={
+                "csrf_token": _csrf(client, "/reading/new"),
+                "language_code": "de",
+                "file": (BytesIO(b"not pdf"), "test.pdf"),
+            },
+            follow_redirects=True,
+        )
+        body = response.get_data(as_text=True)
+        assert "This version supports Chinese, English, Japanese, and French" in body
+        assert "当前版本" not in body
+
     def test_shelf_lists_user_documents(self, app, client):
         uid = _user(app, "shelf-a@t.com")
         _login(client, "shelf-a@t.com")

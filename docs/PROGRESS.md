@@ -90,12 +90,19 @@
 - 桌面和 390px 移动端无横向溢出；全量回归为 438 passed, 16 warnings，
   `flask doctor --strict` 通过。
 
+### 2026-07-12：阅读、管理与全站漏译收口
+- 第五批覆盖阅读书架、PDF 上传、阅读器工具栏、查词卡、候选状态和管理员账号页面。
+- 全站审计补齐独立复习页、Bark 免登录回流卡、首页标题和非法学习语言提示。
+- Landing 的 `data-zh`/`data-en` 是自身明确的公开双语切换，不作为漏译清理。
+- 阅读/管理相关回归 85 passed；最终全量回归 442 passed, 16 warnings，
+  `flask doctor --strict` 通过。
+
 ## 当前 Git
 
 - 分支：`i18n-foundation`
 - 基线：当前 HEAD 以 `git log -1 --oneline` 为准
 - 代码规模：约 17,796 行（Python/HTML/CSS/JS/SQL）
-- 最近回归验证：438 passed, 16 warnings；`flask doctor --strict` 通过。
+- 最近回归验证：442 passed, 16 warnings；`flask doctor --strict` 通过。
 
 ## 过程归档
 

@@ -225,3 +225,17 @@ def test_bark_review_link_is_single_use_for_grading(
 def test_bark_review_link_rejects_invalid_token(client):
     page = client.get("/bark/review/not-a-token")
     assert page.status_code == 410
+
+
+def test_invalid_bark_review_token_renders_english(client):
+    page = client.get(
+        "/bark/review/not-a-token",
+        headers={"Accept-Language": "en"},
+    )
+
+    body = page.get_data(as_text=True)
+    assert page.status_code == 410
+    assert '<html lang="en">' in body
+    assert "Link unavailable" in body
+    assert "This Bark review link has expired" in body
+    assert "链接失效" not in body
