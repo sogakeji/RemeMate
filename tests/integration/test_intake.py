@@ -38,7 +38,8 @@ def test_intake_pages_and_validation_render_english(
     assert "Paste an article or subtitles" in extract_page
     assert ">French</option>" in extract_page
     assert "CSV import" in import_page
-    assert "Supported headers include" in import_page
+    assert "Required: word/term/单词/词/词语" in import_page
+    assert "example/sentence, and note" in import_page
     assert "Choose CSV file" in import_page
     assert "No file selected" in import_page
     assert 'class="file-picker-input"' in import_page

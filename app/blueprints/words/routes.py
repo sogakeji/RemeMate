@@ -260,11 +260,14 @@ def lists():
     sort = request.args.get("sort", "due")
     if sort not in {"due", "recent", "lapses"}:
         sort = "due"
-    lang, ws = words_svc.get_words_for_current_language(_uid(), sort=sort)
+    marked_only = request.args.get("marked") == "1"
+    lang, ws = words_svc.get_words_for_current_language(
+        _uid(), sort=sort, marked_only=marked_only)
     return render_template("words/list.html", words=ws,
                            current_language=lang,
                            lang_name=localized_language_names().get(lang, lang) if lang else None,
-                           current_sort=sort)
+                           current_sort=sort,
+                           marked_only=marked_only)
 
 
 @bp.get("/words/<int:list_id>")

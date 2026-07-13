@@ -171,6 +171,45 @@ def test_add_center_generate_example_and_note(app, client, bypass_engine):
     assert r2.status_code == 200 and r2.get_json()["note"] == "笔记结果"
 
 
+def test_add_center_ai_calls_use_feedback_language(app, client, bypass_engine, monkeypatch):
+    """AI 填充、例句和笔记应使用用户设定的解释语言。"""
+    _auth(client, app)
+    client.post("/settings", data={"languages": ["zh"], "feedback_language": "fr"})
+    calls = []
+
+    def fake_fill(word, *, language, feedback_language):
+        calls.append(("fill", language, feedback_language))
+        return {"definitions": [{"part_of_speech": "n.", "meaning": "m"}]}
+
+    def fake_example(word, part_of_speech, meaning, *, language, feedback_language):
+        calls.append(("example", language, feedback_language))
+        return "example"
+
+    def fake_note(word, part_of_speech, meaning, *, language, feedback_language):
+        calls.append(("note", language, feedback_language))
+        return "note"
+
+    monkeypatch.setattr("app.blueprints.words.routes.llm_svc.generate_full_word_info", fake_fill)
+    monkeypatch.setattr("app.blueprints.words.routes.llm_svc.generate_example", fake_example)
+    monkeypatch.setattr("app.blueprints.words.routes.llm_svc.generate_note", fake_note)
+    csrf = _csrf(client)
+    headers = {"X-CSRFToken": csrf}
+
+    assert client.post("/words/ai-fill", json={"word": "学习", "language_code": "zh"}, headers=headers).status_code == 200
+    assert client.post("/words/generate-example", json={
+        "word": "学习", "part_of_speech": "n.", "meaning": "apprendre", "language_code": "zh"},
+        headers=headers).status_code == 200
+    assert client.post("/words/generate-note", json={
+        "word": "学习", "part_of_speech": "n.", "meaning": "apprendre", "language_code": "zh"},
+        headers=headers).status_code == 200
+
+    assert calls == [
+        ("fill", "中文", "法语"),
+        ("example", "中文", "法语"),
+        ("note", "中文", "法语"),
+    ]
+
+
 def test_add_center_ai_fail_closed(app, client, bypass_engine):
     """AI 全挂：ai-fill 返回 error，generate-example/note 返回 503。"""
     from app.services import llm

@@ -81,8 +81,10 @@ def test_words_page_has_search_and_delete_action(app, client, bypass_engine):
     assert "word-search" in page
     assert "按最近导入排序" in page
     assert "按遗忘度排序" in page
+    assert "只看星标" in page
     assert 'href="/words?sort=recent"' in page
     assert 'href="/words?sort=lapses"' in page
+    assert 'href="/words?sort=due&amp;marked=1"' in page
     assert "删除单词" in page
 
 
@@ -109,6 +111,31 @@ def test_words_page_sort_buttons_change_order(app, client, bypass_engine):
 
     assert recent_page.index("motrecentxyz") < recent_page.index("motancienxyz")
     assert lapses_page.index("motancienxyz") < lapses_page.index("motrecentxyz")
+
+
+def test_words_page_marked_filter_composes_with_sort_and_search(app, client, bypass_engine):
+    uid = provision_user(app, "wl-marked@t.com", PW)
+    login(client, "wl-marked@t.com", PW)
+    _switch(client, "fr")
+    csrf = _csrf_add(client)
+    client.post("/words/add", json={"language_code": "fr", "word": "etoilemarquee",
+                                    "definitions": [{"meaning": "starred meaning"}]},
+                headers={"X-CSRFToken": csrf})
+    client.post("/words/add", json={"language_code": "fr", "word": "motsansetoile",
+                                    "definitions": [{"meaning": "plain meaning"}]},
+                headers={"X-CSRFToken": csrf})
+    with bypass_engine.begin() as c:
+        c.execute(text(
+            "UPDATE words SET marked=true WHERE word='etoilemarquee' AND list_id IN "
+            "(SELECT id FROM word_lists WHERE user_id=:u AND language_code='fr')"),
+            {"u": uid})
+
+    page = client.get("/words?sort=recent&marked=1").get_data(as_text=True)
+
+    assert "etoilemarquee" in page
+    assert "motsansetoile" not in page
+    assert 'href="/words?sort=lapses&amp;marked=1"' in page
+    assert 'word-search' in page
 
 
 def test_delete_word_removes_only_current_users_word(app, client, bypass_engine):

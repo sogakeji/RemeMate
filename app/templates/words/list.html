@@ -56,9 +56,13 @@
     <div class="word-library-tools">
       <div class="word-sort-actions" aria-label="{{ _('vocab.sort_aria') }}">
         <a class="word-sort-link {% if current_sort == 'recent' %}active{% endif %}"
-           href="{{ url_for('words.lists', sort='recent') }}">{{ _('vocab.sort_recent') }}</a>
+           href="{{ url_for('words.lists', sort='recent', marked='1' if marked_only else none) }}">{{ _('vocab.sort_recent') }}</a>
         <a class="word-sort-link {% if current_sort == 'lapses' %}active{% endif %}"
-           href="{{ url_for('words.lists', sort='lapses') }}">{{ _('vocab.sort_lapses') }}</a>
+           href="{{ url_for('words.lists', sort='lapses', marked='1' if marked_only else none) }}">{{ _('vocab.sort_lapses') }}</a>
+      </div>
+      <div class="word-sort-actions" aria-label="{{ _('vocab.filter_aria') }}">
+        <a class="word-sort-link {% if marked_only %}active{% endif %}"
+           href="{{ url_for('words.lists', sort=current_sort, marked='1' if not marked_only else none) }}">{{ _('vocab.filter_marked') }}</a>
       </div>
       <div class="word-library-search">
         <div class="search-box">
