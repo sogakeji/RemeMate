@@ -1288,6 +1288,36 @@ textarea.form-control {
     resize: vertical;
 }
 
+.file-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.file-picker-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+}
+
+.file-picker-input:focus-visible + .file-picker-button {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.file-picker-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .form-text {
     color: var(--text-secondary);
     font-size: 12px;

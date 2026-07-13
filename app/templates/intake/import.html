@@ -26,8 +26,10 @@
           </select>
         </label>
       </div>
-      <div class="form-group">
-        <input type="file" name="file" accept=".csv" required>
+      <div class="form-group file-picker">
+        <input id="csv-file" class="file-picker-input" type="file" name="file" accept=".csv" required>
+        <label class="btn secondary file-picker-button" for="csv-file">{{ _('intake.choose_file') }}</label>
+        <span class="file-picker-name" data-empty-label="{{ _('intake.no_file') }}">{{ _('intake.no_file') }}</span>
       </div>
       <button type="submit" class="btn primary">{{ _('intake.upload') }}</button>
     </form>

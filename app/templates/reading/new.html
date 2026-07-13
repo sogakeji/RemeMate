@@ -19,8 +19,12 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="file">{{ _('reading.file') }}</label>
-        <input type="file" name="file" id="file" accept=".pdf" class="form-control" required>
+        <label class="form-label" for="reading-file">{{ _('reading.file') }}</label>
+        <div class="file-picker">
+          <input id="reading-file" class="file-picker-input" type="file" name="file" accept=".pdf" required>
+          <label class="btn secondary file-picker-button" for="reading-file">{{ _('reading.file') }}</label>
+          <span class="file-picker-name" data-empty-label="{{ _('reading.no_file') }}">{{ _('reading.no_file') }}</span>
+        </div>
         <p style="color:var(--text-secondary);font-size:13px;margin-top:6px;">
           {{ _('reading.file_help') }}
         </p>

@@ -214,6 +214,9 @@ class TestReadingShelf:
         assert "Upload reading material" in upload
         assert ">Chinese</option>" in upload
         assert ">Japanese</option>" in upload
+        assert "Choose a PDF file" in upload
+        assert "No file selected" in upload
+        assert "file-picker-input" in upload
         assert "Text-based PDFs only" in upload
 
         reader = client.get(f"/reading/{doc_id}").get_data(as_text=True)

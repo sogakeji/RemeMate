@@ -39,6 +39,9 @@ def test_intake_pages_and_validation_render_english(
     assert ">French</option>" in extract_page
     assert "CSV import" in import_page
     assert "Supported headers include" in import_page
+    assert "Choose CSV file" in import_page
+    assert "No file selected" in import_page
+    assert 'class="file-picker-input"' in import_page
     assert "Upload and process" in import_page
     assert "文本抽词" not in extract_page
 

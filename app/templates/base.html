@@ -236,6 +236,17 @@
         });
       });
 
+      document.querySelectorAll('.file-picker-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+          var picker = input.closest('.file-picker');
+          var label = picker && picker.querySelector('.file-picker-name');
+          if (!label) return;
+          label.textContent = input.files && input.files[0]
+            ? input.files[0].name
+            : label.dataset.emptyLabel;
+        });
+      });
+
       // 词条发音：使用浏览器 speechSynthesis，失败时静默降级。
       document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-speak]');
