@@ -1,6 +1,7 @@
 """造句闭环：不自动保存 / 显式保存 / 刷新不重存 / 额度 / 隔离 / NSFW 发布拦截。"""
 import re
 
+import pytest
 from sqlalchemy import text
 
 from tests.helpers import provision_user, login
@@ -261,6 +262,42 @@ def test_diary_mode_available_without_words(app, client, bypass_engine, fake_llm
     assert "三行日记" in page
     assert "提示问题" in page
     assert "还没有词" not in page
+
+
+@pytest.mark.parametrize(
+    ("learning_language", "feedback_language", "prompt"),
+    [
+        ("zh", "fr", "French feedback prompt"),
+        ("ja", "zh", "Chinese feedback prompt"),
+    ],
+)
+def test_diary_prompt_uses_feedback_language(
+    app, client, bypass_engine, fake_llm, monkeypatch,
+    learning_language, feedback_language, prompt,
+):
+    email = f"diary-feedback-{learning_language}-{feedback_language}@t.com"
+    provision_user(app, email, PW)
+    login(client, email, PW)
+    client.post("/settings", data={
+        "languages": [learning_language],
+        "feedback_language": feedback_language,
+    })
+
+    received_language = []
+
+    def fake_diary_prompt(language_code):
+        received_language.append(language_code)
+        return prompt
+
+    monkeypatch.setattr(
+        "app.blueprints.write.routes.writing_svc.random_diary_prompt",
+        fake_diary_prompt,
+    )
+
+    page = client.get("/write?mode=diary").get_data(as_text=True)
+
+    assert received_language == [feedback_language]
+    assert prompt in page
 
 
 def test_diary_submit_save_publish_to_square(app, client, bypass_engine, fake_llm):

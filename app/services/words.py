@@ -317,12 +317,15 @@ def get_current_language_list(user_id: int) -> WordList | None:
             .filter_by(user_id=user_id, language_code=lang).first())
 
 
-def get_words_for_current_language(user_id: int, *, sort: str = "due") -> tuple[str | None, list[Word]]:
-    """Return current language words with selectable list ordering."""
+def get_words_for_current_language(user_id: int, *, sort: str = "due",
+                                   marked_only: bool = False) -> tuple[str | None, list[Word]]:
+    """Return current-language words with optional marked-only filtering and ordering."""
     wl = get_current_language_list(user_id)
     if wl is None:
         return (get_current_language(user_id), [])
     q = Word.query.filter_by(list_id=wl.id).options(selectinload(Word.definitions))
+    if marked_only:
+        q = q.filter(Word.marked.is_(True))
     if sort == "recent":
         q = q.order_by(Word.id.desc())
     elif sort == "lapses":
