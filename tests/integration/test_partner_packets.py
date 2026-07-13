@@ -69,6 +69,22 @@ def _send_packet(client, recap_url, item_ids):
     })
 
 
+def test_feedback_inbox_renders_english(app, client):
+    provision_user(app, "packet-english@t.com", PW)
+    login(client, "packet-english@t.com", PW)
+    client.post(
+        "/ui-language",
+        data={"ui_locale": "en", "next": "/partner-packets"},
+    )
+
+    body = client.get("/partner-packets").get_data(as_text=True)
+    assert '<html lang="en">' in body
+    assert "Received feedback" in body
+    assert "Recap notes your language partners sent you." in body
+    assert "No feedback received yet." in body
+    assert "收到的反馈" not in body
+
+
 def test_selected_partner_items_arrive_as_immutable_snapshot(
     app, client, bypass_engine,
 ):

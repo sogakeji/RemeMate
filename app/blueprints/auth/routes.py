@@ -14,6 +14,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
+from app.i18n import translate as _
 from app.models.user import User
 from app.blueprints.auth.forms import LoginForm
 from app.services.timeutil import utc_now
@@ -22,7 +23,6 @@ bp = Blueprint("auth", __name__)
 
 MAX_ATTEMPTS = 5
 LOCK_MINUTES = 15
-_GENERIC_ERROR = "邮箱或密码错误"
 # 固定 dummy hash：user 不存在时也跑一次哈希校验，抹平计时侧信道（防枚举）。
 _DUMMY_HASH = generate_password_hash("rememate-timing-dummy")
 
@@ -75,7 +75,7 @@ def login():
                 user.locked_until = utc_now() + timedelta(minutes=LOCK_MINUTES)
                 user.login_attempts = 0
             db.session.commit()
-        flash(_GENERIC_ERROR)
+        flash(_("login.error"))
 
     return render_template("auth/login.html", form=form)
 

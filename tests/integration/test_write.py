@@ -31,6 +31,80 @@ def _switch_lang(client, code):
     client.post("/language/switch", data={"language_code": code, "csrf_token": csrf})
 
 
+def _switch_ui_to_english(client, next_path="/write"):
+    client.post("/ui-language", data={"ui_locale": "en", "next": next_path})
+
+
+def test_write_workflow_renders_server_side_english(
+    app, client, bypass_engine, fake_llm,
+):
+    _, wid = _setup_user_with_word(app, client, bypass_engine, "write-en@t.com")
+    _switch_ui_to_english(client)
+
+    page = client.get("/write").get_data(as_text=True)
+    assert '<html lang="en">' in page
+    assert "Write one sentence today" in page
+    assert "Recommended word" in page
+    assert "Target word" in page
+    assert "Check sentence" in page
+    assert "今天写一句" not in page
+
+    result = client.post("/write/submit", data={
+        "word_id": wid,
+        "sentence": "Un essai.",
+    }).get_data(as_text=True)
+    assert "Correction:" in result
+    assert "Translation:" in result
+    assert "Feedback:" in result
+    assert ">Save</button>" in result
+    assert ">Rewrite</button>" in result
+
+    saved = client.post("/write/save").get_data(as_text=True)
+    assert "Saved to writing history" in saved
+    assert "Publish to Square" in saved
+    assert "Write another" in saved
+
+
+def test_write_english_htmx_error_fragments(
+    app, client, bypass_engine, fake_llm,
+):
+    _, wid = _setup_user_with_word(app, client, bypass_engine, "write-errors-en@t.com")
+    _switch_ui_to_english(client)
+
+    malformed_diary = client.post("/write/submit", data={
+        "mode": "diary",
+        "prompt": "What made you smile?",
+        "diary": "Only one line",
+    }).get_data(as_text=True)
+    assert "must contain exactly 3 lines" in malformed_diary
+    assert "Rewrite" in malformed_diary
+
+    fake_llm["empty"] = True
+    fake_llm["reinstall"]()
+    degraded = client.post("/write/submit", data={
+        "word_id": wid,
+        "sentence": "Un essai.",
+    }).get_data(as_text=True)
+    assert "AI feedback is temporarily unavailable" in degraded
+    assert ">Save</button>" not in degraded
+
+
+def test_writing_history_renders_english_statuses(
+    app, client, bypass_engine, fake_llm,
+):
+    _, wid = _setup_user_with_word(app, client, bypass_engine, "history-en@t.com")
+    client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
+    client.post("/write/save")
+    _switch_ui_to_english(client, "/write/history")
+
+    page = client.get("/write/history").get_data(as_text=True)
+    assert "Writing history" in page
+    assert 'aria-label="Writing timeline"' in page
+    assert "Correction:" in page
+    assert "Publish to Square" in page
+    assert "造句历史" not in page
+
+
 def test_submit_does_not_persist(app, client, bypass_engine, fake_llm):
     """核心：批改(submit)绝不入库——根治 MemoBuddy「自动保存」。"""
     uid, wid = _setup_user_with_word(app, client, bypass_engine)

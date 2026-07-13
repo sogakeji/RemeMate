@@ -6,6 +6,28 @@ from tests.helpers import login, provision_user
 PW = "pw12345678"
 
 
+def test_admin_page_and_errors_render_english(app, client):
+    provision_user(app, "admin-english@t.com", PW, admin=True)
+    provision_user(app, "admin-existing@t.com", PW)
+    login(client, "admin-english@t.com", PW)
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/admin/"})
+
+    page = client.get("/admin/").get_data(as_text=True)
+    assert '<html lang="en">' in page
+    assert "Administration" in page
+    assert "Create invitation account" in page
+    assert "Initial password" in page
+    assert "Recent accounts" in page
+    assert "Administrator" in page
+
+    duplicate = client.post("/admin/", data={
+        "email": "admin-existing@t.com",
+        "name": "Existing",
+    }, follow_redirects=True).get_data(as_text=True)
+    assert "This email is already registered" in duplicate
+    assert "邮箱已存在" not in duplicate
+
+
 def test_admin_nav_only_visible_to_admin(app, client):
     provision_user(app, "user@t.com", PW)
     login(client, "user@t.com", PW)

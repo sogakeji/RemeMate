@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}CSV 导入 · 记搭{% endblock %}
+{% block title %}{{ _('intake.csv_title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section">
-    <h1>CSV 导入</h1>
-    <p><small>今日导入 {{ quota.used }}/{{ quota.limit }} 词{% if quota.own_key %}（自带 key）{% endif %}</small></p>
+    <h1>{{ _('intake.csv_title') }}</h1>
+    <p><small>{{ _('intake.today', used=quota.used, limit=quota.limit) }}{% if quota.own_key %} ({{ _('intake.own_key') }}){% endif %}</small></p>
   </div>
 
   {% if not available_languages %}
   <div class="word-card" style="text-align:center;">
-    <p style="margin-bottom:16px;color:var(--text-secondary);">先在设置里选择正在学的语言。</p>
-    <a class="btn success" href="{{ url_for('main.settings') }}">去设置选语言</a>
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('intake.choose_learning') }}</p>
+    <a class="btn success" href="{{ url_for('main.settings') }}">{{ _('review.open_settings') }}</a>
   </div>
   {% else %}
   <div class="form-card">
-    <p class="form-text" style="margin-bottom:15px;">CSV 表头需含 <code>word, meaning</code>（可选 part_of_speech, example, note）；UTF-8 编码；≤ 500 行 / 256KB。</p>
+    <p class="form-text" style="margin-bottom:15px;">{{ _('intake.csv_hint') }}</p>
     <form method="post" action="{{ url_for('intake.import_csv') }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label class="form-label">语言
+        <label class="form-label">{{ _('intake.language') }}
           <select name="language_code" class="form-control" required>
             {% for code, name in available_languages %}
             <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
@@ -26,10 +26,12 @@
           </select>
         </label>
       </div>
-      <div class="form-group">
-        <input type="file" name="file" accept=".csv" required>
+      <div class="form-group file-picker">
+        <input id="csv-file" class="file-picker-input" type="file" name="file" accept=".csv" required>
+        <label class="btn secondary file-picker-button" for="csv-file">{{ _('intake.choose_file') }}</label>
+        <span class="file-picker-name" data-empty-label="{{ _('intake.no_file') }}">{{ _('intake.no_file') }}</span>
       </div>
-      <button type="submit" class="btn primary">上传并处理</button>
+      <button type="submit" class="btn primary">{{ _('intake.upload') }}</button>
     </form>
   </div>
   {% endif %}

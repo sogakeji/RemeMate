@@ -26,6 +26,54 @@ def _count(bypass_engine, table, uid):
                          {"u": uid}).scalar()
 
 
+def test_intake_pages_and_validation_render_english(
+    app, client, bypass_engine,
+):
+    _setup(app, client, bypass_engine, "intake-en@t.com")
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/intake/extract"})
+
+    extract_page = client.get("/intake/extract").get_data(as_text=True)
+    import_page = client.get("/intake/import").get_data(as_text=True)
+    assert "Extract from text" in extract_page
+    assert "Paste an article or subtitles" in extract_page
+    assert ">French</option>" in extract_page
+    assert "CSV import" in import_page
+    assert "Supported headers include" in import_page
+    assert "Choose CSV file" in import_page
+    assert "No file selected" in import_page
+    assert 'class="file-picker-input"' in import_page
+    assert "Upload and process" in import_page
+    assert "文本抽词" not in extract_page
+
+    invalid = client.post(
+        "/intake/import",
+        data={"language_code": ""},
+        follow_redirects=True,
+    ).get_data(as_text=True)
+    assert "Choose a language and upload a CSV file" in invalid
+
+
+def test_candidate_review_renders_english(
+    app, client, bypass_engine, fake_extract,
+):
+    _setup(app, client, bypass_engine, "candidate-en@t.com")
+    response = client.post("/intake/quick-add", data={
+        "language_code": "fr",
+        "word": "décollage",
+        "meaning": "takeoff",
+    })
+    client.post("/ui-language", data={"ui_locale": "en", "next": response.location})
+
+    page = client.get(response.location).get_data(as_text=True)
+    assert "Review candidate words" in page
+    assert "Pending" in page
+    assert "Accepted" in page
+    assert "Ignored" in page
+    assert "Accept all" in page
+    assert "Clean up" in page
+    assert "候选词审核" not in page
+
+
 def test_intake_pages_follow_learning_languages_and_do_not_duplicate_entry_links(
     app, client, bypass_engine,
 ):

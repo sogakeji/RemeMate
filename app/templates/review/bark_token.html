@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Bark 复习 · RemeMate{% endblock %}
+{% block title %}{{ _('bark.review_title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   {% if word %}
@@ -7,7 +7,7 @@
       <div class="review-card-toolbar">
         <div class="review-card-left-actions"></div>
         <div class="word-actions">
-          <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+          <button type="button" class="action-icon-btn speak-action" title="{{ _('review.speak') }}" aria-label="{{ _('review.speak') }}"
                   data-speak="{{ word.word }}" data-lang="{{ word.language_code }}">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -19,7 +19,7 @@
       </div>
       <p class="card-word">{{ word.word }}</p>
       {% if word.meaning or word.part_of_speech or word.example or word.note %}
-      <details class="definition-item" open><summary>显示释义</summary>
+      <details class="definition-item" open><summary>{{ _('review.show_definition') }}</summary>
         <p>
           {% if word.part_of_speech %}<span class="part-of-speech">{{ word.part_of_speech }}</span>{% endif %}
           {% if word.meaning %}<span class="meaning">{{ word.meaning }}</span>{% endif %}
@@ -28,7 +28,7 @@
         </p>
       </details>
       {% else %}
-      <p style="text-align:center;color:var(--text-secondary);">无释义</p>
+      <p style="text-align:center;color:var(--text-secondary);">{{ _('review.no_definition') }}</p>
       {% endif %}
     </div>
 
@@ -36,29 +36,29 @@
       <div class="word-card" style="margin-top:16px;">
         <p style="text-align:center;color:var(--text-secondary);">
           {% if already_reviewed %}
-            这条推送已经回流过熟练度。
+            {{ _('bark.reviewed_already') }}
           {% else %}
-            已回流到你的复习计划。
+            {{ _('bark.reviewed_success') }}
           {% endif %}
         </p>
         <div class="button-group" style="margin-top:20px;">
-          <a class="btn primary" href="{{ url_for('auth.login') }}">进入 RemeMate</a>
+          <a class="btn primary" href="{{ url_for('auth.login') }}">{{ _('bark.enter') }}</a>
         </div>
       </div>
     {% else %}
       <form method="post" action="{{ url_for('words.bark_review_grade', token=token) }}" class="srs-grade-group">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="srs-btn srs-forgot" name="button" value="forgot">没记住</button>
-        <button class="srs-btn srs-fuzzy" name="button" value="fuzzy">有点模糊</button>
-        <button class="srs-btn srs-known" name="button" value="easy">秒记起</button>
+        <button class="srs-btn srs-forgot" name="button" value="forgot">{{ _('review.forgot') }}</button>
+        <button class="srs-btn srs-fuzzy" name="button" value="fuzzy">{{ _('review.fuzzy') }}</button>
+        <button class="srs-btn srs-known" name="button" value="easy">{{ _('review.known') }}</button>
       </form>
     {% endif %}
   {% else %}
     <div class="word-card review-word-card">
-      <p class="card-word">链接失效</p>
-      <p style="text-align:center;color:var(--text-secondary);">这条 Bark 复习链接已过期，或对应词条已不存在。</p>
+      <p class="card-word">{{ _('bark.invalid_title') }}</p>
+      <p style="text-align:center;color:var(--text-secondary);">{{ _('bark.invalid_help') }}</p>
       <div class="button-group" style="margin-top:20px;">
-        <a class="btn primary" href="{{ url_for('auth.login') }}">登录 RemeMate</a>
+        <a class="btn primary" href="{{ url_for('auth.login') }}">{{ _('bark.login') }}</a>
       </div>
     </div>
   {% endif %}

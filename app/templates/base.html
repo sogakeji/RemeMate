@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+{% from "macros/icons.html" import nav_icon %}
+<html lang="{{ 'en' if ui_locale == 'en' else 'zh-CN' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{% block title %}记搭 RemeMate{% endblock %}</title>
+  <title>{% block title %}RemeMate{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <!-- Inter(苹果风) + 思源黑体 -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -23,62 +24,98 @@
   <header class="app-header">
     <div class="brand">
       <span class="brand-name">Reme<span class="brand-mate">Mate</span></span>
-      <span class="brand-slogan">记搭 - 你的语言记忆搭子</span>
+      <span class="brand-slogan">{{ _('app.slogan') }}</span>
       {% if current_user.is_authenticated %}
       <span class="brand-user">{{ current_user.display_name }}</span>
       {% endif %}
     </div>
     <div class="theme-slot">
       {% if current_user.is_authenticated %}
+      {% set _endpoint = request.endpoint or '' %}
+      {% set _write_active = _endpoint.startswith('write.') or _endpoint.startswith('square.') %}
+      {% set _partner_active = _endpoint.startswith('partners.') %}
+      {% set _library_active = _endpoint.startswith('words.') or _endpoint.startswith('intake.') or _endpoint.startswith('reading.') %}
+      {% set _account_active = _endpoint in ['main.settings', 'auth.logout'] or _endpoint.startswith('admin.') or _endpoint == 'words.stats' %}
       <nav class="app-nav">
-        <a class="nav-link" href="{{ url_for('main.index') }}">首页</a>
-        <a class="nav-link" href="{{ url_for('write.compose') }}">造句</a>
-        <a class="nav-link" href="{{ url_for('square.index') }}">广场</a>
-        <div class="nav-dropdown" data-nav-dropdown>
-          <button type="button" class="nav-link nav-menu-trigger"
-                  data-nav-menu="library" aria-haspopup="true" aria-expanded="false">
-            词库
+        <a class="nav-link nav-primary {% if _endpoint == 'main.index' %}active{% endif %}"
+           href="{{ url_for('main.index') }}" title="{{ _('nav.home') }}" aria-label="{{ _('nav.home') }}"
+           {% if _endpoint == 'main.index' %}aria-current="page"{% endif %}>
+          {{ nav_icon('home') }}<span class="nav-desktop-label">{{ _('nav.home') }}</span>
+        </a>
+        <div class="nav-dropdown {% if _write_active %}nav-domain-active{% endif %}" data-nav-dropdown>
+          <button type="button" class="nav-link nav-menu-trigger nav-primary {% if _write_active %}active{% endif %}"
+                  data-nav-menu="writing" aria-haspopup="true" aria-expanded="false"
+                  aria-label="{{ _('nav.write') }}" title="{{ _('nav.write') }}">
+            {{ nav_icon('write') }}<span class="nav-desktop-label">{{ _('nav.write') }}</span>
             <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                 stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                 stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
-          <div class="nav-menu-panel" role="menu" aria-label="词库菜单">
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.lists') }}">生词本</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.add_center') }}">手动加词</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.extract_page') }}">文本抽词</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('reading.index') }}">阅读收词</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.import_page') }}">CSV 导入</a>
+          <div class="nav-menu-panel" role="menu" aria-label="{{ _('nav.write_menu') }}">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('write.compose') }}">{{ _('nav.write_compose') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('write.history') }}">{{ _('nav.write_history') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('square.index') }}">{{ _('nav.square') }}</a>
+          </div>
+        </div>
+        <div class="nav-dropdown {% if _partner_active %}nav-domain-active{% endif %}" data-nav-dropdown>
+          <button type="button" class="nav-link nav-menu-trigger nav-primary {% if _partner_active %}active{% endif %}"
+                  data-nav-menu="partners" aria-haspopup="true" aria-expanded="false"
+                  aria-label="{{ _('nav.partners') }}" title="{{ _('nav.partners') }}">
+            {{ nav_icon('partners') }}<span class="nav-desktop-label">{{ _('nav.partners') }}</span>
+            <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="nav-menu-panel" role="menu" aria-label="{{ _('nav.partner_menu') }}">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('partners.index') }}">{{ _('nav.partner_list') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('partners.packet_inbox') }}">{{ _('nav.partner_feedback') }}</a>
           </div>
         </div>
         <div class="nav-dropdown" data-nav-dropdown>
-          <button type="button" class="nav-link nav-menu-trigger"
-                  data-nav-menu="account" aria-haspopup="true" aria-expanded="false">
-            我的
+          <button type="button" class="nav-link nav-menu-trigger nav-primary {% if _library_active %}active{% endif %}"
+                  data-nav-menu="library" aria-haspopup="true" aria-expanded="false"
+                  aria-label="{{ _('nav.library') }}" title="{{ _('nav.library') }}">
+            {{ nav_icon('library') }}<span class="nav-desktop-label">{{ _('nav.library') }}</span>
             <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                  stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
-          <div class="nav-menu-panel" role="menu" aria-label="我的菜单">
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('partners.index') }}">语言伙伴</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('partners.packet_inbox') }}">收到的反馈</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.stats') }}">统计</a>
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('main.settings') }}">设置</a>
+          <div class="nav-menu-panel" role="menu" aria-label="{{ _('nav.library_menu') }}">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.lists') }}">{{ _('nav.vocabulary') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.add_center') }}">{{ _('nav.manual_add') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.extract_page') }}">{{ _('nav.text_extract') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('reading.index') }}">{{ _('nav.reading_intake') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('intake.import_page') }}">{{ _('nav.csv_import') }}</a>
+          </div>
+        </div>
+        <div class="nav-dropdown" data-nav-dropdown>
+          <button type="button" class="nav-link nav-menu-trigger nav-primary {% if _account_active %}active{% endif %}"
+                  data-nav-menu="account" aria-haspopup="true" aria-expanded="false"
+                  aria-label="{{ _('nav.account') }}" title="{{ _('nav.account') }}">
+            {{ nav_icon('user') }}<span class="nav-desktop-label">{{ _('nav.account') }}</span>
+            <svg class="nav-menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="nav-menu-panel" role="menu" aria-label="{{ _('nav.account_menu') }}">
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('words.stats') }}">{{ _('nav.stats') }}</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('main.settings') }}">{{ _('nav.settings') }}</a>
             {% if current_user.role == 'admin' %}
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('admin.index') }}">管理</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('admin.index') }}">{{ _('nav.admin') }}</a>
             {% endif %}
-            <a class="nav-menu-link" role="menuitem" href="{{ url_for('auth.logout') }}">退出登录</a>
+            <a class="nav-menu-link" role="menuitem" href="{{ url_for('auth.logout') }}">{{ _('nav.logout') }}</a>
           </div>
         </div>
       </nav>
       {% endif %}
       {% if current_user.is_authenticated %}
       <div class="lang-switcher" id="langSwitcher" style="display:inline-block;">
-        <button type="button" class="lang-current" id="langCurrent" title="切换当前语言">
+        <button type="button" class="lang-current" id="langCurrent" title="{{ _('settings.learning') }}">
           <span class="lang-flag">
             {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺','zh':'🇨🇳'} %}
             {{ _flag.get(current_language, '📖') }}
           </span>
-          <span class="lang-label">{{ lang_choices.get(current_language, '选语言') }}</span>
+          <span class="lang-label">{{ ui_language_names.get(current_language, current_language or '—') }}</span>
           <svg class="lang-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <form id="langSwitchForm" method="post" action="{{ url_for('main.switch_language') }}" style="display:none;">
@@ -91,16 +128,25 @@
           <button type="button" class="lang-item {% if code == current_language %}active{% endif %}"
                   data-code="{{ code }}">
             <span>{{ _flag.get(code, '📖') }}</span>
-            <span>{{ lang_choices.get(code, code) }}</span>
+            <span>{{ ui_language_names.get(code, code) }}</span>
           </button>
           {% endfor %}
           {% if not learning_languages %}
-          <span class="lang-empty">先在设置里选语言</span>
+          <span class="lang-empty">{{ _('review.choose_language') }}</span>
           {% endif %}
         </div>
       </div>
       {% endif %}
-      <button id="themeToggleBtn" class="theme-toggle-btn" title="切换主题">
+      <form method="post" action="{{ url_for('main.switch_ui_language') }}" class="ui-locale-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="ui_locale" value="{{ 'zh' if ui_locale == 'en' else 'en' }}">
+        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+        <button type="submit" class="ui-locale-toggle"
+                title="{{ _('ui.switch_to_zh') if ui_locale == 'en' else _('ui.switch_to_en') }}">
+          {{ _('ui.zh') if ui_locale == 'en' else 'EN' }}
+        </button>
+      </form>
+      <button id="themeToggleBtn" class="theme-toggle-btn" title="{{ _('nav.theme') }}">
         <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
       </button>
     </div>
@@ -187,6 +233,17 @@
           drop.classList.remove('open');
           var btn = drop.querySelector('[data-nav-menu]');
           if (btn) btn.setAttribute('aria-expanded', 'false');
+        });
+      });
+
+      document.querySelectorAll('.file-picker-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+          var picker = input.closest('.file-picker');
+          var label = picker && picker.querySelector('.file-picker-name');
+          if (!label) return;
+          label.textContent = input.files && input.files[0]
+            ? input.files[0].name
+            : label.dataset.emptyLabel;
         });
       });
 

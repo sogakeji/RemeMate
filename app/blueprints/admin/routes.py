@@ -4,6 +4,7 @@ from functools import wraps
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from app.i18n import translate as _
 from app.models.user import User
 from app.services import provisioning
 
@@ -30,17 +31,17 @@ def index():
         name = request.form.get("name", "").strip()
         password = (request.form.get("password") or "").strip() or None
         if not email or not name:
-            flash("邮箱和昵称必填")
+            flash(_("admin.required"))
             return redirect(url_for("admin.index"))
         try:
             uid, password = provisioning.create_user_with_defaults(
                 email, name, password=password,
             )
         except provisioning.UserExistsError:
-            flash("邮箱已存在")
+            flash(_("admin.exists"))
             return redirect(url_for("admin.index"))
-        except ValueError as e:
-            flash(str(e))
+        except ValueError:
+            flash(_("admin.invalid_email"))
             return redirect(url_for("admin.index"))
         created = {
             "id": uid,

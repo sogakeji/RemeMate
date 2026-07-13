@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}RemeMate · 记搭{% endblock %}
+{% block title %}RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   {# 语言切换器现已移到 base.html 右上（主题钮左边），全局生效。 #}
@@ -8,10 +8,10 @@
     <div class="word-card">
       <p class="card-word">📖</p>
       <p style="text-align:center;color:var(--text-secondary);margin-bottom:24px;">
-        先选一个正在学的语言，开始背词。
+        {{ _('review.choose_language') }}
       </p>
       <div class="button-group">
-        <a class="btn primary" href="{{ url_for('main.settings') }}">去设置选语言 →</a>
+        <a class="btn primary" href="{{ url_for('main.settings') }}">{{ _('review.open_settings') }}</a>
       </div>
     </div>
   {% else %}

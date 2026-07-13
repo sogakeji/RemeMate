@@ -22,6 +22,8 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert "母语" in page
     assert "时区" in page
     assert "Bark 推送" in page
+    assert "界面语言" in page
+    assert 'name="ui_locale"' in page
     assert 'data-settings-toggle="profile-panel"' in page
     assert 'data-settings-toggle="password-panel"' in page
     assert 'data-settings-toggle="learning-panel"' in page
@@ -34,6 +36,7 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert 'class="settings-panel" id="feedback-panel"' in page
     assert 'class="settings-panel" id="timezone-panel"' in page
     assert 'class="settings-panel" id="bark-panel"' in page
+    assert 'class="settings-panel" id="ui-locale-panel"' in page
     assert 'formaction="/settings/account"' in page
     assert 'name="display_name"' in page
     assert 'name="current_password"' in page
@@ -48,6 +51,75 @@ def test_settings_page_shows_compact_language_preferences(app, client, bypass_en
     assert 'name="notify_review_reminder"' in page
     assert 'name="notify_daily_summary"' in page
     assert 'name="notify_intake_done"' in page
+
+
+def test_ui_language_switch_renders_english_and_persists_for_user(
+    app, client, bypass_engine,
+):
+    uid = provision_user(app, "ui-en@t.com", PW)
+    login(client, "ui-en@t.com", PW)
+
+    response = client.post("/ui-language", data={
+        "ui_locale": "en",
+        "next": "/settings",
+        "csrf_token": _csrf(client, "/settings"),
+    }, follow_redirects=True)
+
+    page = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert '<html lang="en">' in page
+    assert "Settings" in page
+    assert "Interface language" in page
+    assert "Native language" in page
+    assert "Bark notifications" in page
+    assert "Learning" in page
+    assert "正在学" not in page
+    with bypass_engine.connect() as connection:
+        stored = connection.execute(text(
+            "SELECT ui_locale FROM user_settings WHERE user_id=:uid"
+        ), {"uid": uid}).scalar()
+    assert stored == "en"
+
+
+def test_ui_language_does_not_change_learning_language(
+    app, client, bypass_engine,
+):
+    uid = provision_user(app, "ui-separate@t.com", PW)
+    login(client, "ui-separate@t.com", PW)
+    client.post("/settings", data={
+        "languages": ["ja"],
+        "feedback_language": "zh",
+        "csrf_token": _csrf(client, "/settings"),
+    })
+
+    client.post("/ui-language", data={
+        "ui_locale": "en",
+        "next": "/",
+        "csrf_token": _csrf(client, "/"),
+    })
+
+    with bypass_engine.connect() as connection:
+        row = connection.execute(text(
+            "SELECT u.current_language, s.feedback_language, s.ui_locale "
+            "FROM users u JOIN user_settings s ON s.user_id=u.id "
+            "WHERE u.id=:uid"
+        ), {"uid": uid}).one()
+    assert row == ("ja", "zh", "en")
+
+
+def test_unauthenticated_login_uses_browser_language_then_session(client):
+    english = client.get("/login", headers={"Accept-Language": "en-GB,en;q=0.9"})
+    assert '<html lang="en">' in english.get_data(as_text=True)
+    assert "Log in" in english.get_data(as_text=True)
+
+    client.post("/ui-language", data={
+        "ui_locale": "zh",
+        "next": "/login",
+        "csrf_token": _csrf(client, "/login"),
+    })
+    chinese = client.get("/login", headers={"Accept-Language": "en"})
+    assert '<html lang="zh-CN">' in chinese.get_data(as_text=True)
+    assert "登录" in chinese.get_data(as_text=True)
 
 
 def test_settings_save_sets_learning_languages(app, client, bypass_engine):

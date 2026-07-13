@@ -1,10 +1,13 @@
 {% extends "base.html" %}
-{% block title %}语言伙伴 · RemeMate{% endblock %}
+{% block title %}{{ _('partner.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container partners-page">
   <div class="partners-page-header">
-    <h1>语言伙伴</h1>
-    <a class="btn primary" href="{{ url_for('partners.new') }}">添加伙伴</a>
+    <h1>{{ _('partner.title') }}</h1>
+    <div class="partner-page-actions">
+      <a class="btn default" href="{{ url_for('partners.packet_inbox') }}">{{ _('packet.inbox') }}</a>
+      <a class="btn primary" href="{{ url_for('partners.new') }}">{{ _('partner.add') }}</a>
+    </div>
   </div>
 
   {% if partners %}
@@ -14,19 +17,19 @@
          href="{{ url_for('partners.show', partner_id=partner.id) }}">
         <span class="partner-name">{{ partner.display_name }}</span>
         <span class="partner-languages">
-          {% if partner.native_language_code %}母语：{{ language_names.get(partner.native_language_code) }}{% endif %}
-          {% if partner.learning_language_code %}正在学：{{ language_names.get(partner.learning_language_code) }}{% endif %}
+          {% if partner.native_language_code %}{{ _('partner.native') }}: {{ language_names.get(partner.native_language_code) }}{% endif %}
+          {% if partner.learning_language_code %}{{ _('partner.learning') }}: {{ language_names.get(partner.learning_language_code) }}{% endif %}
         </span>
         <span class="settings-chip">
-          {{ '已绑定账号' if partner.linked_user_id else '未绑定账号' }}
+          {{ _('partner.bound') if partner.linked_user_id else _('partner.unbound') }}
         </span>
       </a>
       {% endfor %}
     </div>
   {% else %}
     <div class="word-card partner-empty">
-      <p>还没有语言伙伴。</p>
-      <a class="btn primary" href="{{ url_for('partners.new') }}">添加第一位伙伴</a>
+      <p>{{ _('partner.none') }}</p>
+      <a class="btn primary" href="{{ url_for('partners.new') }}">{{ _('partner.add_first') }}</a>
     </div>
   {% endif %}
 </div>

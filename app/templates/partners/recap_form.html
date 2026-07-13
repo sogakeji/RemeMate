@@ -1,26 +1,26 @@
 {% extends "base.html" %}
-{% block title %}新建复盘 · {{ partner.display_name }}{% endblock %}
+{% block title %}{{ _('recap.new') }} · {{ partner.display_name }}{% endblock %}
 {% block content %}
 {% set values = form_values if form_values is defined else none %}
 <div class="container partner-form-page">
   <a class="back-link" href="{{ url_for('partners.show', partner_id=partner.id) }}">← {{ partner.display_name }}</a>
-  <h1>新建复盘</h1>
+  <h1>{{ _('recap.new') }}</h1>
   <form class="form-card" method="post"
         action="{{ url_for('partners.create_recap', partner_id=partner.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
-      <label class="form-label" for="session_date">交换日期</label>
+      <label class="form-label" for="session_date">{{ _('recap.date') }}</label>
       <input class="form-control" id="session_date" name="session_date" type="date" required
              value="{{ values.session_date if values else default_date }}">
     </div>
     <div class="form-group">
-      <label class="form-label" for="title">标题</label>
+      <label class="form-label" for="title">{{ _('recap.heading') }}</label>
       <input class="form-control" id="title" name="title" maxlength="120"
-             value="{{ values.title if values else '' }}" placeholder="可选">
+             value="{{ values.title if values else '' }}" placeholder="{{ _('recap.optional') }}">
     </div>
     <div class="button-group">
-      <a class="btn default" href="{{ url_for('partners.show', partner_id=partner.id) }}">取消</a>
-      <button class="btn primary" type="submit">创建信纸</button>
+      <a class="btn default" href="{{ url_for('partners.show', partner_id=partner.id) }}">{{ _('common.cancel') }}</a>
+      <button class="btn primary" type="submit">{{ _('recap.create') }}</button>
     </div>
   </form>
 </div>

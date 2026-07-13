@@ -9,6 +9,7 @@ from flask import (Blueprint, render_template, redirect, url_for, request,
                    flash, abort, Response, stream_with_context)
 from flask_login import login_required, current_user
 
+from app.i18n import localized_language_names, translate as _
 from app.services import intake as intake_svc
 from app.services import quota as quota_svc
 from app.services import words as words_svc
@@ -22,7 +23,8 @@ def _uid():
 
 
 def _language_choices():
-    return [(code, words_svc._language_name(code))
+    names = localized_language_names()
+    return [(code, names.get(code, code))
             for code in words_svc.get_learning_languages(_uid())]
 
 
@@ -47,13 +49,16 @@ def import_csv():
     language_code = request.form.get("language_code", "").strip()
     file = request.files.get("file")
     if not language_code or file is None or not file.filename:
-        flash("请选择语言并上传 CSV")
+        flash(_("intake.choose_and_upload"))
         return redirect(url_for("intake.import_page"))
     try:
         source = intake_svc.prepare_csv(
             _uid(), language_code, file.read(), file.filename)
-    except (intake_svc.CsvTooLarge, intake_svc.CsvFormatError) as e:
-        flash(str(e))
+    except intake_svc.CsvTooLarge:
+        flash(_("intake.csv_too_large"))
+        return redirect(url_for("intake.import_page"))
+    except intake_svc.CsvFormatError:
+        flash(_("intake.invalid_input"))
         return redirect(url_for("intake.import_page"))
     if source is None:
         abort(404)
@@ -77,16 +82,16 @@ def extract_page():
 def extract():
     language_code = request.form.get("language_code", "").strip()
     if not language_code:
-        flash("请选择语言")
+        flash(_("intake.choose_language"))
         return redirect(url_for("intake.extract_page"))
     try:
         source = intake_svc.prepare_extract(
             _uid(), language_code, request.form.get("text", ""))
-    except intake_svc.DocumentTooLong as e:
-        flash(str(e))
+    except intake_svc.DocumentTooLong:
+        flash(_("intake.text_too_long"))
         return redirect(url_for("intake.extract_page"))
-    except intake_svc.CsvFormatError as e:
-        flash(str(e))
+    except intake_svc.CsvFormatError:
+        flash(_("intake.invalid_input"))
         return redirect(url_for("intake.extract_page"))
     if source is None:
         abort(404)
@@ -111,6 +116,8 @@ def process_stream(source_id):
     @stream_with_context
     def gen():
         for event in intake_svc.process_source(uid, source_id):
+            if event.get("type") == "error":
+                event = {**event, "message": _("intake.processing_error")}
             yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return Response(gen(), mimetype="text/event-stream",
@@ -133,17 +140,18 @@ def quick_add_page():
 def quick_add():
     language_code = request.form.get("language_code", "").strip()
     if not language_code:
-        flash("请选择语言")
+        flash(_("intake.choose_language"))
         return redirect(url_for("intake.quick_add_page"))
     try:
-        source, _ = intake_svc.quick_add(
+        source, candidate = intake_svc.quick_add(
             _uid(), language_code, request.form.get("word", ""),
             request.form.get("meaning"))
     except quota_svc.ImportQuotaExceeded as e:
-        flash(f"今日导入额度已用完（{e.used}/{e.limit}）")
+        flash(_("intake.quota_exceeded", used=e.used, limit=e.limit))
         return redirect(url_for("intake.quick_add_page"))
-    except intake_svc.CsvFormatError as e:
-        flash(str(e))
+    except intake_svc.CsvFormatError as exc:
+        key = "manual.ai_unavailable" if "AI" in str(exc) else "intake.invalid_input"
+        flash(_(key))
         return redirect(url_for("intake.quick_add_page"))
     if source is None:
         abort(404)
@@ -174,7 +182,7 @@ def accept(candidate_id):
              ("word", "part_of_speech", "meaning", "example") if f in request.form}
     if not intake_svc.accept_candidate(_uid(), candidate_id, edits or None):
         abort(404)
-    return render_template("intake/_candidate_done.html", action="已接受")
+    return render_template("intake/_candidate_done.html", action="candidate.done_accepted")
 
 
 @bp.post("/intake/candidates/<int:candidate_id>/ignore")
@@ -182,7 +190,7 @@ def accept(candidate_id):
 def ignore(candidate_id):
     if not intake_svc.ignore_candidate(_uid(), candidate_id):
         abort(404)
-    return render_template("intake/_candidate_done.html", action="已忽略")
+    return render_template("intake/_candidate_done.html", action="candidate.done_ignored")
 
 
 @bp.post("/intake/<int:source_id>/bulk-accept")
@@ -212,7 +220,7 @@ def _do_commit(source_id, service_fn):
         abort(404)
     n = service_fn(_uid(), source_id)
     words_svc.set_current_language(_uid(), source.language_code)
-    flash(f"已入库 {n} 个词")
+    flash(_("candidate.committed", count=n))
     return redirect(url_for("words.lists"))
 
 
@@ -223,11 +231,11 @@ def cleanup_all(source_id):
     n_ignored = intake_svc.cleanup_ignored(_uid(), source_id)
     n_accepted = intake_svc.cleanup_accepted(_uid(), source_id)
     if n_ignored and n_accepted:
-        flash(f"已清理{n_ignored} 个已忽略、{n_accepted} 个已接受")
+        flash(_("candidate.cleaned_both", ignored=n_ignored, accepted=n_accepted))
     elif n_ignored:
-        flash(f"已清理{n_ignored} 个已忽略")
+        flash(_("candidate.cleaned_ignored", count=n_ignored))
     elif n_accepted:
-        flash(f"已清理{n_accepted} 个已接受")
+        flash(_("candidate.cleaned_accepted", count=n_accepted))
     else:
-        flash("没有需要清理的候选词")
+        flash(_("candidate.nothing_to_clean"))
     return redirect(url_for("intake.candidates", source_id=source_id))

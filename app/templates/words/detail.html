@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}{{ wl.name }} 词库 · 记搭{% endblock %}
+{% block title %}{{ ui_language_names.get(wl.language_code, wl.name) }} · {{ _('vocab.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
-  <p><a class="nav-link" href="{{ url_for('words.lists') }}">← 词库</a></p>
+  <p><a class="nav-link" href="{{ url_for('words.lists') }}">← {{ _('vocab.back') }}</a></p>
   <div class="header-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-    <h1>{{ wl.name }} <small style="font-size:14px;color:var(--text-secondary);">[{{ wl.language_code }}] · {{ wl.words|length }} 个词</small></h1>
-    <a class="btn success" href="{{ url_for('words.add_center') }}">加词 →</a>
+    <h1>{{ ui_language_names.get(wl.language_code, wl.name) }} <small style="font-size:14px;color:var(--text-secondary);">[{{ wl.language_code }}] · {{ _('vocab.count', count=wl.words|length) }}</small></h1>
+    <a class="btn success" href="{{ url_for('words.add_center') }}">{{ _('vocab.add') }} →</a>
   </div>
 
   {% if wl.words %}
   <div class="table-container word-library">
     <table class="word-table word-rich-table">
-      <thead><tr><th>词</th><th>词条内容</th><th>状态</th><th>操作</th></tr></thead>
+      <thead><tr><th>{{ _('vocab.word') }}</th><th>{{ _('vocab.content') }}</th><th>{{ _('vocab.status') }}</th><th>{{ _('vocab.actions') }}</th></tr></thead>
       <tbody>
         {% for w in wl.words %}
         <tr class="word-row">
@@ -32,26 +32,26 @@
             {% endfor %}
           </td>
           <td><small style="color:var(--text-secondary);">
-            due {{ w.due_date.strftime('%Y-%m-%d') }} · int {{ w.interval }} · ease {{ '%.2f'|format(w.ease) }}
-            {% if w.lapses %} · 忘 {{ w.lapses }}{% endif %}
+            {{ _('vocab.due') }} {{ w.due_date.strftime('%Y-%m-%d') }} · {{ _('vocab.interval') }} {{ w.interval }} · {{ _('vocab.ease') }} {{ '%.2f'|format(w.ease) }}
+            {% if w.lapses %} · {{ _('vocab.lapses', count=w.lapses) }}{% endif %}
           </small></td>
           <td>
             <div class="row-actions">
-              <button type="button" class="action-icon-btn speak-action" title="朗读单词" aria-label="朗读单词"
+              <button type="button" class="action-icon-btn speak-action" title="{{ _('vocab.speak') }}" aria-label="{{ _('vocab.speak') }}"
                       data-speak="{{ w.word }}" data-lang="{{ wl.language_code }}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
               </button>
               <a class="action-icon-btn" href="{{ url_for('words.edit_word', word_id=w.id) }}"
-                 title="编辑单词" aria-label="编辑单词">
+                 title="{{ _('vocab.edit') }}" aria-label="{{ _('vocab.edit') }}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               </a>
               <form method="post" action="{{ url_for('words.toggle_marked', word_id=w.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="action-icon-btn {% if w.marked %}marked{% endif %}"
-                        title="{% if w.marked %}取消标记{% else %}标记单词{% endif %}"
-                        aria-label="{% if w.marked %}取消标记{% else %}标记单词{% endif %}">
+                        title="{% if w.marked %}{{ _('vocab.unmark') }}{% else %}{{ _('vocab.mark') }}{% endif %}"
+                        aria-label="{% if w.marked %}{{ _('vocab.unmark') }}{% else %}{{ _('vocab.mark') }}{% endif %}">
                   {% if w.marked %}
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"
                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -70,7 +70,7 @@
   </div>
   {% else %}
   <p style="text-align:center;color:var(--text-secondary);">
-    这个词库还空着，<a class="nav-link" href="{{ url_for('words.add_center') }}" style="display:inline;">去加词 →</a>
+    {{ _('vocab.empty_list') }} <a class="nav-link" href="{{ url_for('words.add_center') }}" style="display:inline;">{{ _('vocab.add') }} →</a>
   </p>
   {% endif %}
 </div>

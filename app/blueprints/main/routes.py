@@ -13,6 +13,8 @@ from flask_login import login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
+from app.i18n import (SUPPORTED_UI_LOCALES, get_ui_locale, set_ui_locale,
+                      translate as _)
 from app.services import words as words_svc
 
 bp = Blueprint("main", __name__)
@@ -72,9 +74,22 @@ def switch_language():
            or _safe_next_target(request.referrer)
            or url_for("main.index"))
     if code not in words_svc._LANGUAGE_NAMES:
-        flash("未知语言")
+        flash(_("language.unknown"))
         return redirect(nxt)
     words_svc.set_current_language(current_user.id, code)
+    return redirect(nxt)
+
+
+@bp.post("/ui-language")
+def switch_ui_language():
+    """Switch interface language without changing the language being learned."""
+    locale = request.form.get("ui_locale", "").strip()
+    nxt = (_safe_next_target(request.form.get("next"))
+           or _safe_next_target(request.referrer)
+           or url_for("main.index"))
+    if locale not in SUPPORTED_UI_LOCALES:
+        return redirect(nxt)
+    set_ui_locale(locale)
     return redirect(nxt)
 
 
@@ -95,15 +110,22 @@ def settings():
                            timezone=words_svc.get_timezone(current_user.id),
                            timezone_choices=words_svc._TIMEZONE_CHOICES,
                            notification_settings=words_svc.get_notification_settings(
-                               current_user.id))
+                               current_user.id),
+                           selected_ui_locale=get_ui_locale())
 
 
 def _save_settings_from_form():
     codes = request.form.getlist("languages")
     feedback_language = request.form.get("feedback_language", "zh").strip()
+    ui_locale = request.form.get("ui_locale", "").strip()
     timezone_form_present = "timezone" in request.form
     notification_form_present = "bark_url" in request.form
     words_svc.set_feedback_language(current_user.id, feedback_language)
+    if ui_locale:
+        if ui_locale not in SUPPORTED_UI_LOCALES:
+            raise ValueError("unsupported UI locale")
+        current_user.settings.ui_locale = ui_locale
+        session["ui_locale"] = ui_locale
     if timezone_form_present:
         words_svc.set_timezone(current_user.id,
                                request.form.get("timezone", "").strip())
@@ -119,6 +141,7 @@ def _save_settings_from_form():
                 request.form.get("notify_intake_done") == "on"),
         )
     words_svc.set_learning_languages(current_user.id, codes)
+    db.session.commit()
 
 
 @bp.post("/settings")
@@ -127,9 +150,9 @@ def save_settings():
     try:
         _save_settings_from_form()
     except ValueError:
-        flash("设置内容不正确，请检查后再保存")
+        flash(_("settings.save_error"))
         return redirect(url_for("main.settings"))
-    flash("已保存设置")
+    flash(_("settings.saved"))
     return redirect(url_for("main.settings"))
 
 
@@ -143,26 +166,26 @@ def save_account_settings():
     changing_password = any([current_password, new_password, confirm_password])
 
     if not display_name or len(display_name) > 100:
-        flash("昵称需为 1-100 个字符")
+        flash(_("settings.display_name_invalid"))
         return redirect(url_for("main.settings"))
     current_user.display_name = display_name
 
     if changing_password:
         if not check_password_hash(current_user.password_hash, current_password):
-            flash("当前密码不正确")
+            flash(_("settings.password_incorrect"))
             return redirect(url_for("main.settings"))
         if len(new_password) < 8 or len(new_password) > 128:
-            flash("新密码需为 8-128 个字符")
+            flash(_("settings.new_password_invalid"))
             return redirect(url_for("main.settings"))
         if new_password != confirm_password:
-            flash("两次输入的新密码不一致")
+            flash(_("settings.password_mismatch"))
             return redirect(url_for("main.settings"))
         current_user.password_hash = generate_password_hash(new_password)
         current_user.login_attempts = 0
         current_user.locked_until = None
 
     db.session.commit()
-    flash("已保存账号设置")
+    flash(_("settings.account_saved"))
     return redirect(url_for("main.settings"))
 
 
@@ -173,7 +196,7 @@ def test_bark_settings():
         _save_settings_from_form()
         words_svc.send_bark_test_notification(current_user.id)
     except ValueError as exc:
-        flash(str(exc) or "Bark 测试推送发送失败")
+        flash(str(exc) or _("settings.bark_test_failed"))
         return redirect(url_for("main.settings"))
-    flash("Bark 测试推送已发送")
+    flash(_("settings.bark_test_sent"))
     return redirect(url_for("main.settings"))

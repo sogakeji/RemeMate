@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}造句历史 · 记搭{% endblock %}
+{% block title %}{{ _('history.title') }} · {{ _('write.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
-  <p><a class="nav-link" href="{{ url_for('write.compose') }}">← 造句</a></p>
-  <div class="header-section"><h1>造句历史</h1></div>
+  {% with write_section='history' %}{% include "write/_section_nav.html" %}{% endwith %}
+  <div class="header-section"><h1>{{ _('history.title') }}</h1></div>
   {% if entries %}
   <div class="history-shell">
-    <aside class="history-timeline" aria-label="造句时间轴">
+    <aside class="history-timeline" aria-label="{{ _('history.timeline') }}">
       <div class="timeline-rail" aria-hidden="true"></div>
-      <select class="timeline-select" aria-label="跳转到历史句子">
+      <select class="timeline-select" aria-label="{{ _('history.jump') }}">
         {% for e in entries %}
         <option value="entry-{{ e.id }}">
-          {{ e.created_at.strftime('%m-%d %H:%M') }} · {{ e.word_text }} · {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(28, True) }}
+          {{ e.created_at.strftime('%m-%d %H:%M') }} · {{ _('write.diary_mode') if e.word_id is none else e.word_text }} · {{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(28, True) }}
         </option>
         {% endfor %}
       </select>
@@ -22,7 +22,7 @@
           <span class="timeline-tick" aria-hidden="true"></span>
           <span class="timeline-meta">{{ e.created_at.strftime('%m-%d %H:%M') }}</span>
           <span class="timeline-body">
-            <span class="timeline-word">{{ e.word_text }}</span>
+            <span class="timeline-word">{{ _('write.diary_mode') if e.word_id is none else e.word_text }}</span>
             <span class="timeline-snippet">{{ ((e.corrected or e.original)|replace('\n', ' '))|truncate(46, True) }}</span>
           </span>
         </a>
@@ -35,29 +35,29 @@
       <article class="word-card history-entry" id="entry-{{ e.id }}">
         <p>{{ e.original }}</p>
         {% if e.corrected and e.corrected != e.original %}
-          <p><strong>修正：</strong>{{ e.corrected }}</p>
+          <p><strong>{{ _('history.corrected') }}</strong> {{ e.corrected }}</p>
         {% endif %}
         {% if e.feedback %}<p style="color:var(--text-secondary);">{{ e.feedback }}</p>{% endif %}
         <small style="color:var(--text-secondary);">
-          {{ e.word_text }} ·
+          {{ _('write.diary_mode') if e.word_id is none else e.word_text }} ·
           {{ e.created_at.strftime('%Y-%m-%d %H:%M') }}
-          {% if e.is_public %}· 已公开{% endif %}
-          {% if e.has_error %}· 有修正{% endif %}
+          {% if e.is_public %}· {{ _('history.published') }}{% endif %}
+          {% if e.has_error %}· {{ _('history.has_correction') }}{% endif %}
         </small>
         <div class="button-group" style="margin-top:14px;">
           {% if e.is_public %}
-            <a class="btn default" href="{{ url_for('square.index', lang=e.language_code) }}">去广场看看</a>
+            <a class="btn default" href="{{ url_for('square.index', lang=e.language_code) }}">{{ _('write.view_square') }}</a>
             <form method="post" action="{{ url_for('write.unpublish', entry_id=e.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn default">取消公开</button>
+              <button type="submit" class="btn default">{{ _('history.unpublish') }}</button>
             </form>
           {% elif not e.is_nsfw %}
             <form method="post" action="{{ url_for('write.publish', entry_id=e.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn primary">公开到广场</button>
+              <button type="submit" class="btn primary">{{ _('history.publish') }}</button>
             </form>
           {% else %}
-            <span class="btn default" aria-disabled="true">不可公开</span>
+            <span class="btn default" aria-disabled="true">{{ _('history.cannot_publish') }}</span>
           {% endif %}
         </div>
       </article>
@@ -65,7 +65,7 @@
     </div>
   </div>
   {% else %}
-  <p style="text-align:center;color:var(--text-secondary);">还没有造句记录。</p>
+  <p style="text-align:center;color:var(--text-secondary);">{{ _('history.empty') }}</p>
   {% endif %}
 </div>
 {% endblock %}

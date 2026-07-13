@@ -1288,6 +1288,36 @@ textarea.form-control {
     resize: vertical;
 }
 
+.file-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.file-picker-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+}
+
+.file-picker-input:focus-visible + .file-picker-button {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.file-picker-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .form-text {
     color: var(--text-secondary);
     font-size: 12px;
@@ -1430,6 +1460,31 @@ textarea.form-control {
     letter-spacing: 0.4px;
 }
 
+.ui-locale-form {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.ui-locale-toggle {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: 0 2px 8px var(--shadow-color);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-locale-toggle:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
 .brand-user {
     font-size: 13px;
     color: var(--text-secondary);
@@ -1440,6 +1495,12 @@ textarea.form-control {
     gap: 6px;
     flex-wrap: wrap;
     align-items: center;
+}
+
+.nav-mobile-icon {
+    display: none;
+    width: 22px;
+    height: 22px;
 }
 
 .nav-dropdown {
@@ -1505,6 +1566,45 @@ textarea.form-control {
     gap: 10px;
 }
 
+.write-section-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.write-section-link {
+    position: relative;
+    min-width: 0;
+    padding: 11px 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.write-section-link:hover,
+.write-section-link.active {
+    color: var(--primary-color);
+}
+
+.write-section-link.active::after {
+    content: "";
+    position: absolute;
+    right: 18%;
+    bottom: -1px;
+    left: 18%;
+    height: 2px;
+    background: var(--primary-color);
+}
+
+.partner-page-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 /* flash 消息 */
 .flashes {
     max-width: 1000px;
@@ -1525,6 +1625,10 @@ textarea.form-control {
 
 /* 响应式 */
 @media (max-width: 768px) {
+    body {
+        padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+
     .container {
         padding: 15px;
     }
@@ -1573,18 +1677,104 @@ textarea.form-control {
     }
 
     .app-header {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: flex-start;
+        flex-wrap: nowrap;
+        padding: 14px 15px 0;
+        gap: 10px;
     }
 
     .app-nav {
-        justify-content: center;
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1100;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0;
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--border-color);
+        background: var(--card-bg);
+        box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
     }
 
-    .nav-menu-panel {
+    .app-nav > .nav-dropdown {
+        position: relative;
+        min-width: 0;
+    }
+
+    .app-nav .nav-primary {
+        position: relative;
+        width: 100%;
+        min-width: 48px;
+        min-height: 48px;
+        justify-content: center;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .app-nav .nav-primary.active {
+        background: rgba(74, 108, 247, 0.10);
+        color: var(--primary-color);
+    }
+
+    .app-nav .nav-primary.active::after {
+        content: "";
+        position: absolute;
+        right: 30%;
+        bottom: 3px;
+        left: 30%;
+        height: 2px;
+        background: var(--primary-color);
+    }
+
+    .nav-mobile-icon {
+        display: block;
+    }
+
+    .nav-desktop-label,
+    .app-nav .nav-menu-chevron {
+        display: none;
+    }
+
+    .app-nav .nav-menu-panel {
+        top: auto;
+        bottom: calc(100% + 8px);
         left: 50%;
         right: auto;
         transform: translateX(-50%);
+    }
+
+    .app-nav > .nav-dropdown:nth-child(4) .nav-menu-panel,
+    .app-nav > .nav-dropdown:nth-child(5) .nav-menu-panel {
+        right: 4px;
+        left: auto;
+        transform: none;
+    }
+
+    .theme-slot {
+        min-width: 0;
+        margin-left: auto;
+        gap: 8px;
+    }
+
+    .brand {
+        min-width: 0;
+    }
+
+    .brand-slogan {
+        max-width: 180px;
+        overflow-wrap: anywhere;
+    }
+
+    .write-section-nav {
+        margin-bottom: 20px;
+    }
+
+    .partner-page-actions {
+        width: 100%;
+        justify-content: flex-start;
     }
 
     .card-word {

@@ -8,6 +8,7 @@ Task 10 范围：阅读位置保存 + 选词 JS。
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
+from app.i18n import localized_language_names, translate as _
 from app.extensions import db
 from app.models.reading import ReadingDocument, ReadingLookup
 from app.models.word import Word, WordList
@@ -56,7 +57,10 @@ def index():
 def new():
     """上传新阅读材料页面。语言选择器默认当前语言。"""
     lang = words_svc.get_current_language(_uid()) or ""
-    return render_template("reading/new.html", current_lang=lang)
+    return render_template(
+        "reading/new.html", current_lang=lang,
+        language_names=localized_language_names(),
+    )
 
 
 @bp.post("/reading")
@@ -68,16 +72,16 @@ def create():
     """
     language_code = request.form.get("language_code", "").strip()
     if language_code not in SUPPORTED_LANGUAGES:
-        flash("当前版本只支持中文、英文、日文、法文")
+        flash(_("reading.supported_languages"))
         return redirect(url_for("reading.new"))
 
     file = request.files.get("file")
     if not file or not file.filename:
-        flash("请选择文件")
+        flash(_("reading.file_required"))
         return redirect(url_for("reading.new"))
 
     if not file.filename.lower().endswith(".pdf"):
-        flash("当前版本只支持文本型 PDF")
+        flash(_("reading.pdf_only"))
         return redirect(url_for("reading.new"))
 
     file_bytes = file.read()
@@ -86,21 +90,21 @@ def create():
         chunks = reading_parsers.parse_pdf_bytes_multi(
             file_bytes, file.filename, language_code=language_code)
     except EmptyPdfText:
-        flash("这个 PDF 可能是扫描件，当前版本暂不支持 OCR")
+        flash(_("reading.ocr_unsupported"))
         return redirect(url_for("reading.new"))
-    except PdfParseError as e:
-        flash(str(e))
+    except PdfParseError:
+        flash(_("reading.pdf_parse_error"))
         return redirect(url_for("reading.new"))
 
     if len(chunks) > 1:
-        flash(f"PDF 共 {len(chunks)} 部分，已自动切分为 {len(chunks)} 篇阅读材料")
+        flash(_("reading.split", count=len(chunks)))
 
     docs = []
     for parsed in chunks:
         try:
             reading_parsers.validate_content_quality(parsed.text, language_code)
-        except ContentQualityError as e:
-            flash(str(e))
+        except ContentQualityError:
+            flash(_("reading.quality_error"))
             continue
 
         doc = reading_svc.create_document(
@@ -116,7 +120,7 @@ def create():
             docs.append(doc)
 
     if not docs:
-        flash("所有部分均未通过内容质量检查，请确认 PDF 为文本型文档")
+        flash(_("reading.all_quality_failed"))
         return redirect(url_for("reading.new"))
     if len(docs) == 1:
         return redirect(url_for("reading.show", doc_id=docs[0].id))
@@ -148,7 +152,7 @@ def delete(doc_id):
     deleted = reading_svc.delete_document(_uid(), doc_id)
     if not deleted:
         abort(404)
-    flash("阅读材料已删除")
+    flash(_("reading.deleted"))
     return redirect(url_for("reading.index"))
 
 
@@ -221,8 +225,8 @@ def add_candidate(lookup_id):
 
     if state == "existing-word":
         if is_ajax:
-            return {"ok": False, "state": "existing-word", "message": "词库中已存在该词"}
-        flash("词库中已存在该词")
+            return {"ok": False, "state": "existing-word", "message": _("reading.existing_word")}
+        flash(_("reading.existing_word"))
         if source_id:
             return redirect(url_for("intake.candidates", source_id=source_id))
         return redirect(url_for("reading.index"))
@@ -236,7 +240,7 @@ def add_candidate(lookup_id):
             "candidate_id": result.get("candidate_id"),
         }
 
-    flash("已加入候选，可在候选页审核")
+    flash(_("reading.candidate_added"))
     if source_id:
         return redirect(url_for("intake.candidates", source_id=source_id))
     return redirect(url_for("reading.index"))

@@ -1,51 +1,51 @@
 {% extends "base.html" %}
-{% block title %}管理 · 记搭{% endblock %}
+{% block title %}{{ _('admin.title') }} · RemeMate{% endblock %}
 {% block content %}
 <div class="container">
   <div class="header-section">
-    <h1>管理</h1>
+    <h1>{{ _('admin.title') }}</h1>
   </div>
 
   {% if created %}
   <div class="word-card">
-    <p style="color:var(--success-color);font-weight:600;">账号已创建</p>
-    <p><strong>邮箱：</strong>{{ created.email }}</p>
-    <p><strong>初始密码：</strong><code>{{ created.password }}</code></p>
+    <p style="color:var(--success-color);font-weight:600;">{{ _('admin.created') }}</p>
+    <p><strong>{{ _('admin.email') }}:</strong> {{ created.email }}</p>
+    <p><strong>{{ _('admin.password') }}:</strong> <code>{{ created.password }}</code></p>
   </div>
   {% endif %}
 
   <div class="form-card">
-    <h2 style="font-size:18px;margin-bottom:16px;">创建邀请账号</h2>
+    <h2 style="font-size:18px;margin-bottom:16px;">{{ _('admin.create_title') }}</h2>
     <form method="post" action="{{ url_for('admin.index') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label class="form-label" for="email">邮箱</label>
+        <label class="form-label" for="email">{{ _('admin.email') }}</label>
         <input class="form-control" id="email" name="email" type="email"
                autocomplete="off" required>
       </div>
       <div class="form-group">
-        <label class="form-label" for="name">昵称</label>
+        <label class="form-label" for="name">{{ _('admin.name') }}</label>
         <input class="form-control" id="name" name="name" required>
       </div>
       <div class="form-group">
-        <label class="form-label" for="password">初始密码</label>
+        <label class="form-label" for="password">{{ _('admin.password') }}</label>
         <input class="form-control" id="password" name="password" type="text"
-               autocomplete="off" placeholder="留空则自动生成">
+               autocomplete="off" placeholder="{{ _('admin.password_hint') }}">
       </div>
 
-      <button class="btn primary" type="submit">创建账号</button>
+      <button class="btn primary" type="submit">{{ _('admin.create') }}</button>
     </form>
   </div>
 
   <div class="form-card">
-    <h2 style="font-size:18px;margin-bottom:16px;">最近账号</h2>
+    <h2 style="font-size:18px;margin-bottom:16px;">{{ _('admin.recent') }}</h2>
     <table class="word-table">
       <thead>
         <tr>
-          <th>邮箱</th>
-          <th>昵称</th>
-          <th>角色</th>
-          <th>状态</th>
+          <th>{{ _('admin.email') }}</th>
+          <th>{{ _('admin.name') }}</th>
+          <th>{{ _('admin.role') }}</th>
+          <th>{{ _('admin.status') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -53,8 +53,8 @@
         <tr>
           <td>{{ u.email }}</td>
           <td>{{ u.display_name }}</td>
-          <td>{{ '管理员' if u.role == 'admin' else '用户' }}</td>
-          <td>{{ '启用' if u.is_active else '停用' }}</td>
+          <td>{{ _('admin.role_admin') if u.role == 'admin' else _('admin.role_user') }}</td>
+          <td>{{ _('admin.active') if u.is_active else _('admin.inactive') }}</td>
         </tr>
         {% endfor %}
       </tbody>

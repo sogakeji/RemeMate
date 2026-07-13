@@ -6,7 +6,7 @@
     {% if lookup.dictionary_result_json and lookup.dictionary_result_json.found %}
     <span style="font-size:13px;color:var(--text-secondary);">{{ lookup.dictionary_result_json.part_of_speech or '' }}</span>
     {% else %}
-    <span style="font-size:13px;color:var(--text-secondary);">词典暂未命中</span>
+    <span style="font-size:13px;color:var(--text-secondary);">{{ _('reading.dictionary_miss') }}</span>
     {% endif %}
   </div>
 
@@ -26,7 +26,7 @@
 
   {% if lookup.context_sentence %}
   <div style="background:var(--surface, #f7f7f9);border-radius:8px;padding:10px;margin-bottom:12px;">
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">原文整句</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">{{ _('reading.context') }}</div>
     <p style="margin:0;font-size:14px;line-height:1.6;">{{ lookup.context_sentence }}</p>
   </div>
   {% endif %}
@@ -35,6 +35,6 @@
           data-lookup-id="{{ lookup.id }}"
           data-term="{{ lookup.term }}"
           onclick="ReaderAddCandidate.add(this)">
-    加入学习
+    {{ _('reading.add_learning') }}
   </button>
 </div>
