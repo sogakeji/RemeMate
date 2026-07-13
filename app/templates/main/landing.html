@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RemeMate — words that come back to you</title>
+  <title>RemeMate — remember the words you actually meet</title>
   <style>
     :root{
       --blue:#4a6cf7; --blue-d:#3951c6; --ink:#1d2230; --text:#414751; --muted:#727a86;
@@ -124,14 +124,14 @@
   <header class="hero">
     <div class="wrap">
       <div class="reveal">
-        <span class="eyebrow" data-en="Spaced repetition, but it comes to you" data-zh="间隔重复，但它来找你">Spaced repetition, but it comes to you</span>
-        <h1 data-en="Stop looking up the same word twice." data-zh="同一个词，别再查第二遍。">Stop looking up the same word twice.</h1>
-        <p class="sub" data-en="RemeMate grabs the words you read and quietly slips them back to you — on your Kindle, your phone, even a podcast. You just keep living; the reviews show up on their own."
-           data-zh="RemeMate 把你读到的生词收走，再悄悄塞回给你——在 Kindle、手机、甚至播客里。你照常过日子，复习自己冒出来。">
-          RemeMate grabs the words you read and quietly slips them back to you — on your Kindle, your phone, even a podcast. You just keep living; the reviews show up on their own.</p>
+        <span class="eyebrow" data-en="Language memory for real words and sentences" data-zh="为真实词句而做的语言记忆">Language memory for real words and sentences</span>
+        <h1 data-en="Turn the words you meet into words you can use." data-zh="把你真实遇到的词，变成你能用出来的话。">Turn the words you meet into words you can use.</h1>
+        <p class="sub" data-en="Collect the words, expressions, and sentences you actually meet. Review them when they are due, then use them in your own writing."
+           data-zh="收下你真实遇到的词、表达和句子；在合适的时候复习，再把它们用进自己的表达。">
+          Collect the words, expressions, and sentences you actually meet. Review them when they are due, then use them in your own writing.</p>
         <div class="cta">
           <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in to closed beta →" data-zh="登录闭测版 →">Log in to closed beta →</a>
-          <a class="btn btn-ghost" href="#how" data-en="See how it works" data-zh="看看它怎么工作">See how it works</a>
+          <a class="btn btn-ghost" href="#how" data-en="See the learning loop" data-zh="看看学习闭环">See the learning loop</a>
         </div>
       </div>
       <div class="shot reveal">
@@ -140,7 +140,7 @@
             <span class="d r"></span><span class="d y"></span><span class="d g"></span>
             <span class="addr">rememate.com</span>
           </div>
-          <img src="{{ url_for('static', filename='landing/shot-wordlist.png') }}" alt="RemeMate word list">
+          <img src="{{ url_for('static', filename='landing/shot-wordlist.png') }}" alt="RemeMate vocabulary page">
         </div>
       </div>
     </div>
@@ -149,27 +149,27 @@
   <section id="how">
     <div class="wrap">
       <div class="sec-head reveal">
-        <h2 data-en="How it works" data-zh="怎么运作">How it works</h2>
-        <p data-en="Three steps. Honestly, you only do the first one." data-zh="三步。说实话，你只管第一步。">Three steps. Honestly, you only do the first one.</p>
+        <h2 data-en="A small loop that keeps your language moving" data-zh="一个让语言持续前进的小闭环">A small loop that keeps your language moving</h2>
+        <p data-en="Start from something you actually encountered." data-zh="从你真实遇到的内容开始。">Start from something you actually encountered.</p>
       </div>
       <div class="steps">
         <div class="step reveal">
           <div class="num">1</div>
-          <h3 data-en="It grabs them" data-zh="它帮你收">It grabs them</h3>
-          <p data-en="See a word in an email or a doc? It's already saved and cleaned up — you don't lift a finger."
-             data-zh="邮件、文档里瞥见一个词？它已经帮你存好、清洗好了——你一根手指都不用动。">See a word in an email or a doc? It's already saved and cleaned up — you don't lift a finger.</p>
+          <h3 data-en="Collect a word or sentence" data-zh="收下一个词或句子">Collect a word or sentence</h3>
+          <p data-en="Add it by hand, extract it from text, import a CSV, or collect it while reading."
+             data-zh="手动加入、文本抽词、CSV 导入，或在阅读时收词。">Add it by hand, extract it from text, import a CSV, or collect it while reading.</p>
         </div>
         <div class="step reveal">
           <div class="num">2</div>
-          <h3 data-en="It keeps nudging you" data-zh="它反复提你">It keeps nudging you</h3>
-          <p data-en="That word keeps popping up — Kindle, a push, a podcast — wherever your eyes already go."
-             data-zh="这个词会反复冒出来——Kindle、推送、播客——在你眼睛本来就会去的地方。">That word keeps popping up — Kindle, a push, a podcast — wherever your eyes already go.</p>
+          <h3 data-en="Meet it again when it is due" data-zh="在该复习时，再遇见它">Meet it again when it is due</h3>
+          <p data-en="Definitions, examples, and your notes bring it back with context."
+             data-zh="词义、例句和个人笔记，让它带着语境回来。">Definitions, examples, and your notes bring it back with context.</p>
         </div>
         <div class="step reveal">
           <div class="num">3</div>
-          <h3 data-en="You tap once" data-zh="你点一下">You tap once</h3>
-          <p data-en="A notification asks ‘still got this one?’ One tap, and it works out when to show you next."
-             data-zh="通知问你一句‘这词还记得不？’，点一下，它自己算好下次什么时候再考你。">A notification asks ‘still got this one?’ One tap, and it works out when to show you next.</p>
+          <h3 data-en="Use it in your own words" data-zh="把它用进自己的话里">Use it in your own words</h3>
+          <p data-en="Use sentences, three-line diaries, or language-exchange recaps to turn memory into output."
+             data-zh="用造句、三行日记或语伴复盘，把记忆变成输出。">Use sentences, three-line diaries, or language-exchange recaps to turn memory into output.</p>
         </div>
       </div>
     </div>
@@ -178,27 +178,27 @@
   <section class="alt">
     <div class="wrap">
       <div class="sec-head reveal">
-        <h2 data-en="Why it actually works" data-zh="为什么真有用">Why it actually works</h2>
-        <p data-en="Built around how forgetting really happens." data-zh="围绕遗忘真正怎么发生来设计。">Built around how forgetting really happens.</p>
+        <h2 data-en="Built around your material, not a generic word list." data-zh="围绕你的真实语料，而不是通用词表。">Built around your material, not a generic word list.</h2>
+        <p data-en="Your real encounters give every word context and a reason to return." data-zh="你的真实遇见，让每个词都有语境和再次回来的理由。">Your real encounters give every word context and a reason to return.</p>
       </div>
       <div class="feats">
         <div class="card reveal">
           <div class="ico">📥</div>
-          <h3 data-en="No typing words in" data-zh="不用手打词">No typing words in</h3>
-          <p data-en="If adding a word feels like a chore, you quit. So RemeMate just… doesn't make you."
-             data-zh="加词一旦像干活，你就会放弃。所以 RemeMate 干脆……不让你加。">If adding a word feels like a chore, you quit. So RemeMate just… doesn't make you.</p>
+          <h3 data-en="Your material is the starting point" data-zh="从你的内容开始">Your material is the starting point</h3>
+          <p data-en="Add it by hand, extract it from text, import a CSV, or collect it while reading."
+             data-zh="你可以手动记录，也可以从文本、CSV 或阅读中收词。">Add it by hand, extract it from text, import a CSV, or collect it while reading.</p>
         </div>
         <div class="card reveal">
           <div class="ico">🔁</div>
-          <h3 data-en="Always in the corner of your eye" data-zh="总在你眼角">Always in the corner of your eye</h3>
-          <p data-en="Four places keep the word around between real reviews — you recognize it before you have to recall it."
-             data-zh="四个地方在正式复习之间把词留在你身边——还没到回忆，你已经脸熟了。">Four places keep the word around between real reviews — you recognize it before you have to recall it.</p>
+          <h3 data-en="Memory needs context" data-zh="记忆需要语境">Memory needs context</h3>
+          <p data-en="Keep definitions, examples, and notes together so a word is more than a label."
+             data-zh="把词义、例句和笔记留在一起，让单词不只是一个孤立标签。">Keep definitions, examples, and notes together so a word is more than a label.</p>
         </div>
         <div class="card reveal">
           <div class="ico">👆</div>
-          <h3 data-en="Reviewing is one tap" data-zh="复习就一下">Reviewing is one tap</h3>
-          <p data-en="A push opens a quick card; your tap goes straight back into the schedule."
-             data-zh="推送弹出一张小卡，你一点，直接回流到排程。">A push opens a quick card; your tap goes straight back into the schedule.</p>
+          <h3 data-en="Output closes the loop" data-zh="输出让闭环完成">Output closes the loop</h3>
+          <p data-en="Writing a sentence or a diary entry turns a remembered word into one you can use."
+             data-zh="把词写进句子或日记，才让记住的词变成能用出来的词。">Writing a sentence or a diary entry turns a remembered word into one you can use.</p>
         </div>
       </div>
     </div>
@@ -207,9 +207,9 @@
   <section class="signup" id="signup">
     <div class="wrap">
       <div class="box reveal">
-        <h2 data-en="RemeMate is in closed beta." data-zh="RemeMate 正在封闭测试。">RemeMate is in closed beta.</h2>
-        <p data-en="If you already have an account, log in and continue with your own words, sentences, and reading notes."
-           data-zh="如果你已经有账号，登录后就能继续使用自己的生词、造句和阅读收词。">If you already have an account, log in and continue with your own words, sentences, and reading notes.</p>
+        <h2 data-en="RemeMate is currently invitation-only." data-zh="RemeMate 当前仅向受邀用户开放。">RemeMate is currently invitation-only.</h2>
+        <p data-en="Already invited? Log in to continue with your vocabulary, reviews, and writing."
+           data-zh="已经收到邀请？登录后继续你的词库、复习与写作。">Already invited? Log in to continue with your vocabulary, reviews, and writing.</p>
         <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in" data-zh="登录">Log in</a>
       </div>
     </div>
@@ -217,8 +217,8 @@
 
   <footer class="foot">
     <div class="wrap">
-      <span data-en="A closed beta for people who want their real words and sentences to come back at the right time."
-            data-zh="一个封闭测试中的语言学习工具：让你真实遇到的词和句子，在合适的时候回来。">A closed beta for people who want their real words and sentences to come back at the right time.</span>
+      <span data-en="A closed beta for language learners who want real encounters to become lasting, usable memory."
+            data-zh="为想把真实遇见，变成长期可用记忆的语言学习者而做。">A closed beta for language learners who want real encounters to become lasting, usable memory.</span>
     </div>
   </footer>
 
