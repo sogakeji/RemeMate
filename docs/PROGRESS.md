@@ -127,7 +127,8 @@
 - 新增 8 个回归测试，覆盖 AJAX 去向、幂等/恢复、来源回退、非阅读缺省、中英界面、跨用户隔离和
   完整详情请求的查询次数。定向回归 `76 passed, 15 warnings`；最终全量
   **457 passed, 16 warnings**，`git diff --check` 与 `flask doctor --strict` 均通过。
-- 本轮改动已提交到本地 `master`，尚未推送或部署；没有数据库迁移或生产数据变更。
+- 本轮改动已部署到闭测服务器；部署前完成代码与 PostgreSQL 备份，线上迁移仍为
+  `c8d9e0f1a2b3`。严格 doctor、服务健康检查和公网 HTTPS 首页均通过；没有生产数据覆盖。
 
 ## 当前 Git
 

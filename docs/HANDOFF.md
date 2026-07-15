@@ -7,8 +7,7 @@
 ## 当前状态
 
 - 日期：2026-07-15
-- 当前分支：`master`。测试基线修复与「阅读收词小优化 v1」均已提交到本地，工作树干净；
-  尚未推送或部署。
+- 当前分支：`master`。测试基线修复与「阅读收词小优化 v1」均已提交并部署，工作树干净。
 - `navigation-ia-mobile`、`i18n-foundation`、SessionPad、Bark、Landing 与词库/解释语言小修均已合入 `master`；
  现有本地分支全部已被 `master` 包含。两个附加 worktree（`backlog-vocab-language-polish`、
   `landing-public-home`）干净，但尚未清理。
@@ -20,14 +19,13 @@
   `_wipe` 现在仅在数据库完整性错误后以逐用户 GUC 方式重试清理，并有 3 个定向回归测试覆盖
   基础清理、双用户清理和 FK 回退路径。`rememate_dispatch` 在测试库中已核验具备 `BYPASSRLS`；
   不把问题归因于缺权限。
-- **阅读收词小优化 v1 已完成并提交，尚未部署**：阅读器加入候选后继续停留原页，显示本篇候选词和
+- **阅读收词小优化 v1 已完成并部署**：阅读器加入候选后继续停留原页，显示本篇候选词和
   轻量审核入口；候选审核与词库详情显示阅读文档名和 PDF 原句，非阅读来源不误标。删除阅读文档后
   以文件名回退；再次加入已忽略候选会恢复为待审核。来源查询保持用户隔离并以单次查询加载。
 - 线上部署：`ubuntu@43.156.210.229:/srv/rememate`，服务为 `rememate.service`，gunicorn 监听
-  `127.0.0.1:8891`。2026-07-14 只读核验：线上代码为 `5a21fd5`、迁移为
-  `c8d9e0f1a2b3 (head)`，工作树仅有未跟踪 `admin-initial-login.txt`。
-  因此线上**尚未包含**本地 `ad6c2bd` / `d06de34` 的 Landing 文案校准和词库小修；未经用户明确同意
-  不部署。
+  `127.0.0.1:8891`。2026-07-15 已部署 `9ef23b8`，迁移为 `c8d9e0f1a2b3 (head)`；严格 doctor、
+  服务健康检查和公网 HTTPS 首页均通过。线上工作树仅有部署前已存在的未跟踪
+  `admin-initial-login.txt`。
 - 线上词典：`/srv/rememate-data/dictionaries`，`zh/en/ja/fr` present。
 
 ## 闭测规则
