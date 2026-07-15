@@ -6,16 +6,29 @@
 
 ## 当前状态
 
-- 日期：2026-07-12
-- 当前分支：`i18n-foundation`（基于导航提交 `631a157`）
-- 本地里程碑：`3eca845`（SessionPad MVP + 公开双语 Landing + 文档收口）
-- 工作区要求：开始新分支前必须 `git status --short --branch` 确认干净
-- 本地回归：`pytest -q` -> 442 passed, 16 warnings。
-- 本地数据库迁移：`c8d9e0f1a2b3 (head)`
-- 线上部署：`ubuntu@43.156.210.229:/srv/rememate`
-- 线上服务：`rememate.service`，gunicorn 监听 `127.0.0.1:8891`
-- 线上数据库迁移：`2e79a6ececcc (head)`
-- 线上词典：`/srv/rememate-data/dictionaries`，`zh/en/ja/fr` present
+- 日期：2026-07-15
+- 当前分支：`master`。测试基线修复与「阅读收词小优化 v1」均已提交到本地，工作树干净；
+  尚未推送或部署。
+- `navigation-ia-mobile`、`i18n-foundation`、SessionPad、Bark、Landing 与词库/解释语言小修均已合入 `master`；
+ 现有本地分支全部已被 `master` 包含。两个附加 worktree（`backlog-vocab-language-polish`、
+  `landing-public-home`）干净，但尚未清理。
+- 本地数据库迁移：`c8d9e0f1a2b3 (head)`；`flask doctor --strict` 于 2026-07-15 全部 OK。
+- 最近完整绿线：`457 passed, 16 warnings`（2026-07-15）；阅读收词相关定向回归
+  为 `76 passed, 15 warnings`，新增 v1 回归为 `8 passed`。
+- **测试基线已恢复**：原始 `314 passed, 129 failed, 11 errors` 的首个错误是
+  `tests/conftest.py::_wipe` 删除 `users` 时被残留 `user_quota` 外键拦截，导致后续连锁失败。
+  `_wipe` 现在仅在数据库完整性错误后以逐用户 GUC 方式重试清理，并有 3 个定向回归测试覆盖
+  基础清理、双用户清理和 FK 回退路径。`rememate_dispatch` 在测试库中已核验具备 `BYPASSRLS`；
+  不把问题归因于缺权限。
+- **阅读收词小优化 v1 已完成并提交，尚未部署**：阅读器加入候选后继续停留原页，显示本篇候选词和
+  轻量审核入口；候选审核与词库详情显示阅读文档名和 PDF 原句，非阅读来源不误标。删除阅读文档后
+  以文件名回退；再次加入已忽略候选会恢复为待审核。来源查询保持用户隔离并以单次查询加载。
+- 线上部署：`ubuntu@43.156.210.229:/srv/rememate`，服务为 `rememate.service`，gunicorn 监听
+  `127.0.0.1:8891`。2026-07-14 只读核验：线上代码为 `5a21fd5`、迁移为
+  `c8d9e0f1a2b3 (head)`，工作树仅有未跟踪 `admin-initial-login.txt`。
+  因此线上**尚未包含**本地 `ad6c2bd` / `d06de34` 的 Landing 文案校准和词库小修；未经用户明确同意
+  不部署。
+- 线上词典：`/srv/rememate-data/dictionaries`，`zh/en/ja/fr` present。
 
 ## 闭测规则
 
@@ -32,17 +45,16 @@
 
 三个月第一性目标：证明用户会因为“自己真实遇到的词和句子被 RemeMate 帮他记住并用出来”，而每天回来。详见 `docs/strategy/2026-07-09-three-month-focus.md`。
 
-1. Bark 能力补全：已合入 `master`，包括保存、测试推送、到期词提醒、签名链接打开三按钮评分回流。
-2. 阅读收词小收口：加入后的去向感、候选审核和词库详情的来源感。
-3. SessionPad MVP：B1-B12 已合入 `master`。已覆盖私有双人复盘、邀请绑定与反向伙伴确认、
-   不可变反馈包、感谢与发送状态、手动多词拆分、候选词语境和可编辑的 AI 提取建议。
-   AI 失败不阻塞记录、发送或人工采纳；不做 guest、聊天室或实时协作。
-4. 公开门面：未登录访问 `/` 显示中英双语 Landing，登录用户仍直接进入复习首页；登录页同步双语切换。
-5. 导航信息架构：已在 `navigation-ia-mobile` 完成独立切片。桌面一级导航为首页、写一写、
-   语言伙伴、词库、我的；造句/历史/广场成为写作域同级视图，收到的反馈归入伙伴域。
-   移动端使用固定底部五图标导航，品牌与语言/主题控件保持在同一顶栏。
-6. 闭测观察：只修硬 bug，软反馈进入 BACKLOG。
-7. 全站国际化：`i18n-foundation` 已建立独立 `ui_locale`、服务端翻译目录和全局切换路由；
+1. 闭测观察：SessionPad 已完成真实双人闭环测试；线上继续只修硬 bug，软反馈进入 BACKLOG。
+2. 阅读收词小优化 v1 已完成，进入真机闭测观察；继续保持「阅读收词入口」定位，不扩成专业阅读器。
+3. SessionPad 后续仅按闭测证据成批处理：模块切换说明、重复发送策略等已有 BACKLOG；
+   不做 guest、聊天室或实时协作。
+4. Bark 能力已完成闭环：保存、测试推送、到期词提醒、签名链接打开三按钮评分回流均已在 `master`。
+5. 公开门面：未登录访问 `/` 显示中英双语 Landing，登录用户仍直接进入复习首页；登录页同步双语切换。
+6. 导航信息架构已完成：桌面一级导航为首页、写一写、语言伙伴、词库、我的；
+   造句/历史/广场成为写作域同级视图，收到的反馈归入伙伴域；移动端使用固定底部五图标导航，
+   品牌与语言/主题控件保持在同一顶栏。
+7. 全站国际化已完成：`i18n-foundation` 建立独立 `ui_locale`、服务端翻译目录和全局切换路由；
    第一批覆盖导航、登录、首页复习/每日任务和设置；第二批覆盖造句、三行日记、
    AI/HTMX 状态、历史和广场；第三批覆盖生词本、词条详情/编辑、手动加词、
    文本抽词、CSV 导入和候选词审核；第四批覆盖伙伴列表、邀请与双向确认、复盘信纸、
@@ -66,7 +78,8 @@
   路由用 `DISPATCH_DATABASE_URL` 读取/评分这一张卡，并用 `push_log` 防止同一链接重复评分。
   生产需设置 `PUBLIC_BASE_URL=https://rememate.com`，否则通知不会带可点击回流链接。
 - SessionPad B1 使用 `language_partners` 表；记录只属于创建者，服务层所有查询显式传
-  `user_id`，数据库启用 FORCE RLS。当前只有未绑定伙伴档案，未建立用户绑定关系。
+  `user_id`，数据库启用 FORCE RLS。后续 B4-B12 已建立账号绑定、不可变反馈包、一次性感谢、
+  接收方私有候选词采纳与 AI 辅助摘要；当前产品以双人、非实时的语言交换复盘为边界。
 - SessionPad B2 使用 `partner_recaps` + `partner_recap_items`；信纸和条目同样 FORCE RLS，
   复合外键把 owner 贯穿伙伴、信纸、条目。`private_note` 只允许 `for_me`，`correction`
   只允许 `for_partner`。B3 通过 `intake_source_id` + `candidate_id` 接到现有候选词管道；

@@ -147,6 +147,17 @@ def add_lookup_to_candidate(user_id: int, lookup_id: int) -> dict[str, Any]:
     word_list = words_svc.get_or_create_language_list(user_id, document.language_code)
 
     if lookup.candidate_id:
+        linked_candidate = (
+            WordCandidate.query
+            .filter_by(id=lookup.candidate_id, user_id=user_id)
+            .with_for_update()
+            .first()
+        )
+        if linked_candidate is not None and linked_candidate.status == "ignored":
+            linked_candidate.status = "pending"
+            db.session.commit()
+            return {"state": "restored-candidate", "candidate_id": linked_candidate.id,
+                    "source_id": document.intake_source_id, "term": lookup.term}
         return {"state": "already-candidate", "candidate_id": lookup.candidate_id,
                 "source_id": document.intake_source_id, "term": lookup.term}
 

@@ -44,14 +44,24 @@
 </div>
 </div>{# end .reader-main #}
 
-<aside class="reader-sidebar" id="candidate-sidebar" style="display:none;">
+<aside class="reader-sidebar" id="candidate-sidebar"{% if not candidates %} style="display:none;"{% endif %}>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <h3 style="margin:0;font-size:16px;">{{ _('reading.candidate_list') }}</h3>
-    <span id="candidate-count" style="font-size:13px;color:var(--text-secondary);">{{ _('reading.count', count=0) }}</span>
+    <span id="candidate-count" style="font-size:13px;color:var(--text-secondary);">{{ _('reading.count', count=candidates|length) }}</span>
   </div>
-  <ul id="candidate-list" style="list-style:none;padding:0;margin:0 0 16px 0;max-height:55vh;overflow:auto;"></ul>
-  <a id="candidate-review-link" href="#" class="btn primary" style="width:100%;text-align:center;display:none;">{{ _('reading.review') }}</a>
-  <p id="candidate-empty-hint" style="font-size:13px;color:var(--text-secondary);text-align:center;margin:0;">{{ _('reading.empty_candidates') }}</p>
+  <p id="candidate-feedback" role="status" aria-live="polite"
+     style="font-size:13px;color:var(--success-color);margin:0 0 10px 0;{% if not candidates %}display:none;{% endif %}">
+    {% if candidates %}{{ _('reading.candidates_in_document') }}{% endif %}
+  </p>
+  <ul id="candidate-list" style="list-style:none;padding:0;margin:0 0 16px 0;max-height:55vh;overflow:auto;">
+    {% for candidate in candidates %}
+    <li class="candidate-item" data-candidate-id="{{ candidate.id }}">{{ candidate.word }}</li>
+    {% endfor %}
+  </ul>
+  <a id="candidate-review-link"
+     href="{% if document.intake_source_id %}{{ url_for('intake.candidates', source_id=document.intake_source_id) }}{% else %}#{% endif %}"
+     class="btn primary" style="width:100%;text-align:center;{% if not document.intake_source_id %}display:none;{% endif %}">{{ _('reading.review') }}</a>
+  <p id="candidate-empty-hint" style="font-size:13px;color:var(--text-secondary);text-align:center;margin:0;{% if candidates %}display:none;{% endif %}">{{ _('reading.empty_candidates') }}</p>
 </aside>
 
 </div>{# end .reader-layout #}
@@ -64,6 +74,8 @@ var KNOWN_WORDS = {{ known_words | tojson }};
 var READER_I18N = {{ {
   'existingShort': _('reading.existing_short'),
   'addLearning': _('reading.add_learning'),
+  'addedToDocument': _('reading.added_to_document', term='__TERM__'),
+  'alreadyInDocument': _('reading.already_in_document', term='__TERM__'),
   'count': _('reading.count', count='__COUNT__'),
   'stats': _('reading.stats', looked='__LOOKED__', added='__ADDED__'),
   'sans': _('reading.font.sans'),
@@ -86,9 +98,14 @@ var ReaderAddCandidate = (function () {
   var list = document.getElementById('candidate-list');
   var count = document.getElementById('candidate-count');
   var emptyHint = document.getElementById('candidate-empty-hint');
+  var feedback = document.getElementById('candidate-feedback');
   var reviewLink = document.getElementById('candidate-review-link');
   var lookupLayer = document.getElementById('lookup-card-layer');
-  var countNum = 0;
+  var countNum = list.querySelectorAll('[data-candidate-id]').length;
+  var candidateIds = {};
+  Array.prototype.forEach.call(list.querySelectorAll('[data-candidate-id]'), function (item) {
+    candidateIds[item.getAttribute('data-candidate-id')] = true;
+  });
 
   function add(btn) {
     var lookupId = btn.getAttribute('data-lookup-id');
@@ -107,11 +124,16 @@ var ReaderAddCandidate = (function () {
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (data.ok) {
-        _addItem(term);
+        _addItem(term, data.candidate_id, data.state !== 'already-candidate');
         if (data.source_id) {
           reviewLink.href = '/intake/' + data.source_id + '/candidates';
           reviewLink.style.display = '';
         }
+        var template = data.state === 'already-candidate'
+          ? READER_I18N.alreadyInDocument
+          : READER_I18N.addedToDocument;
+        feedback.textContent = template.replace('__TERM__', term);
+        feedback.style.display = '';
         _closeLookupCard();
       } else {
         btn.textContent = data.message || READER_I18N.existingShort;
@@ -125,16 +147,20 @@ var ReaderAddCandidate = (function () {
     });
   }
 
-  function _addItem(term) {
+  function _addItem(term, candidateId, countAsAdded) {
     sidebar.style.display = '';
     emptyHint.style.display = 'none';
+    var key = String(candidateId || term);
+    if (candidateIds[key]) return;
+    candidateIds[key] = true;
     countNum++;
     count.textContent = READER_I18N.count.replace('__COUNT__', countNum);
     var li = document.createElement('li');
     li.className = 'candidate-item';
+    if (candidateId) li.setAttribute('data-candidate-id', candidateId);
     li.textContent = term;
     list.appendChild(li);
-    if (window._readerStatsAdd) window._readerStatsAdd();
+    if (countAsAdded && window._readerStatsAdd) window._readerStatsAdd();
   }
 
   return { add: add };

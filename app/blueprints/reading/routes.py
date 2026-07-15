@@ -141,8 +141,20 @@ def show(doc_id):
             WordList.language_code == document.language_code,
         ).with_entities(Word.word).all()
     ]
+    candidates = []
+    if document.intake_source_id:
+        candidates = (
+            WordCandidate.query
+            .filter(
+                WordCandidate.user_id == _uid(),
+                WordCandidate.source_id == document.intake_source_id,
+                WordCandidate.status.in_(["pending", "accepted"]),
+            )
+            .order_by(WordCandidate.created_at.asc(), WordCandidate.id.asc())
+            .all()
+        )
     return render_template("reading/show.html", document=document,
-                           known_words=known_words)
+                           known_words=known_words, candidates=candidates)
 
 
 @bp.post("/reading/<int:doc_id>/delete")

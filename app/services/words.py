@@ -14,13 +14,15 @@ from datetime import timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.user import User, UserSettings, UserQuota
 from app.models.word import WordList, Word, Definition, ReviewLog
+from app.models.intake import IntakeSource, WordCandidate
+from app.models.reading import ReadingDocument
 from app.services import srs
 from app.services.timeutil import next_midnight_utc, today_local_start_utc, utc_now
 
@@ -357,6 +359,57 @@ def get_word_list(user_id: int, list_id: int, *, eager: bool = False) -> WordLis
     if eager:
         q = q.options(selectinload(WordList.words).selectinload(Word.definitions))
     return q.first()
+
+
+def get_reading_sources_for_words(user_id: int, word_ids: list[int]) -> dict[int, dict]:
+    """一次取回词条的阅读来源，供词库详情做轻量来源展示。"""
+    unique_ids = list(dict.fromkeys(word_id for word_id in word_ids if word_id))
+    if not unique_ids:
+        return {}
+
+    rows = (
+        db.session.query(
+            WordCandidate.word_id.label("word_id"),
+            WordCandidate.source_example.label("source_example"),
+            IntakeSource.original_name.label("original_name"),
+            ReadingDocument.title.label("document_title"),
+        )
+        .join(
+            IntakeSource,
+            and_(
+                IntakeSource.id == WordCandidate.source_id,
+                IntakeSource.user_id == user_id,
+            ),
+        )
+        .join(Word, Word.id == WordCandidate.word_id)
+        .join(
+            WordList,
+            and_(WordList.id == Word.list_id, WordList.user_id == user_id),
+        )
+        .outerjoin(
+            ReadingDocument,
+            and_(
+                ReadingDocument.intake_source_id == IntakeSource.id,
+                ReadingDocument.user_id == user_id,
+            ),
+        )
+        .filter(
+            WordCandidate.user_id == user_id,
+            WordCandidate.word_id.in_(unique_ids),
+            IntakeSource.source_type == "reading_pdf",
+        )
+        .order_by(WordCandidate.created_at.desc(), WordCandidate.id.desc())
+        .all()
+    )
+
+    result = {}
+    for row in rows:
+        result.setdefault(row.word_id, {
+            "title": row.document_title or row.original_name,
+            "original_name": row.original_name,
+            "source_example": row.source_example,
+        })
+    return result
 
 
 def delete_word_list(user_id: int, list_id: int) -> bool:

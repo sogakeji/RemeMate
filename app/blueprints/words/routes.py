@@ -276,7 +276,12 @@ def detail(list_id):
     wl = words_svc.get_word_list(_uid(), list_id, eager=True)
     if wl is None:
         abort(404)
-    return render_template("words/detail.html", wl=wl)
+    reading_sources = words_svc.get_reading_sources_for_words(
+        _uid(), [word.id for word in wl.words],
+    )
+    return render_template(
+        "words/detail.html", wl=wl, reading_sources=reading_sources,
+    )
 
 
 @bp.route("/review")

@@ -72,6 +72,15 @@
       <strong>{{ c.word }}</strong>
       <small style="color:var(--text-secondary);">{{ c.created_at.strftime('%m-%d %H:%M') if c.created_at else '' }}</small>
     </div>
+    {% if source.source_type == 'reading_pdf' %}
+    <div class="candidate-reading-source" style="margin:8px 0 12px;padding:10px 12px;background:var(--surface);border-left:3px solid var(--primary-color);">
+      <div style="font-size:12px;color:var(--text-secondary);">{{ _('candidate.reading_source', name=(document.title if document else source.original_name)) }}</div>
+      {% if c.source_example %}
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">{{ _('candidate.pdf_context') }}</div>
+      <p style="margin:2px 0 0;line-height:1.55;">{{ c.source_example }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if c.status != 'pending' %}
       <span class="badge">{{ _('candidate.accepted') if c.status == 'accepted' else _('candidate.ignored') }}</span>
     {% else %}
