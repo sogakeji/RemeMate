@@ -48,6 +48,10 @@ def test_public_home_shows_landing_for_anonymous(client):
     page = resp.get_data(as_text=True)
     assert "RemeMate" in page
     assert "登录" in page
+    assert 'href="https://discord.gg/U8Uqh5tsX"' in page
+    assert 'target="_blank"' in page
+    assert 'rel="noopener noreferrer"' in page
+    assert "加入 RemeMate 社群" in page
 
 
 def test_protected_page_redirects_anonymous(client):
