@@ -10,6 +10,7 @@ import os
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,9 +53,31 @@ _TABLES = [
 
 
 def _wipe(bypass_engine):
+    """每个测试前后清库；父表 FK 冲突时逐用户重试。"""
+    # 先尝试批量 DELETE（BYPASSRLS 生效时一次事务搞定，快且简单）
+    try:
+        with bypass_engine.begin() as conn:
+            for t in _TABLES:
+                conn.execute(text(f"DELETE FROM {t}"))
+        return
+    except IntegrityError:
+        # 批量清理仍在父表处遇到 FK 时，换用一笔新的逐用户清理事务。
+        # 仅对此类数据库完整性失败回退，其他 fixture/schema 错误必须直接暴露。
+        pass
+
+    # 逐用户清理：为每个 user 设事务级 app.current_user_id 后逐表 DELETE。
+    # 这样可覆盖 RLS 表的按用户策略，同时不会把 GUC 泄漏到连接池的下一次测试。
     with bypass_engine.begin() as conn:
-        for t in _TABLES:
-            conn.execute(text(f"DELETE FROM {t}"))
+        rows = conn.execute(text("SELECT id FROM users")).fetchall()
+        for (uid,) in rows:
+            conn.execute(
+                text("SELECT set_config('app.current_user_id', :u, true)"),
+                {"u": str(uid)},
+            )
+            for t in _TABLES:
+                if t != "users":
+                    conn.execute(text(f"DELETE FROM {t}"))
+        conn.execute(text("DELETE FROM users"))
 
 
 @pytest.fixture(scope="session")
