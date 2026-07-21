@@ -101,11 +101,17 @@ def apply_review_link_grade(conn, secret: str, token: str,
     parsed = verify_review_token(secret, token)
     if parsed is None:
         return None
+    quality = srs.quality_from_button(button)
+    now = utc_now()
+    row = _fetch_review_state_for_update(
+        conn, parsed.user_id, parsed.word_id,
+    )
+    if row is None:
+        return None
     word = _fetch_word(conn, parsed.user_id, parsed.word_id)
     if word is None:
         return None
 
-    quality = srs.quality_from_button(button)
     key = _grade_key(token)
     inserted = conn.execute(text(
         """
@@ -117,22 +123,13 @@ def apply_review_link_grade(conn, secret: str, token: str,
     ), {
         "key": key,
         "user_id": parsed.user_id,
-        "created_at": utc_now(),
+        "created_at": now,
     }).first()
     if inserted is None:
         return ReviewLinkResult(word=word, already_reviewed=True)
 
-    row = conn.execute(text(
-        """
-        SELECT interval, ease, reps, lapses
-        FROM words
-        WHERE id = :word_id
-        """
-    ), {"word_id": parsed.word_id}).mappings().first()
-    if row is None:
-        return None
-
-    now = utc_now()
+    if row["due_date"] > now:
+        return ReviewLinkResult(word=word, already_reviewed=True)
     state = SimpleNamespace(
         interval=row["interval"],
         ease=row["ease"],
@@ -175,6 +172,29 @@ def apply_review_link_grade(conn, secret: str, token: str,
         "interval_after": state.interval,
     })
     return ReviewLinkResult(word=word)
+
+
+def _fetch_review_state_for_update(conn, user_id: int, word_id: int):
+    """Lock the owned word row shared by web and Bark grading."""
+    return conn.execute(text(
+        """
+        SELECT w.interval,
+               w.ease,
+               w.reps,
+               w.lapses,
+               w.due_date
+        FROM words w
+        JOIN word_lists wl ON wl.id = w.list_id
+        JOIN users u ON u.id = wl.user_id
+        WHERE u.id = :user_id
+          AND u.is_active = true
+          AND w.id = :word_id
+        FOR UPDATE OF w
+        """
+    ), {
+        "user_id": user_id,
+        "word_id": word_id,
+    }).mappings().first()
 
 
 def _fetch_word(conn, user_id: int, word_id: int) -> ReviewLinkWord | None:

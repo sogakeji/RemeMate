@@ -10,7 +10,7 @@ import re
 
 from sqlalchemy import text
 
-from tests.helpers import provision_user, login
+from tests.helpers import provision_user, login, review_attempt_version
 
 PW = "pw12345678"
 
@@ -77,7 +77,10 @@ def test_home_grade_button_hits_words_grade(app, client, bypass_engine):
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
 
     # 首页卡片打的是 words.grade 端点（/review/<id>/grade），与复习页同一端点
-    resp = client.post(f"/review/{wid}/grade", data={"button": "easy"})
+    resp = client.post(f"/review/{wid}/grade", data={
+        "button": "easy",
+        "expected_due_at": review_attempt_version(bypass_engine, wid),
+    })
     assert resp.status_code == 200
     with bypass_engine.connect() as c:
         reps = c.execute(text("SELECT reps FROM words WHERE id=:i"), {"i": wid}).scalar()
@@ -93,7 +96,10 @@ def test_home_can_preview_previous_word_after_grading(app, client, bypass_engine
     with bypass_engine.connect() as c:
         first_id = c.execute(text("SELECT id FROM words WHERE word='avant'")).scalar()
 
-    next_card = client.post(f"/review/{first_id}/grade", data={"button": "easy"})
+    next_card = client.post(f"/review/{first_id}/grade", data={
+        "button": "easy",
+        "expected_due_at": review_attempt_version(bypass_engine, first_id),
+    })
     assert next_card.status_code == 200
     next_body = next_card.get_data(as_text=True)
     assert "apres" in next_body
@@ -127,7 +133,10 @@ def test_home_grade_next_card_stays_current_language(app, client, bypass_engine)
     with bypass_engine.connect() as c:
         wid = c.execute(text("SELECT id FROM words WHERE word='frword'")).scalar()
 
-    resp = client.post(f"/review/{wid}/grade", data={"button": "easy"})
+    resp = client.post(f"/review/{wid}/grade", data={
+        "button": "easy",
+        "expected_due_at": review_attempt_version(bypass_engine, wid),
+    })
     page = resp.get_data(as_text=True)
     assert resp.status_code == 200
     assert "enword" not in page

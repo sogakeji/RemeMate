@@ -319,13 +319,18 @@ def previous_review_card():
 def grade(word_id):
     button = request.form.get("button", "")
     try:
-        result = words_svc.review_word(_uid(), word_id, button)
+        expected_due_at = words_svc.parse_review_attempt_version(
+            request.form.get("expected_due_at"))
+        result = words_svc.review_word(
+            _uid(), word_id, button, expected_due_at)
     except ValueError:
         abort(400)                      # 非法/缺失 button（M1）
     if result is None:
         abort(404)
-    session["review_previous_word_id"] = result.id
-    lang = words_svc.get_current_language(_uid()) or result.word_list.language_code
+    if result.applied:
+        session["review_previous_word_id"] = result.word.id
+    lang = (words_svc.get_current_language(_uid())
+            or result.word.word_list.language_code)
     nxt = words_svc.get_due_words(_uid(), limit=1, language_code=lang)
     # HTMX：返回下一张卡片片段（无则完成提示）
     word = nxt[0] if nxt else None

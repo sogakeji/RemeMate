@@ -44,6 +44,16 @@ def make_review_log(bypass_engine, user_id, word_id):
         ), {"w": word_id, "u": user_id})
 
 
+def review_attempt_version(bypass_engine, word_id):
+    """Return the canonical naive-UTC due timestamp rendered by review cards."""
+    with bypass_engine.connect() as c:
+        due_at = c.execute(
+            text("SELECT due_date FROM words WHERE id=:word_id"),
+            {"word_id": word_id},
+        ).scalar_one()
+    return due_at.isoformat(timespec="microseconds")
+
+
 def set_uid(conn, uid):
     """在 app 连接上设置 RLS GUC（session 级，持续到连接关闭）。uid=None → 置空字符串。"""
     conn.execute(text("SELECT set_config('app.current_user_id', :u, false)"),

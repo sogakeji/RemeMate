@@ -66,11 +66,12 @@
   {% if not is_previous %}
   <div class="srs-grade-group">
     {% set grade_url = url_for('words.grade', word_id=word.id) %}
-    <button class="srs-btn srs-forgot" hx-post="{{ grade_url }}" hx-vals='{"button":"forgot"}'
+    {% set attempt_version = word.due_date.isoformat(timespec='microseconds') %}
+    <button class="srs-btn srs-forgot" hx-post="{{ grade_url }}" hx-vals='{"button":"forgot","expected_due_at":"{{ attempt_version }}"}'
             hx-target="#review-card" hx-swap="outerHTML">{{ _('review.forgot') }}</button>
-    <button class="srs-btn srs-fuzzy" hx-post="{{ grade_url }}" hx-vals='{"button":"fuzzy"}'
+    <button class="srs-btn srs-fuzzy" hx-post="{{ grade_url }}" hx-vals='{"button":"fuzzy","expected_due_at":"{{ attempt_version }}"}'
             hx-target="#review-card" hx-swap="outerHTML">{{ _('review.fuzzy') }}</button>
-    <button class="srs-btn srs-known" hx-post="{{ grade_url }}" hx-vals='{"button":"easy"}'
+    <button class="srs-btn srs-known" hx-post="{{ grade_url }}" hx-vals='{"button":"easy","expected_due_at":"{{ attempt_version }}"}'
             hx-target="#review-card" hx-swap="outerHTML">{{ _('review.known') }}</button>
   </div>
   {% endif %}

@@ -10,7 +10,8 @@ get_or_create_language_list 集中创建，避免多入口分叉。
 """
 import ipaddress
 import socket
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -54,6 +55,17 @@ _TIMEZONE_CHOICES = {
     "America/New_York": "美国东部时间",
     "America/Los_Angeles": "美国西部时间",
 }
+
+
+@dataclass(frozen=True)
+class ReviewGradeResult:
+    word: Word
+    applied: bool
+
+
+def review_attempt_version(due_at: datetime) -> str:
+    """Canonical wire value for one due-state of a review card."""
+    return due_at.isoformat(timespec="microseconds")
 
 
 def _language_name(language_code: str) -> str:
@@ -564,19 +576,44 @@ def get_word(user_id: int, word_id: int) -> Word | None:
             .first())
 
 
-def review_word(user_id: int, word_id: int, button: str) -> Word | None:
-    """复习评分：映射按钮→质量分，更新 SM-2，写 ReviewLog。返回 word（不属于该用户则 None）。"""
-    w = get_word(user_id, word_id)
+def parse_review_attempt_version(raw: str | None) -> datetime:
+    """Parse the exact naive-UTC due timestamp rendered with a review card."""
+    if not isinstance(raw, str) or not raw:
+        raise ValueError("missing review attempt version")
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise ValueError("invalid review attempt version") from exc
+    if parsed.tzinfo is not None or review_attempt_version(parsed) != raw:
+        raise ValueError("non-canonical review attempt version")
+    return parsed
+
+
+def review_word(user_id: int, word_id: int, button: str,
+                expected_due_at: datetime, *,
+                now: datetime | None = None) -> ReviewGradeResult | None:
+    """Atomically grade one current due-state; stale attempts are no-ops."""
+    quality = srs.quality_from_button(button)
+    now = now or utc_now()
+    w = (Word.query
+         .join(WordList)
+         .filter(Word.id == word_id, WordList.user_id == user_id)
+         .with_for_update(of=Word)
+         .first())
     if w is None:
         return None
-    quality = srs.quality_from_button(button)
-    srs.grade(w, quality)
+
+    if w.due_date != expected_due_at or w.due_date > now:
+        db.session.commit()
+        return ReviewGradeResult(word=w, applied=False)
+
+    srs.grade(w, quality, now=now)
     db.session.add(ReviewLog(
         word_id=w.id, user_id=user_id, ts=w.last_review,
         grade=quality, source="review", interval_after=w.interval,
     ))
     db.session.commit()
-    return w
+    return ReviewGradeResult(word=w, applied=True)
 
 
 def get_due_words(user_id: int, limit: int | None = None, *,

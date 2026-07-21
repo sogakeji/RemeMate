@@ -3,7 +3,9 @@ import re
 
 from sqlalchemy import text
 
-from tests.helpers import provision_user, login, make_user, make_word
+from tests.helpers import (
+    provision_user, login, make_user, make_word, review_attempt_version,
+)
 
 PW = "pw12345678"
 
@@ -167,7 +169,10 @@ def test_review_grade_updates_sm2(app, client, bypass_engine):
     assert "w1" in client.get("/review").get_data(as_text=True)
 
     # 评 easy → 通过：reps 0→1，due 推到未来，写一条 ReviewLog
-    client.post(f"/review/{word_id}/grade", data={"button": "easy"})
+    client.post(f"/review/{word_id}/grade", data={
+        "button": "easy",
+        "expected_due_at": review_attempt_version(bypass_engine, word_id),
+    })
     with bypass_engine.connect() as c:
         reps, due = c.execute(text(
             "SELECT reps, due_date FROM words WHERE id=:i"), {"i": word_id}).fetchone()
@@ -188,17 +193,25 @@ def test_grade_invalid_button_400(app, client, bypass_engine):
     with bypass_engine.connect() as c:
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
 
-    assert client.post(f"/review/{wid}/grade", data={}).status_code == 400
+    version = review_attempt_version(bypass_engine, wid)
+    assert client.post(f"/review/{wid}/grade", data={
+        "expected_due_at": version,
+    }).status_code == 400
     assert client.post(f"/review/{wid}/grade",
-                       data={"button": "bogus"}).status_code == 400
+                       data={"button": "bogus",
+                             "expected_due_at": version}).status_code == 400
 
 
 def test_review_grade_other_users_word_404(app, client, bypass_engine):
     b = make_user(bypass_engine, "b@t.com")
     _, b_word = make_word(bypass_engine, b)
+    version = review_attempt_version(bypass_engine, b_word)
     provision_user(app, "a@t.com", PW)
     login(client, "a@t.com", PW)
-    assert client.post(f"/review/{b_word}/grade", data={"button": "easy"}).status_code == 404
+    assert client.post(f"/review/{b_word}/grade", data={
+        "button": "easy",
+        "expected_due_at": version,
+    }).status_code == 404
     assert client.get(f"/words/{b_word}/edit").status_code == 404
     assert client.post(f"/words/{b_word}/toggle-marked").status_code == 404
 
@@ -244,7 +257,10 @@ def test_delete_list_service_after_review_cascades(app, client, bypass_engine):
     with bypass_engine.connect() as c:
         lid = c.execute(text("SELECT id FROM word_lists WHERE language_code='fr'")).scalar()
         wid = c.execute(text("SELECT id FROM words WHERE word='w1'")).scalar()
-    client.post(f"/review/{wid}/grade", data={"button": "easy"})   # 产生 review_logs
+    client.post(f"/review/{wid}/grade", data={
+        "button": "easy",
+        "expected_due_at": review_attempt_version(bypass_engine, wid),
+    })   # 产生 review_logs
 
     with bypass_engine.connect() as c:
         c.execute(text("DELETE FROM word_lists WHERE id=:i AND user_id=:u"),
