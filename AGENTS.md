@@ -13,6 +13,19 @@ Read these files in order before changing code:
 
 Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historical context for archaeology, not the working handoff.
 
+## Current Recovery Gate
+
+- The WSL2 virtual disk was lost on 2026-07-22. The recovered authoritative local repository is now
+  `D:\home\RemeMate`.
+- Production remains at `1b72128`; do not push the local recovery commits to production until PostgreSQL
+  migrations and the full integration suite have run in a rebuilt test environment.
+- Branch `recovery/replay-six-fixes` contains six local safety/data-trust fixes after production:
+  output-entry word ownership RLS, dedicated NSFW moderation, recoverable reciprocal partner confirmation,
+  normalized word idempotency and uniqueness, and Web/Bark review-grade idempotency.
+- Local migration head is `e0f1a2b3c4d5`. The Windows recovery environment has no PostgreSQL, so database
+  integration tests are restored but not yet executed.
+- `origin` points directly at the production working repository. Never push as part of ordinary local recovery work.
+
 ## Closed Beta Rule
 
 During closed beta, do not immediately implement every small request.

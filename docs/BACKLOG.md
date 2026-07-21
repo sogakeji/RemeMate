@@ -50,6 +50,9 @@
 ## 句子广场上线前（phase 7）必做
 
 - **NSFW 判定不能搭批改的 failover 链**（review 阶段四 M，MEDIUM）
+  ✅ 2026-07-22 已在本地恢复分支由 `994362a` 修复，尚未部署；独立 `nsfw` provider 链
+  成为公开审核唯一权威，审核不可用时内容仍可私下保存但不可公开。完成 PostgreSQL 全量验证并
+  部署后，将本条移入历史。
   `is_nsfw` 是批改 JSON 的字段，走 `task="correction"` 链（DeepSeek→GPT）。DeepSeek 挂时
   GPT 同时做批改和 NSFW 判定，违反 llm-failover.md「NSFW 仅 DeepSeek、fail-closed」。全挂时
   已 fail-closed（degraded→is_nsfw=True），缺口在「DeepSeek 挂、GPT 在」半挂态：GPT 可能漏判
@@ -112,6 +115,9 @@
   为「待复习」/「待复习：N」（main/index.html + words/stats.html）。语义与 query 对齐。
 
 - **add_word 词表内去重**（review 2026-06-23 L10）
+  ✅ 2026-07-22 已在本地恢复分支由 `5a27f78` + `b88ba88` 修复，尚未部署；服务层顺序幂等，
+  数据库以 `(list_id, lower(btrim(word)))` 唯一索引兜底并发，编辑冲突和候选批量写入均有明确
+  行为。完成 PostgreSQL 全量验证并部署后，将本条移入历史。
   同表可重复加同词；输入管道 commit 时会埋重复牌。加服务层去重或 unique。
 
 ---
@@ -121,6 +127,9 @@
 - **迁移约束名动态化**（review 2026-06-23 M7）✅ 2026-06-28 → 见「上线前必做」段同名条目的完成注记。
 
 - **output_entries INSERT policy 校验 word_id 归属**（review 2026-06-23 L12）
+  ✅ 2026-07-22 已在本地恢复分支由 `26f481a` 修复，尚未部署；INSERT/UPDATE 均要求关联词条
+  属于当前用户，三行日记仍允许 `word_id=NULL`。完成 PostgreSQL RLS 测试并部署后，将本条
+  移入历史。
   oe_ins 只校验 user_id，未断言 word_id 属于本人。正常路径不可达，但配合 word_id CASCADE
   是纵深缺口。policy 加 `word_id IN (本人的 words)`。
 
