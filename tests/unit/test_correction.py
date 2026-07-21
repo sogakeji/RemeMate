@@ -29,7 +29,9 @@ def test_parses_structured_fields():
     r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
     assert r.corrected == "X" and r.translation == "译"
     assert r.target_word_used is True and r.incomplete is False
-    assert r.errors[0]["type"] == "grammar" and r.is_nsfw is False
+    assert r.errors[0]["type"] == "grammar"
+    # Correction output cannot grant publish eligibility.
+    assert r.is_nsfw is True
     assert r.prompt_tokens == 3 and r.degraded is False
 
 
@@ -44,6 +46,7 @@ def test_malformed_json_recovered_or_failclosed():
     _set('垃圾前缀 {"corrected":"Y","is_nsfw":false} 垃圾后缀')
     r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
     assert r.corrected == "Y"                # 截取首个 {...} 成功
+    assert r.is_nsfw is True
 
 
 def test_unparseable_failclosed_and_degraded():
@@ -72,7 +75,7 @@ def test_correct_diary_parses_structured_fields():
     assert r.corrected == "L1\nL2\nL3"
     assert r.translation == "一\n二\n三"
     assert r.target_word_used is True
-    assert r.is_nsfw is False
+    assert r.is_nsfw is True
 
 
 def test_correction_prompt_uses_feedback_language():

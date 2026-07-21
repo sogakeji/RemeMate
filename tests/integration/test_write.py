@@ -198,8 +198,7 @@ def test_owner_can_unpublish_entry_from_history(app, client, bypass_engine, fake
 
 def test_history_hides_publish_for_nsfw_entry(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
-    fake_llm["content"] = ('{"corrected":"x","translation":"t","target_word_used":true,'
-                           '"incomplete":false,"errors":[],"is_nsfw":true,"feedback":""}')
+    fake_llm["nsfw_content"] = '{"is_nsfw":true}'
     fake_llm["reinstall"]()
     client.post("/write/submit", data={"word_id": wid, "sentence": "x"})
     client.post("/write/save")
@@ -221,6 +220,51 @@ def test_degraded_correction_cannot_be_saved(app, client, bypass_engine, fake_ll
     assert "保存" not in page
     assert "过期" in client.post("/write/save").get_data(as_text=True)
     assert _count_entries(bypass_engine, uid) == 0
+
+
+def test_moderation_outage_keeps_correction_saveable_but_private(
+        app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    fake_llm["nsfw_empty"] = True
+    fake_llm["reinstall"]()
+
+    result = client.post(
+        "/write/submit", data={"word_id": wid, "sentence": "Un essai."},
+    ).get_data(as_text=True)
+    assert "phrase corrigée" in result
+    assert "保存" in result
+
+    client.post("/write/save")
+    with bypass_engine.connect() as conn:
+        entry = conn.execute(text("""
+            SELECT id, is_nsfw FROM output_entries WHERE user_id = :user_id
+        """), {"user_id": uid}).one()
+        corrections = conn.execute(text("""
+            SELECT corrections_today FROM user_quota WHERE user_id = :user_id
+        """), {"user_id": uid}).scalar()
+    assert entry.is_nsfw is True
+    assert corrections == 1
+    assert client.post(f"/write/{entry.id}/publish").status_code == 400
+
+
+def test_moderation_usage_is_separate_from_correction_allowance(
+        app, client, bypass_engine, fake_llm):
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+
+    client.post(
+        "/write/submit", data={"word_id": wid, "sentence": "Un essai."},
+    )
+
+    with bypass_engine.connect() as conn:
+        corrections = conn.execute(text("""
+            SELECT corrections_today FROM user_quota WHERE user_id = :user_id
+        """), {"user_id": uid}).scalar()
+        features = conn.execute(text("""
+            SELECT feature FROM token_usage_log
+            WHERE user_id = :user_id ORDER BY id
+        """), {"user_id": uid}).scalars().all()
+    assert corrections == 1
+    assert sorted(features) == ["correction", "nsfw"]
 
 
 def test_discard_drops_pending(app, client, bypass_engine, fake_llm):
@@ -484,8 +528,7 @@ def test_target_word_not_used_flagged(app, client, bypass_engine, fake_llm):
 
 def test_publish_blocked_for_nsfw(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
-    fake_llm["content"] = ('{"corrected":"x","translation":"t","target_word_used":true,'
-                           '"incomplete":false,"errors":[],"is_nsfw":true,"feedback":""}')
+    fake_llm["nsfw_content"] = '{"is_nsfw":true}'
     fake_llm["reinstall"]()
     client.post("/write/submit", data={"word_id": wid, "sentence": "x"})
     client.post("/write/save")

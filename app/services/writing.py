@@ -14,6 +14,7 @@ from app.extensions import db
 from app.models.word import WordList, Word
 from app.models.output import OutputEntry
 from app.services import correction as correction_svc
+from app.services import moderation as moderation_svc
 from app.services import quota as quota_svc
 from app.services.timeutil import utc_now
 from app.services.words import get_word
@@ -133,6 +134,18 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
 
     # 仅在真正调用了 AI（非兜底）时记账 +1
     if not result.degraded:
+        moderation = moderation_svc.classify_public_text(result.corrected)
+        result.is_nsfw = moderation.is_nsfw
+        if not moderation.degraded:
+            quota_svc.record_feature_usage(
+                user_id,
+                prompt_tokens=moderation.prompt_tokens,
+                completion_tokens=moderation.completion_tokens,
+                provider=moderation.provider,
+                model=moderation.model,
+                feature="nsfw",
+                used_user_key=used_user_key,
+            )
         quota_svc.record_correction(
             user_id, prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,
@@ -154,6 +167,18 @@ def submit_diary(user_id: int, diary: str, *, prompt: str,
         diary=diary, prompt=prompt, language_code=language_code,
         feedback_language_code=feedback_language_code)
     if not result.degraded:
+        moderation = moderation_svc.classify_public_text(result.corrected)
+        result.is_nsfw = moderation.is_nsfw
+        if not moderation.degraded:
+            quota_svc.record_feature_usage(
+                user_id,
+                prompt_tokens=moderation.prompt_tokens,
+                completion_tokens=moderation.completion_tokens,
+                provider=moderation.provider,
+                model=moderation.model,
+                feature="nsfw",
+                used_user_key=used_user_key,
+            )
         quota_svc.record_correction(
             user_id, prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,

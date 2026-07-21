@@ -45,10 +45,9 @@ _SYSTEM_TMPL = """你是严格的{lang}写作批改老师。学生在练习目�
 4. 错误分级写入 errors 数组，每条 {{"type": "grammar"|"word_choice"|"idiom", "detail": "..."}}：
    grammar=语法（性数/时态/虚拟式等），word_choice=用词不当，idiom=不够地道的表达建议。
 5. translation 给出该句的{feedback_lang}翻译；feedback 和 errors.detail 都用{feedback_lang}简短点评。
-6. is_nsfw 标记是否含成人/不适宜公开内容。
 
 只输出 JSON，字段：corrected, translation, target_word_used(bool),
-incomplete(bool), errors(array), is_nsfw(bool), feedback。不要输出任何额外文字。"""
+incomplete(bool), errors(array), feedback。不要输出任何额外文字。"""
 
 
 _DIARY_SYSTEM_TMPL = """你是严格但温和的{lang}三行日记批改老师。
@@ -59,10 +58,9 @@ _DIARY_SYSTEM_TMPL = """你是严格但温和的{lang}三行日记批改老师�
 3. 判断是否完整回应了提示；严重跑题或少于三行时 incomplete=true。
 4. errors 数组写主要问题，每条 {{"type": "grammar"|"word_choice"|"idiom", "detail": "..."}}。
 5. translation 给出三行{feedback_lang}翻译；feedback 和 errors.detail 都用{feedback_lang}简短点评。
-6. is_nsfw 标记是否含成人/不适宜公开内容。
 
 只输出 JSON，字段：corrected, translation, target_word_used(bool),
-incomplete(bool), errors(array), is_nsfw(bool), feedback。target_word_used 固定输出 true。"""
+incomplete(bool), errors(array), feedback。target_word_used 固定输出 true。"""
 
 
 def _feedback_name(feedback_language_code):
@@ -150,7 +148,8 @@ def _result_from_data(data, fallback_sentence, res):
         target_word_used=bool(data.get("target_word_used", False)),
         incomplete=bool(data.get("incomplete", False)),
         errors=data.get("errors") or [],
-        is_nsfw=bool(data.get("is_nsfw", True)),   # 缺字段时 fail-closed
+        # Correction is never moderation authority. Dedicated moderation may clear this.
+        is_nsfw=True,
         feedback=data.get("feedback") or "",
         provider=res.provider, model=res.model,
         prompt_tokens=res.prompt_tokens, completion_tokens=res.completion_tokens,

@@ -131,18 +131,26 @@ def fake_llm():
         "content": ('{"corrected":"phrase corrigée","translation":"修正的句子",'
                     '"target_word_used":true,"incomplete":false,"errors":[],'
                     '"is_nsfw":false,"feedback":"很好"}'),
+        "nsfw_content": '{"is_nsfw":false}',
         "empty": False,
+        "nsfw_empty": False,
     }
 
     class FP:
         name = "fake"
 
+        def __init__(self, content):
+            self.content = content
+
         def call(self, messages, *, timeout, json_mode=False):
-            return llm.LLMResult(holder["content"], 10, 20, "fake", "fake-model")
+            return llm.LLMResult(self.content, 10, 20, "fake", "fake-model")
 
     def install():
-        chain = [] if holder["empty"] else [FP()]
-        llm.set_registry({"correction": chain, "nsfw": chain, "general": chain})
+        correction = [] if holder["empty"] else [FP(holder["content"])]
+        nsfw = [] if holder["nsfw_empty"] else [FP(holder["nsfw_content"])]
+        llm.set_registry({
+            "correction": correction, "nsfw": nsfw, "general": correction,
+        })
 
     install()
     holder["reinstall"] = install
