@@ -240,6 +240,7 @@
     "word.save_changes": "Save changes",
     "word.empty_error": "Word cannot be empty",
     "word.definition_error": "Keep at least one definition, example, or note",
+    "word.duplicate_error": "That word is already in this language's vocabulary",
     "word.updated": "Vocabulary entry updated",
     "word.deleted": "Vocabulary entry deleted",
     "stats.title": "Learning statistics",

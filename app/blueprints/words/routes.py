@@ -128,7 +128,7 @@ def add_submit():
     w = words_svc.add_word(_uid(), wl.id, word, definitions=cleaned)
     if w is None:
         return jsonify({"error": _("manual.add_failed")}), 500
-    return jsonify({"ok": True, "word_id": w.id, "word": word,
+    return jsonify({"ok": True, "word_id": w.id, "word": w.word,
                     "list_id": wl.id})
 
 
@@ -223,6 +223,9 @@ def update_word(word_id):
         return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
     try:
         updated = words_svc.update_word(_uid(), word_id, new_word, definitions)
+    except words_svc.DuplicateWordError:
+        flash(_("word.duplicate_error"))
+        return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400
     except ValueError:
         flash(_("manual.add_failed"))
         return render_template("words/edit.html", word=word, pos_choices=_POS_CHOICES), 400

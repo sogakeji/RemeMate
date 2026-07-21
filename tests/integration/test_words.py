@@ -106,6 +106,42 @@ def test_edit_word_updates_definitions(app, client, bypass_engine):
     assert row == ("nouveau", "adj.", "新的", "Un nouveau livre.", "注意阴阳性配合")
 
 
+def test_edit_word_rejects_normalized_duplicate_without_merging(
+        app, client, bypass_engine):
+    uid = provision_user(app, "edit-duplicate@t.com", PW)
+    login(client, "edit-duplicate@t.com", PW)
+    _switch_lang(client, "fr")
+    _add_word(client, "fr", "Maison", "房子")
+    _add_word(client, "fr", "foyer", "住所")
+    with bypass_engine.connect() as c:
+        ids = dict(c.execute(text("""
+            SELECT word, id FROM words w
+            JOIN word_lists wl ON wl.id = w.list_id
+            WHERE wl.user_id = :user_id
+        """), {"user_id": uid}).all())
+
+    resp = client.post(f"/words/{ids['foyer']}/edit", data={
+        "word": " maison ",
+        "part_of_speech": ["n."],
+        "meaning": ["覆盖"],
+        "example": [""],
+        "note": [""],
+    })
+
+    assert resp.status_code == 400
+    assert "已经有这个词" in resp.get_data(as_text=True)
+    with bypass_engine.connect() as c:
+        rows = c.execute(text("""
+            SELECT w.word, d.meaning
+            FROM words w
+            JOIN word_lists wl ON wl.id = w.list_id
+            LEFT JOIN definitions d ON d.word_id = w.id
+            WHERE wl.user_id = :user_id
+            ORDER BY w.id
+        """), {"user_id": uid}).all()
+    assert rows == [("Maison", "房子"), ("foyer", "住所")]
+
+
 def test_cross_user_list_isolation(app, client, bypass_engine):
     # 用户 B 的词表（用 bypass 造），用户 A 登录后不可见、不可访问
     b = make_user(bypass_engine, "b@t.com")

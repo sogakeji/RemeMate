@@ -240,6 +240,7 @@
     "word.save_changes": "保存修改",
     "word.empty_error": "词不能为空",
     "word.definition_error": "至少保留一条词义、例句或笔记",
+    "word.duplicate_error": "这门语言的生词本中已经有这个词",
     "word.updated": "词条已更新",
     "word.deleted": "词条已删除",
     "stats.title": "学习统计",

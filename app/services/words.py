@@ -423,6 +423,10 @@ def delete_word_list(user_id: int, list_id: int) -> bool:
 
 # ---- 词 ----
 
+class DuplicateWordError(ValueError):
+    """The normalized word identity already exists in this language list."""
+
+
 def normalize_word_identity(value: str | None) -> str:
     """Identity used for one word inside one language list."""
     return (value or "").strip().lower()
@@ -454,21 +458,33 @@ def add_word(user_id, list_id, word, *, meaning=None,
     w = Word(list_id=wl.id, word=display_word, due_date=utc_now(),
              interval=1, ease=2.5, reps=0, lapses=0)
     db.session.add(w)
-    db.session.flush()
-    if definitions:
-        for d in definitions:
-            db.session.add(Definition(
-                word_id=w.id,
-                meaning=(d or {}).get("meaning") or None,
-                part_of_speech=(d or {}).get("part_of_speech") or None,
-                example=(d or {}).get("example") or None,
-                note=(d or {}).get("note") or None,
-            ))
-    elif any([meaning, part_of_speech, example, note]):
-        db.session.add(Definition(word_id=w.id, meaning=meaning,
-                                  part_of_speech=part_of_speech,
-                                  example=example, note=note))
-    db.session.commit()
+    try:
+        db.session.flush()
+        if definitions:
+            for d in definitions:
+                db.session.add(Definition(
+                    word_id=w.id,
+                    meaning=(d or {}).get("meaning") or None,
+                    part_of_speech=(d or {}).get("part_of_speech") or None,
+                    example=(d or {}).get("example") or None,
+                    note=(d or {}).get("note") or None,
+                ))
+        elif any([meaning, part_of_speech, example, note]):
+            db.session.add(Definition(word_id=w.id, meaning=meaning,
+                                      part_of_speech=part_of_speech,
+                                      example=example, note=note))
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        existing = (Word.query
+                    .filter(
+                        Word.list_id == wl.id,
+                        func.lower(func.btrim(Word.word)) == identity,
+                    )
+                    .first())
+        if existing is None:
+            raise
+        return existing
     return w
 
 
@@ -480,6 +496,15 @@ def update_word(user_id: int, word_id: int, word: str, definitions: list[dict]) 
     word = (word or "").strip()
     if not word:
         raise ValueError("词不能为空")
+    identity = normalize_word_identity(word)
+    conflict = (Word.query
+                .filter(
+                    Word.list_id == w.list_id,
+                    Word.id != w.id,
+                    func.lower(func.btrim(Word.word)) == identity,
+                ).first())
+    if conflict is not None:
+        raise DuplicateWordError
     w.word = word
     Definition.query.filter_by(word_id=w.id).delete()
     for d in definitions:
@@ -490,7 +515,19 @@ def update_word(user_id: int, word_id: int, word: str, definitions: list[dict]) 
             example=(d or {}).get("example") or None,
             note=(d or {}).get("note") or None,
         ))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        conflict = (Word.query
+                    .filter(
+                        Word.list_id == w.list_id,
+                        Word.id != w.id,
+                        func.lower(func.btrim(Word.word)) == identity,
+                    ).first())
+        if conflict is not None:
+            raise DuplicateWordError
+        raise
     return w
 
 

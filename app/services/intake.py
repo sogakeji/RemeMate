@@ -10,6 +10,8 @@ import csv
 import io
 import json
 
+from sqlalchemy.exc import IntegrityError
+
 from app.extensions import db
 from app.models.word import WordList, Word, Definition
 from app.models.intake import IntakeSource, SourceSegment, WordCandidate
@@ -497,16 +499,30 @@ def commit_intake_source(user_id, source_id) -> int:
         identity = words_svc.normalize_word_identity(c.word)
         if identity in existing:        # 静默去重
             continue
-        word = Word(list_id=source.word_list_id, word=c.word,
-                    due_date=utc_now(), interval=1, ease=2.5, reps=0, lapses=0)
-        db.session.add(word)
-        db.session.flush()
-        example = c.source_example or c.example
-        if any([c.meaning, c.part_of_speech, example, c.note]):
-            db.session.add(Definition(
-                word_id=word.id, part_of_speech=c.part_of_speech,
-                meaning=c.meaning, example=example, note=c.note))
-        c.word_id = word.id
+        try:
+            with db.session.begin_nested():
+                word = Word(list_id=source.word_list_id, word=c.word.strip(),
+                            due_date=utc_now(), interval=1, ease=2.5,
+                            reps=0, lapses=0)
+                db.session.add(word)
+                db.session.flush()
+                example = c.source_example or c.example
+                if any([c.meaning, c.part_of_speech, example, c.note]):
+                    db.session.add(Definition(
+                        word_id=word.id, part_of_speech=c.part_of_speech,
+                        meaning=c.meaning, example=example, note=c.note))
+                c.word_id = word.id
+                db.session.flush()
+        except IntegrityError:
+            conflict = (Word.query
+                        .filter(
+                            Word.list_id == source.word_list_id,
+                            db.func.lower(db.func.btrim(Word.word)) == identity,
+                        ).first())
+            if conflict is None:
+                raise
+            existing.add(identity)
+            continue
         existing.add(identity)
         committed += 1
 

@@ -1,5 +1,7 @@
 """ui-rescope step3：手动加词——手工 JSON 多词义 + AI 三端点 + 隐式建表闭环。"""
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from sqlalchemy import text
 from tests.helpers import provision_user, login
@@ -158,6 +160,44 @@ def test_same_surface_remains_independent_across_languages(
     }).get_json()["word_id"]
 
     assert french != english
+
+
+def test_concurrent_manual_add_returns_one_word(
+        app, client, bypass_engine):
+    email = "concurrent-add@t.com"
+    uid = provision_user(app, email, PW)
+    login(client, email, PW)
+    barrier = Barrier(2)
+
+    def submit(meaning):
+        thread_client = app.test_client()
+        login(thread_client, "concurrent-add@t.com", PW)
+        barrier.wait(timeout=5)
+        response = thread_client.post("/words/add", json={
+            "language_code": "fr",
+            "word": " Concombre ",
+            "definitions": [{"meaning": meaning}],
+        })
+        return response.status_code, response.get_json()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(submit, ["黄瓜", "青瓜"]))
+
+    assert [status for status, _ in results] == [200, 200]
+    assert len({body["word_id"] for _, body in results}) == 1
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT w.id, w.word, count(d.id)
+            FROM words w
+            JOIN word_lists wl ON wl.id = w.list_id
+            LEFT JOIN definitions d ON d.word_id = w.id
+            WHERE wl.user_id = :user_id
+              AND lower(btrim(w.word)) = 'concombre'
+            GROUP BY w.id
+        """), {"user_id": uid}).all()
+    assert len(rows) == 1
+    assert rows[0].word == "Concombre"
+    assert rows[0].count == 1
 
 
 def test_manual_add_supports_chinese_current_language(app, client, bypass_engine):

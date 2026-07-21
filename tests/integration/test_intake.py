@@ -2,6 +2,7 @@
 import io
 
 from sqlalchemy import text
+from app.services import intake as intake_svc
 
 from tests.helpers import provision_user, login
 
@@ -285,6 +286,39 @@ def test_commit_dedupes_existing_word(app, client, bypass_engine, fake_extract):
             "SELECT count(*) FROM words w JOIN word_lists wl ON w.list_id=wl.id "
             "WHERE wl.user_id=:u AND w.word='décollage'"), {"u": uid}).scalar()
     assert n_dec == 1                              # 没重复入库
+
+
+def test_commit_duplicate_savepoint_keeps_later_candidates(
+        app, client, bypass_engine, fake_extract, monkeypatch):
+    uid, _ = _setup(app, client, bypass_engine)
+    client.post("/intake/extract", data={
+        "language_code": "fr", "text": "Le décollage.",
+    })
+    with bypass_engine.begin() as c:
+        sid = c.execute(text(
+            "SELECT id FROM intake_sources WHERE user_id=:u"
+        ), {"u": uid}).scalar()
+    client.get(f"/intake/{sid}/process")
+    client.post(f"/intake/{sid}/bulk-accept")
+
+    client.post("/words/add", json={
+        "language_code": "fr", "word": "décollage",
+        "definitions": [{"meaning": "起飞"}],
+    })
+    monkeypatch.setattr(intake_svc, "_existing_words", lambda _list_id: set())
+    with app.test_request_context():
+        from flask import g
+        g.rls_uid = uid
+        committed = intake_svc.commit_intake_source(uid, sid)
+
+    assert committed == 1
+    with bypass_engine.connect() as c:
+        words = c.execute(text("""
+            SELECT lower(btrim(w.word)) AS word FROM words w
+            JOIN word_lists wl ON wl.id = w.list_id
+            WHERE wl.user_id = :user_id
+        """), {"user_id": uid}).scalars().all()
+    assert len(words) == 2 and set(words) == {"décollage", "essai"}
 
 
 def test_quick_add_creates_candidate(app, client, bypass_engine, fake_extract):
