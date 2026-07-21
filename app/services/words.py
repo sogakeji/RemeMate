@@ -423,6 +423,11 @@ def delete_word_list(user_id: int, list_id: int) -> bool:
 
 # ---- 词 ----
 
+def normalize_word_identity(value: str | None) -> str:
+    """Identity used for one word inside one language list."""
+    return (value or "").strip().lower()
+
+
 def add_word(user_id, list_id, word, *, meaning=None,
              part_of_speech=None, example=None, note=None,
              definitions=None) -> Word | None:
@@ -436,7 +441,17 @@ def add_word(user_id, list_id, word, *, meaning=None,
     wl = get_word_list(user_id, list_id)
     if wl is None:
         return None
-    w = Word(list_id=wl.id, word=word, due_date=utc_now(),
+    display_word = (word or "").strip()
+    identity = normalize_word_identity(display_word)
+    existing = (Word.query
+                .filter(
+                    Word.list_id == wl.id,
+                    func.lower(func.btrim(Word.word)) == identity,
+                )
+                .first())
+    if existing is not None:
+        return existing
+    w = Word(list_id=wl.id, word=display_word, due_date=utc_now(),
              interval=1, ease=2.5, reps=0, lapses=0)
     db.session.add(w)
     db.session.flush()

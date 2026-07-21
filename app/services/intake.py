@@ -428,7 +428,7 @@ def _candidate_query(user_id, source_id, status=None):
 def _existing_words(word_list_id) -> set:
     rows = (Word.query.with_entities(Word.word)
             .filter(Word.list_id == word_list_id).all())
-    return {r[0].strip().lower() for r in rows}
+    return {words_svc.normalize_word_identity(r[0]) for r in rows}
 
 
 def list_candidates(user_id, source_id, status=None):
@@ -442,7 +442,10 @@ def list_candidates(user_id, source_id, status=None):
     existing = _existing_words(source.word_list_id)
     q = _candidate_query(user_id, source_id, status if status in ("pending", "accepted", "ignored") else None)
     cands = q.order_by(WordCandidate.created_at.desc()).all()
-    out = [(c, c.word.strip().lower() in existing) for c in cands]
+    out = [
+        (c, words_svc.normalize_word_identity(c.word) in existing)
+        for c in cands
+    ]
     return source, out
 
 
@@ -491,7 +494,8 @@ def commit_intake_source(user_id, source_id) -> int:
 
     committed = 0
     for c in accepted:
-        if c.word.strip().lower() in existing:        # 静默去重
+        identity = words_svc.normalize_word_identity(c.word)
+        if identity in existing:        # 静默去重
             continue
         word = Word(list_id=source.word_list_id, word=c.word,
                     due_date=utc_now(), interval=1, ease=2.5, reps=0, lapses=0)
@@ -503,7 +507,7 @@ def commit_intake_source(user_id, source_id) -> int:
                 word_id=word.id, part_of_speech=c.part_of_speech,
                 meaning=c.meaning, example=example, note=c.note))
         c.word_id = word.id
-        existing.add(c.word.strip().lower())
+        existing.add(identity)
         committed += 1
 
     source.accepted_count = committed

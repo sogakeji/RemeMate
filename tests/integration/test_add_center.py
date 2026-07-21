@@ -108,6 +108,58 @@ def test_add_center_handcrafts_multidef(app, client, bypass_engine):
     assert [d[0] for d in defs] == ["n.", "v."]
 
 
+def test_manual_add_is_idempotent_within_one_language(
+        app, client, bypass_engine):
+    uid = _auth(client, app)
+    first = client.post("/words/add", json={
+        "language_code": "fr",
+        "word": "Maison",
+        "definitions": [{"part_of_speech": "n.", "meaning": "房子"}],
+    })
+    first_id = first.get_json()["word_id"]
+    with bypass_engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE words SET reps = 7, lapses = 3 WHERE id = :word_id
+        """), {"word_id": first_id})
+
+    repeated = client.post("/words/add", json={
+        "language_code": "fr",
+        "word": " maison ",
+        "definitions": [{"part_of_speech": "n.", "meaning": "覆盖释义"}],
+    })
+
+    assert repeated.status_code == 200
+    assert repeated.get_json()["word_id"] == first_id
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT w.word, w.reps, w.lapses, count(d.id), min(d.meaning)
+            FROM words w
+            LEFT JOIN definitions d ON d.word_id = w.id
+            JOIN word_lists wl ON wl.id = w.list_id
+            WHERE wl.user_id = :user_id AND wl.language_code = 'fr'
+            GROUP BY w.id
+        """), {"user_id": uid}).one()
+    assert row.word == "Maison"
+    assert (row.reps, row.lapses) == (7, 3)
+    assert row.count == 1
+    assert row.min == "房子"
+
+
+def test_same_surface_remains_independent_across_languages(
+        app, client):
+    _auth(client, app)
+    french = client.post("/words/add", json={
+        "language_code": "fr", "word": "menu",
+        "definitions": [{"meaning": "菜单"}],
+    }).get_json()["word_id"]
+    english = client.post("/words/add", json={
+        "language_code": "en", "word": "MENU",
+        "definitions": [{"meaning": "菜单"}],
+    }).get_json()["word_id"]
+
+    assert french != english
+
+
 def test_manual_add_supports_chinese_current_language(app, client, bypass_engine):
     _auth(client, app)
     client.post("/language/switch", data={
