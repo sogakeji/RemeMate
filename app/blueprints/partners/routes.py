@@ -171,9 +171,18 @@ def _render_packet_adopt_form(
 @bp.get("/partners")
 @login_required
 def index():
+    engine = _dispatch_engine()
+    try:
+        with engine.connect() as conn:
+            pending_reciprocals = invites_svc.list_pending_reciprocal_partners(
+                conn, _uid(),
+            )
+    finally:
+        engine.dispose()
     return render_template(
         "partners/index.html",
         partners=partners_svc.list_partners(_uid()),
+        pending_reciprocals=pending_reciprocals,
         language_names=localized_language_names(),
     )
 

@@ -10,6 +10,26 @@
     </div>
   </div>
 
+  {% if pending_reciprocals %}
+    <div class="partner-list">
+      {% for reciprocal in pending_reciprocals %}
+      <a class="word-card partner-list-item"
+         href="{{ url_for('partners.confirm_reciprocal', owner_user_id=reciprocal.owner_user_id) }}">
+        <span class="partner-name">
+          {{ _('partner.reciprocal_title', name=reciprocal.owner_display_name) }}
+        </span>
+        <span class="partner-languages">
+          {% if reciprocal.native_language_code %}{{ _('partner.native') }}: {{ language_names.get(reciprocal.native_language_code) }}{% endif %}
+          {% if reciprocal.learning_language_code %}{{ _('partner.learning') }}: {{ language_names.get(reciprocal.learning_language_code) }}{% endif %}
+        </span>
+        <span class="settings-chip">
+          {{ _('partner.reciprocal_confirm') }}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% if partners %}
     <div class="partner-list">
       {% for partner in partners %}

@@ -325,6 +325,42 @@ def test_partner_invite_requires_login_and_recipient_acceptance(
     assert "邀请绑定" not in owner_page
 
 
+def test_accepted_invite_remains_recoverable_from_partner_index(
+    app, client,
+):
+    owner_id = provision_user(
+        app, "recover-owner@t.com", PW, name="Alice",
+    )
+    provision_user(app, "recover-recipient@t.com", PW, name="Pierre")
+    login(client, "recover-owner@t.com", PW)
+    partner_id = _create_partner(client)
+    invite_path = _create_invite(
+        client, partner_id, "recover-recipient@t.com",
+    )
+
+    client.get("/logout")
+    login(client, "recover-recipient@t.com", PW)
+    accepted = client.post(invite_path, data={
+        "csrf_token": _csrf(client, invite_path),
+    })
+    assert accepted.status_code == 302
+
+    reciprocal_path = f"/partners/reciprocal/{owner_id}"
+    page = client.get("/partners").get_data(as_text=True)
+    assert "把 Alice 加入我的伙伴列表" in page
+    assert reciprocal_path in page
+    assert "下个月准备 HSK" not in page
+
+    confirmed = client.post(reciprocal_path, data={
+        "csrf_token": _csrf(client, reciprocal_path),
+    })
+    assert confirmed.status_code == 302
+
+    completed_page = client.get("/partners").get_data(as_text=True)
+    assert reciprocal_path not in completed_page
+    assert "Alice" in completed_page
+
+
 def test_claimed_partner_invite_cannot_be_taken_by_another_user(
     app, client,
 ):

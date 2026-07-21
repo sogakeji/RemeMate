@@ -274,6 +274,39 @@ def preview_reciprocal_partner(
     return ReciprocalPartnerPreview(**dict(row))
 
 
+def list_pending_reciprocal_partners(
+    conn,
+    recipient_user_id: int,
+) -> list[ReciprocalPartnerPreview]:
+    """List accepted links that still need the recipient-owned profile.
+
+    This is deliberately a narrow cross-user projection. It exposes only the
+    inviter account name and reversed language direction, never private notes,
+    recaps, packets, or vocabulary.
+    """
+    rows = conn.execute(text(
+        """
+        SELECT owner.id AS owner_user_id,
+               owner.display_name AS owner_display_name,
+               source.learning_language_code AS native_language_code,
+               source.native_language_code AS learning_language_code,
+               NULL::integer AS existing_partner_id
+        FROM language_partners source
+        JOIN users owner ON owner.id = source.user_id
+        WHERE source.linked_user_id = :recipient_user_id
+          AND owner.is_active = true
+          AND NOT EXISTS (
+              SELECT 1
+              FROM language_partners reciprocal
+              WHERE reciprocal.user_id = :recipient_user_id
+                AND reciprocal.linked_user_id = owner.id
+          )
+        ORDER BY lower(owner.display_name), owner.id
+        """
+    ), {"recipient_user_id": recipient_user_id}).mappings().all()
+    return [ReciprocalPartnerPreview(**dict(row)) for row in rows]
+
+
 def create_reciprocal_partner(
     conn,
     recipient_user_id: int,
