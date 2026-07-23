@@ -117,7 +117,7 @@ def test_edit_word_rejects_normalized_duplicate_without_merging(
     _add_word(client, "fr", "foyer", "住所")
     with bypass_engine.connect() as c:
         ids = dict(c.execute(text("""
-            SELECT word, id FROM words w
+            SELECT w.word, w.id FROM words w
             JOIN word_lists wl ON wl.id = w.list_id
             WHERE wl.user_id = :user_id
         """), {"user_id": uid}).all())
