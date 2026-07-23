@@ -1,5 +1,5 @@
 """时区/时间工具。"""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -34,3 +34,36 @@ def today_local_start_utc(tz_name: str | None, *, now_utc: datetime | None = Non
     now_local = now_utc.astimezone(tz)
     midnight_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     return midnight_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
+def local_day_window_utc(
+    tz_name: str | None,
+    *,
+    local_date: date | None = None,
+    now_utc: datetime | None = None,
+) -> tuple[datetime, datetime]:
+    """Return one local calendar day as a naive-UTC half-open interval.
+
+    Constructing both local midnights separately keeps daylight-saving days
+    correct; adding 24 hours to the UTC start would not.
+    """
+    tz = ZoneInfo(tz_name or "Asia/Shanghai")
+    if local_date is None:
+        current = now_utc or utc_now()
+        current = (
+            current.replace(tzinfo=timezone.utc)
+            if current.tzinfo is None
+            else current.astimezone(timezone.utc)
+        )
+        local_date = current.astimezone(tz).date()
+    start_local = datetime.combine(local_date, time.min, tzinfo=tz)
+    end_local = datetime.combine(
+        local_date + timedelta(days=1),
+        time.min,
+        tzinfo=tz,
+    )
+    utc = ZoneInfo("UTC")
+    return (
+        start_local.astimezone(utc).replace(tzinfo=None),
+        end_local.astimezone(utc).replace(tzinfo=None),
+    )
