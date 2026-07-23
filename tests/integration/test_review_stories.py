@@ -14,7 +14,7 @@ from threading import Barrier
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.models.review_story import (
     LEARNING_FUNNEL_EVENT_TYPES,
@@ -313,25 +313,17 @@ def test_summary_eligibility_boundaries_with_logs(
         assert len(summary.input_hash) == 64
 
 
-@pytest.mark.parametrize("n_targets", [2, 3, 4, 5])
-def test_summary_target_count_and_deterministic_order(
-    app, bypass_engine, n_targets,
+def test_summary_eligible_path_selects_five_targets(
+    app, bypass_engine,
 ):
-    """With enough eligibility, target count equals min(5, reviewed)."""
-    # Use strong path via 6 forgotten so n_targets < 10 still eligible
-    n_forgot = 6
-    n_reviewed = max(n_targets, n_forgot)
-    uid = _seed_user(
-        app, bypass_engine, f"targets-{n_targets}@t.com", tz="UTC",
-    )
+    """Production eligibility floors: strong needs 6+ forgotten → 5 targets."""
+    uid = _seed_user(app, bypass_engine, "targets-prod@t.com", tz="UTC")
     day = date(2026, 7, 22)
     ts = datetime(2026, 7, 22, 11, 0, 0)
-    ids = []
-    for i in range(n_reviewed):
-        # reverse insert order vs grade so sorting must re-order
-        grade = 2 if i < n_forgot else 5
-        wid = _add_word(bypass_engine, uid, f"t{i:02d}")
-        ids.append((wid, grade))
+    # 6 forgotten + 2 easy → strong, min(5, 8) = 5
+    for i in range(8):
+        grade = 2 if i < 6 else 5
+        wid = _add_word(bypass_engine, uid, f"p{i:02d}")
         _log(bypass_engine, uid, wid, grade, ts=ts + timedelta(seconds=i))
 
     with app.app_context():
@@ -339,22 +331,65 @@ def test_summary_target_count_and_deterministic_order(
         s1 = get_daily_review_story_summary(uid, local_date=day)
         s2 = get_daily_review_story_summary(uid, local_date=day)
 
-    expected_n = min(5, n_reviewed)
-    assert len(s1.targets) == expected_n
-    assert [t.snapshot.key for t in s1.targets] == [
-        f"t{i}" for i in range(1, expected_n + 1)
-    ]
-    # deterministic across calls
+    assert s1.eligibility == ELIGIBILITY_STRONG
+    assert s1.reviewed_word_count == 8
+    assert len(s1.targets) == 5
+    assert [t.snapshot.key for t in s1.targets] == [f"t{i}" for i in range(1, 6)]
     assert [t.word_id for t in s1.targets] == [t.word_id for t in s2.targets]
     assert s1.input_hash == s2.input_hash
-    # grade ascending then id
     grades = [t.worst_grade for t in s1.targets]
     assert grades == sorted(grades)
-    # provider terms never include word_id
+    assert grades[:5].count(2) == 5  # five worst (forgot) first
+
+
+@pytest.mark.parametrize("n_targets", [2, 3, 4, 5])
+def test_summary_builds_exactly_n_target_snapshots(
+    app, bypass_engine, n_targets, monkeypatch,
+):
+    """Snapshot/hash path for 2–5 words (eligibility forced; product floor is unit-tested).
+
+    Real eligibility never emits targets with fewer than 6 reviewed words
+    (strong needs 6 forgotten; normal needs 10 reviewed). Force normal here so
+    integration still exercises snapshot keys, ordering, and provider-safe fields
+    for each exact target count.
+    """
+    from app.services import review_stories as rs
+
+    monkeypatch.setattr(
+        rs, "review_story_eligibility",
+        lambda **kwargs: ELIGIBILITY_NORMAL,
+    )
+    uid = _seed_user(
+        app, bypass_engine, f"targets-n{n_targets}@t.com", tz="UTC",
+    )
+    day = date(2026, 7, 22)
+    ts = datetime(2026, 7, 22, 11, 0, 0)
+    # Mix grades so ordering is non-trivial; insert easy first then forgot
+    for i in range(n_targets):
+        grade = 5 if i < max(1, n_targets - 2) else 2
+        wid = _add_word(bypass_engine, uid, f"t{i:02d}")
+        _log(bypass_engine, uid, wid, grade, ts=ts + timedelta(seconds=i))
+
+    with app.app_context():
+        _set_rls_uid(uid)
+        s1 = get_daily_review_story_summary(uid, local_date=day)
+        s2 = get_daily_review_story_summary(uid, local_date=day)
+
+    assert s1.reviewed_word_count == n_targets
+    assert len(s1.targets) == n_targets
+    assert [t.snapshot.key for t in s1.targets] == [
+        f"t{i}" for i in range(1, n_targets + 1)
+    ]
+    assert [t.word_id for t in s1.targets] == [t.word_id for t in s2.targets]
+    assert s1.input_hash == s2.input_hash
+    assert s1.input_hash is not None and len(s1.input_hash) == 64
+    grades = [t.worst_grade for t in s1.targets]
+    assert grades == sorted(grades)
     for term in s1.provider_terms:
         assert set(term.keys()) == {
             "key", "surface", "part_of_speech", "meaning",
         }
+        assert "word_id" not in term
 
 
 def test_summary_main_definition_is_first_nonempty_meaning(
@@ -545,12 +580,13 @@ def test_review_story_runs_force_rls_crud(app_engine, bypass_engine):
         assert updated == 0
         conn.commit()
 
-        # cannot insert as another user
-        with pytest.raises(Exception):
+        # cannot insert as another user (RLS WITH CHECK)
+        with pytest.raises(ProgrammingError) as ei:
             with conn.begin_nested():
                 _insert_run(
                     conn, uid=b, local_date=day, input_hash="c" * 64,
                 )
+        assert "row-level security" in str(ei.value).lower()
         conn.rollback()
         set_uid(conn, a)
 
@@ -570,13 +606,14 @@ def test_review_story_runs_force_rls_crud(app_engine, bypass_engine):
 
 
 def test_learning_funnel_events_force_rls(app_engine, bypass_engine):
+    """Read isolation + write isolation (own INSERT ok; spoof other user denied)."""
     a = make_user(bypass_engine, "ev-a@t.com")
     b = make_user(bypass_engine, "ev-b@t.com")
     with bypass_engine.begin() as c:
         ea = _insert_event(
             c, uid=a, event_type="story_eligible_normal", dedupe_key=HASH64_A,
         )
-        _insert_event(
+        eb = _insert_event(
             c, uid=b, event_type="story_eligible_strong", dedupe_key=HASH64_B,
         )
 
@@ -589,11 +626,61 @@ def test_learning_funnel_events_force_rls(app_engine, bypass_engine):
         assert rows[0].id == ea
         assert rows[0].event_type == "story_eligible_normal"
 
+        # own INSERT ok
+        own = _insert_event(
+            conn, uid=a, event_type="story_cache_hit", dedupe_key="c" * 64,
+        )
+        conn.commit()
+        assert own is not None
+        assert conn.execute(text(
+            "SELECT count(*) FROM learning_funnel_events"
+        )).scalar() == 2
+
+        # cannot INSERT spoofing peer user_id
+        with pytest.raises(ProgrammingError) as ei:
+            with conn.begin_nested():
+                _insert_event(
+                    conn, uid=b, event_type="story_writing_handoff",
+                    dedupe_key="d" * 64,
+                )
+        assert "row-level security" in str(ei.value).lower()
+        conn.rollback()
+        set_uid(conn, a)
+
+        # cannot UPDATE peer row
+        updated = conn.execute(text(
+            "UPDATE learning_funnel_events "
+            "SET event_type='story_output_saved' WHERE id=:id"
+        ), {"id": eb}).rowcount
+        assert updated == 0
+        conn.commit()
+
+        # cannot DELETE peer row
+        deleted = conn.execute(text(
+            "DELETE FROM learning_funnel_events WHERE id=:id"
+        ), {"id": eb}).rowcount
+        assert deleted == 0
+        conn.commit()
+
+        # own DELETE ok
+        deleted_own = conn.execute(text(
+            "DELETE FROM learning_funnel_events WHERE id=:id"
+        ), {"id": own}).rowcount
+        assert deleted_own == 1
+        conn.commit()
+
         # unset GUC → empty
         set_uid(conn, None)
         assert conn.execute(text(
             "SELECT count(*) FROM learning_funnel_events"
         )).scalar() == 0
+
+    # peer row still present under their GUC
+    with app_engine.connect() as conn:
+        set_uid(conn, b)
+        assert conn.execute(text(
+            "SELECT count(*) FROM learning_funnel_events"
+        )).scalar() == 1
 
 
 def test_review_story_run_unique_identity(app_engine, bypass_engine):
