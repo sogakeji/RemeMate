@@ -14,10 +14,34 @@
   - `e410753`：Web 与 Bark 对同一当前到期状态最多评分一次，重放与延迟请求不再重复推进 SRS。
 - 当前本地迁移 head：`e0f1a2b3c4d5`。迁移遇到历史规范化重复词时会中止并只报告重复组数量，
   不自动合并用户数据。
-- Windows 恢复环境没有 PostgreSQL，故数据库集成/全量测试尚未执行。已完成语法、JSON、迁移链、
-  `git diff --check`，以及 17 个可离线运行的 SRS/批改/审核单元测试。部署前必须重建独立
-  `rememate_test`，执行 migration upgrade、定向集成测试、`pytest -q` 和 `flask doctor --strict`。
+- **GCP Ubuntu 独立验收已完成（2026-07-22）**：用户态 PostgreSQL 16.14 + 三角色 +
+  `rememate_test`，migration 两边到 `e0f1a2b3c4d5`。Gate4 资源充足全量
+  **`486 passed, 16 warnings`（`FULL_RC=0`）**；定向六项相关 **122 passed**。
+  唯一曾失败的集成断言是测试 SQL `AmbiguousColumn`（`tests/integration/test_words.py`
+  已改为 `w.word, w.id`，未改业务代码）。`flask doctor --strict`：DB/迁移/admin OK，
+  测试机无 LLM/词典仍 WARN → 非 0。完整过程见
+  `docs/recovery-validation-2026-07-22.md`。
+- **pytest 行为闸门已绿**。严格“含 doctor strict 全绿”仍差测试机 LLM/词典配置。
+  开 `feature/review-story-v1` 前：接受测试机 doctor WARN，或补配置后再 strict；
+  仍须用户明确启动分支。生产部署前另跑目标环境 `pytest -q` +
+  `flask doctor --strict`（生产有 admin/LLM/词典）。
 - `origin` 直接指向生产工作仓库；恢复阶段禁止推送。生产仍为 `1b72128`，未收到上述六项修复。
+
+## 2026-07-22 Wayfinder 规划恢复
+
+- 已恢复完整的 2026-07-19 下一阶段路线图：
+  `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`；恢复来源和原型资产边界见同目录
+  `RECOVERY.md`。
+- 本次只恢复规划文档和历史短故事原型，不代表短故事、SessionPad 带语境候选或观察面板已实现、
+  测试或部署。
+- 串行顺序已经定稿：先验证并发布六项可信基线；再做 review story；随后做 SessionPad context
+  candidates；最后做隐私安全的管理员观察面板。
+- 短故事采用完成卡下方的可选独立复习回执。第一张代码票 RS1 只做 schema、FORCE RLS、日内摘要、
+  确定性选词与测试，不调用 AI、不开发 UI。
+- SessionPad 后续分离不可变交换来源、可编辑候选语境和最终例句，并采用单候选聚焦审核；语境只有
+  经用户明确操作才能成为例句。
+- Wayfinder 已完成且无开放规划票。pytest 恢复闸门已绿；仍须用户明确启动后，才能创建
+  `feature/review-story-v1`（见上方恢复闸门与 `docs/recovery-validation-2026-07-22.md`）。
 
 下面的“当前状态”是 2026-07-15 云机里程碑基线，保留用于说明闭测版具备的功能，不代表六项恢复
 修复已经在生产验证或部署。
@@ -184,6 +208,13 @@ ssh -i E:\\hermes.pem ubuntu@43.156.210.229 \
 29. 不要并行跑 integration 测试；测试库清理/事务会互相卡。
 30. CJK PDF 视觉换行会污染选词；修复必须带语言守卫。
 31. 8891 旧 gunicorn/pidfile 会让“重启了但没生效”；必要时 `fuser -k 8891/tcp`。
+32. GCP 验收机公网直连应用端口常被 VPC 防火墙挡住（即使 Console 已建规则）；真机测优先
+    Cloudflare quick tunnel / localhost.run 或 SSH -L，详见
+    `docs/recovery-validation-2026-07-22.md` §16。
+33. 1GB 验收机跑全量前：停 Hermes（系统级 unit `Restart=always`，只 pkill 不够）、
+    停 gunicorn/隧道，`max_connections` 勿过低（20 会连接槽假失败；验收用 100），
+    建议 1.5G swap。
+34. RLS 下测试 SQL join 多表必须表别名限定列（如 `w.id`），否则 `AmbiguousColumn`。
 
 ## Backlog 规则
 

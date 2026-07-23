@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE - RemeMate review story completion</title>
+  <!--
+    PROTOTYPE ONLY.
+    Question: how should the existing review-completion state offer an optional
+    due-word story without forcing it or hiding the path back to the library?
+    Three structural variants are switchable with ?variant=A|B|C.
+    UI states are switchable with ?state=silent|normal|strong|loading|error|ready|cached.
+  -->
+  <style>
+    :root {
+      --page: #f5f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f1f4fa;
+      --text: #1f2937;
+      --muted: #667085;
+      --border: #dfe5ef;
+      --primary: #4a6cf7;
+      --primary-soft: #e9edff;
+      --success: #21875b;
+      --success-soft: #e5f5ed;
+      --warning: #a55d05;
+      --warning-soft: #fff1d6;
+      --danger: #b63a42;
+      --danger-soft: #fdebed;
+      --shadow: 0 8px 24px rgba(31, 41, 55, 0.08);
+    }
+
+    html[data-theme="dark"] {
+      --page: #101214;
+      --surface: #1d2024;
+      --surface-soft: #262a30;
+      --text: #f4f6f8;
+      --muted: #9ba7b4;
+      --border: #363c45;
+      --primary: #7592ff;
+      --primary-soft: #273354;
+      --success: #72d4a7;
+      --success-soft: #1c3b31;
+      --warning: #ffc36d;
+      --warning-soft: #49351e;
+      --danger: #ff8f98;
+      --danger-soft: #4a2529;
+      --shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    a,
+    select {
+      font: inherit;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app-header {
+      width: min(1000px, calc(100% - 32px));
+      min-height: 80px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      min-width: 150px;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .brand-name span {
+      color: var(--primary);
+    }
+
+    .brand-slogan {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .main-nav {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .main-nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .language-pill,
+    .icon-button {
+      min-height: 40px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    .language-pill {
+      padding: 0 13px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .icon-button {
+      width: 40px;
+      padding: 0;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    main {
+      width: min(1000px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 52px 0 150px;
+    }
+
+    .page-kicker {
+      margin: 0 0 8px;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    .page-subtitle {
+      margin: 8px 0 28px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .prototype-note {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      padding: 11px 13px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: var(--surface-soft);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .prototype-note strong {
+      color: var(--text);
+    }
+
+    .completion-card,
+    .story-panel,
+    .receipt-panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .completion-card {
+      padding: 28px;
+      text-align: center;
+    }
+
+    .completion-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .completion-title {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.3;
+    }
+
+    .completion-copy {
+      margin: 8px auto 0;
+      max-width: 520px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .review-counts {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .count-chip,
+    .word-chip,
+    .cache-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .count-chip {
+      padding: 0 10px;
+      color: var(--muted);
+      background: var(--surface-soft);
+    }
+
+    .count-chip.warning {
+      color: var(--warning);
+      background: var(--warning-soft);
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .btn {
+      min-height: 42px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0 17px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #fff;
+      background: var(--primary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      filter: brightness(1.04);
+    }
+
+    .btn.secondary {
+      color: var(--text);
+      background: var(--surface);
+      border-color: var(--border);
+    }
+
+    .btn.quiet {
+      min-height: 36px;
+      padding: 0 12px;
+      color: var(--primary);
+      background: transparent;
+      border-color: transparent;
+    }
+
+    .btn:disabled {
+      cursor: wait;
+      opacity: 0.62;
+    }
+
+    .story-panel {
+      padding: 22px;
+      text-align: left;
+    }
+
+    .story-panel.strong {
+      border-color: #e4b55f;
+      box-shadow: 0 8px 24px rgba(165, 93, 5, 0.12);
+    }
+
+    .story-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .story-eyebrow {
+      margin: 0 0 5px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .strong .story-eyebrow {
+      color: var(--warning);
+    }
+
+    .story-title {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    .story-description {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .word-chips {
+      display: flex;
+      gap: 7px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .word-chip {
+      padding: 0 9px;
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .cache-label {
+      flex: 0 0 auto;
+      padding: 0 9px;
+      color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .story-copy {
+      margin-top: 18px;
+      padding-top: 17px;
+      border-top: 1px solid var(--border);
+    }
+
+    .story-copy h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .story-copy p {
+      margin: 0;
+      font-family: Georgia, "Noto Serif", serif;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .story-copy .translation {
+      margin-top: 13px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    mark {
+      padding: 1px 3px;
+      border-radius: 3px;
+      color: inherit;
+      background: var(--warning-soft);
+    }
+
+    .loading-box,
+    .error-box {
+      margin-top: 16px;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .loading-box {
+      color: var(--muted);
+      background: var(--surface-soft);
+    }
+
+    .error-box {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .spinner {
+      width: 17px;
+      height: 17px;
+      margin-right: 8px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      display: inline-block;
+      vertical-align: middle;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .variant-a .story-panel {
+      margin-top: 14px;
+      box-shadow: none;
+      background: var(--surface-soft);
+    }
+
+    .variant-b {
+      display: grid;
+      grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .variant-b .completion-card,
+    .variant-b .story-panel {
+      min-height: 360px;
+    }
+
+    .variant-b .completion-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .variant-b .button-row {
+      margin-top: auto;
+      padding-top: 22px;
+    }
+
+    .variant-b .story-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .variant-c .completion-card {
+      padding-block: 22px;
+    }
+
+    .variant-c .completion-icon {
+      width: 42px;
+      height: 42px;
+      margin-bottom: 10px;
+    }
+
+    .receipt-panel {
+      margin-top: 14px;
+      overflow: hidden;
+    }
+
+    .receipt-summary {
+      min-height: 76px;
+      padding: 14px 17px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .receipt-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .receipt-title {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .receipt-copy {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .receipt-panel .story-panel {
+      margin: 0 12px 12px;
+      border-color: var(--border);
+      box-shadow: none;
+      background: var(--surface-soft);
+    }
+
+    .prototype-switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      z-index: 50;
+      transform: translateX(-50%);
+      width: min(720px, calc(100% - 24px));
+      padding: 9px;
+      border: 1px solid #4a5568;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: 42px minmax(160px, 1fr) 42px minmax(180px, 1fr);
+      align-items: center;
+      gap: 7px;
+      color: #f7fafc;
+      background: #20252d;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+    }
+
+    .switch-button,
+    .state-select {
+      min-height: 38px;
+      border: 1px solid #4a5568;
+      border-radius: 6px;
+      color: #f7fafc;
+      background: #303743;
+    }
+
+    .switch-button {
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .variant-label {
+      min-width: 0;
+      padding: 0 8px;
+      font-size: 13px;
+      font-weight: 750;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .state-select {
+      width: 100%;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 92px;
+      z-index: 60;
+      transform: translateX(-50%);
+      max-width: calc(100% - 32px);
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: #fff;
+      background: #20252d;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+    }
+
+    .mobile-nav {
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      .app-header {
+        width: calc(100% - 24px);
+        min-height: 68px;
+        gap: 10px;
+      }
+
+      .brand {
+        min-width: 0;
+      }
+
+      .brand-name {
+        font-size: 21px;
+      }
+
+      .brand-slogan,
+      .main-nav {
+        display: none;
+      }
+
+      .language-pill {
+        min-height: 36px;
+        padding: 0 9px;
+      }
+
+      .icon-button {
+        width: 36px;
+        min-height: 36px;
+      }
+
+      main {
+        width: calc(100% - 24px);
+        padding: 30px 0 190px;
+      }
+
+      .page-title {
+        font-size: 24px;
+      }
+
+      .completion-card,
+      .story-panel {
+        padding: 18px;
+      }
+
+      .completion-title {
+        font-size: 21px;
+      }
+
+      .variant-b {
+        grid-template-columns: 1fr;
+      }
+
+      .variant-b .completion-card,
+      .variant-b .story-panel {
+        min-height: 0;
+      }
+
+      .receipt-summary {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .receipt-summary .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .button-row .btn {
+        flex: 1 1 145px;
+      }
+
+      .prototype-switcher {
+        bottom: 78px;
+        grid-template-columns: 38px minmax(0, 1fr) 38px;
+      }
+
+      .state-select {
+        grid-column: 1 / -1;
+      }
+
+      .toast {
+        bottom: 154px;
+      }
+
+      .mobile-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 40;
+        height: 62px;
+        border-top: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        background: var(--surface);
+      }
+
+      .mobile-nav a {
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 11px;
+      }
+
+      .mobile-nav a.active {
+        color: var(--primary);
+        font-weight: 750;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <p class="brand-name">Reme<span>Mate</span></p>
+      <p class="brand-slogan">记搭 - 你的语言记忆搭子</p>
+    </div>
+    <nav class="main-nav" aria-label="主导航">
+      <a href="#">首页</a>
+      <a href="#">写一写</a>
+      <a href="#">语言伙伴</a>
+      <a href="#">词库</a>
+      <a href="#">我的</a>
+    </nav>
+    <div class="header-actions">
+      <button class="language-pill" type="button">FR 法语</button>
+      <button class="icon-button" id="theme-toggle" type="button" title="切换页面模式" aria-label="切换页面模式">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <p class="page-kicker">复习完成状态原型</p>
+    <h1 class="page-title">短故事怎样出现，才像巩固而不是新任务？</h1>
+    <p class="page-subtitle">原型不会调用 AI，也不会保存内容。用底部控制条切换结构与状态。</p>
+    <div class="prototype-note">
+      <strong>判定边界</strong>
+      <span>回词库始终可见；AI 只在点击后调用；不足条件时完全静默；故事结果只负责把用户带回现有造句闭环。</span>
+    </div>
+    <section id="prototype-root" aria-live="polite"></section>
+  </main>
+
+  <nav class="mobile-nav" aria-label="移动端导航">
+    <a class="active" href="#">首页</a>
+    <a href="#">写一写</a>
+    <a href="#">伙伴</a>
+    <a href="#">词库</a>
+    <a href="#">我的</a>
+  </nav>
+
+  <div class="prototype-switcher" aria-label="原型切换器">
+    <button class="switch-button" id="variant-prev" type="button" aria-label="上一个方案">‹</button>
+    <div class="variant-label" id="variant-label"></div>
+    <button class="switch-button" id="variant-next" type="button" aria-label="下一个方案">›</button>
+    <select class="state-select" id="state-select" aria-label="原型状态">
+      <option value="silent">静默：未达触发条件</option>
+      <option value="normal">普通：今日复习达标</option>
+      <option value="strong">加强：遗忘词超过 5 个</option>
+      <option value="loading">生成中</option>
+      <option value="error">生成失败</option>
+      <option value="ready">新生成结果</option>
+      <option value="cached">缓存结果</option>
+    </select>
+  </div>
+
+  <script>
+    (() => {
+      const variants = {
+        A: "卡内渐进展开",
+        B: "完成与巩固双栏",
+        C: "独立复习回执"
+      };
+      const states = new Set(["silent", "normal", "strong", "loading", "error", "ready", "cached"]);
+      const root = document.getElementById("prototype-root");
+      const variantLabel = document.getElementById("variant-label");
+      const stateSelect = document.getElementById("state-select");
+      let loadingTimer = null;
+
+      function params() {
+        const value = new URLSearchParams(window.location.search);
+        const variant = variants[value.get("variant")] ? value.get("variant") : "C";
+        const state = states.has(value.get("state")) ? value.get("state") : "normal";
+        return { variant, state };
+      }
+
+      function updateUrl(next) {
+        const current = params();
+        const value = { ...current, ...next };
+        const search = new URLSearchParams(window.location.search);
+        search.set("variant", value.variant);
+        search.set("state", value.state);
+        history.replaceState(null, "", `${window.location.pathname}?${search.toString()}`);
+        render();
+      }
+
+      function completionCard(compact = false) {
+        return `
+          <article class="completion-card ${compact ? "compact" : ""}">
+            <div class="completion-icon" aria-hidden="true">
+              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"></path>
+              </svg>
+            </div>
+            <h2 class="completion-title">今天没有到期的词了</h2>
+            <p class="completion-copy">这一轮已经完成。忘记的词会在稍后重新出现，不需要现在继续硬撑。</p>
+            <div class="button-row">
+              <a class="btn secondary" href="#" data-action="library">回到词库</a>
+            </div>
+          </article>`;
+      }
+
+      function counts(state) {
+        const strong = state === "strong";
+        return `
+          <div class="review-counts">
+            <span class="count-chip">今日复习 ${strong ? 8 : 12} 个</span>
+            <span class="count-chip ${strong ? "warning" : ""}">没记住 ${strong ? 6 : 3} 个</span>
+          </div>`;
+      }
+
+      function storyIntro(state, withAction = true) {
+        const strong = state === "strong";
+        return `
+          <div class="story-head">
+            <div>
+              <p class="story-eyebrow">${strong ? "建议现在巩固" : "可选的下一步"}</p>
+              <h2 class="story-title">${strong ? "今天忘记的词有点多" : "把今天的词串成一个短故事"}</h2>
+              <p class="story-description">${
+                strong
+                  ? "用 3-5 个薄弱词生成一则短故事，换一个语境再见它们一次。"
+                  : "用今天复习过的词生成一则短故事。只有点击后才会调用 AI。"
+              }</p>
+            </div>
+            ${state === "cached" ? '<span class="cache-label">今日已生成</span>' : ""}
+          </div>
+          ${counts(state)}
+          <div class="word-chips" aria-label="故事目标词">
+            <span class="word-chip">hésiter</span>
+            <span class="word-chip">parapluie</span>
+            <span class="word-chip">quai</span>
+            <span class="word-chip">sourire</span>
+          </div>
+          ${withAction ? `
+            <div class="button-row">
+              <button class="btn" type="button" data-action="generate">
+                ${strong ? "现在生成短故事" : "生成短故事"}
+              </button>
+            </div>` : ""}`;
+      }
+
+      function storyState(state) {
+        if (state === "loading") {
+          return `
+            ${storyIntro("normal", false)}
+            <div class="loading-box"><span class="spinner"></span>正在整理今天的薄弱词并生成故事…</div>
+            <div class="button-row">
+              <a class="btn secondary" href="#" data-action="library">不等了，回到词库</a>
+            </div>`;
+        }
+        if (state === "error") {
+          return `
+            ${storyIntro("normal", false)}
+            <div class="error-box">
+              短故事暂时没有生成成功。复习结果已经保存，不受影响。
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-action="generate">再试一次</button>
+              <a class="btn secondary" href="#" data-action="library">回到词库</a>
+            </div>`;
+        }
+        if (state === "ready" || state === "cached") {
+          return `
+            ${storyIntro(state, false)}
+            <div class="story-copy">
+              <h3>Le quai sous la pluie</h3>
+              <p>Sur le <mark>quai</mark>, Léo a commencé à <mark>hésiter</mark>.
+                Il avait oublié son <mark>parapluie</mark>, mais le <mark>sourire</mark>
+                d'une voyageuse lui a donné le courage de monter dans le train.</p>
+              <p class="translation">在站台上，莱奥开始犹豫。他忘了带伞，但一位旅客的微笑给了他登上火车的勇气。</p>
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-action="write">用其中一个词写一句</button>
+              <a class="btn secondary" href="#" data-action="library">回到词库</a>
+            </div>`;
+        }
+        return storyIntro(state);
+      }
+
+      function renderA(state) {
+        const silent = state === "silent";
+        return `
+          <div class="variant-a">
+            <article class="completion-card">
+              <div class="completion-icon" aria-hidden="true">
+                <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6 9 17l-5-5"></path>
+                </svg>
+              </div>
+              <h2 class="completion-title">今天没有到期的词了</h2>
+              <p class="completion-copy">这一轮已经完成。忘记的词会在稍后重新出现。</p>
+              ${silent ? "" : `<section class="story-panel ${state === "strong" ? "strong" : ""}">${storyState(state)}</section>`}
+              <div class="button-row">
+                <a class="btn secondary" href="#" data-action="library">回到词库</a>
+              </div>
+            </article>
+          </div>`;
+      }
+
+      function renderB(state) {
+        return `
+          <div class="variant-b">
+            ${completionCard()}
+            ${state === "silent"
+              ? `<article class="story-panel">
+                   <p class="story-eyebrow">今天先到这里</p>
+                   <h2 class="story-title">短故事暂不出现</h2>
+                   <p class="story-description">复习词不足 10 个，且遗忘词没有超过 5 个。完成状态保持安静。</p>
+                 </article>`
+              : `<article class="story-panel ${state === "strong" ? "strong" : ""}">${storyState(state)}</article>`}
+          </div>`;
+      }
+
+      function receiptSummary(state) {
+        const strong = state === "strong";
+        return `
+          <div class="receipt-summary">
+            <div class="receipt-icon" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path>
+              </svg>
+            </div>
+            <div>
+              <h2 class="receipt-title">${strong ? "6 个遗忘词值得再见一次" : "今天的词，可以换个语境再见一次"}</h2>
+              <p class="receipt-copy">${strong ? "建议现在生成一则短故事，但你也可以直接离开。" : "可选：用 3-5 个复习词生成短故事。"}</p>
+            </div>
+            <button class="btn" type="button" data-action="generate">${strong ? "现在巩固" : "生成故事"}</button>
+          </div>`;
+      }
+
+      function renderC(state) {
+        if (state === "silent") {
+          return `<div class="variant-c">${completionCard(true)}</div>`;
+        }
+        const resultState = ["loading", "error", "ready", "cached"].includes(state);
+        return `
+          <div class="variant-c">
+            ${completionCard(true)}
+            <section class="receipt-panel ${state === "strong" ? "strong" : ""}">
+              ${resultState ? "" : receiptSummary(state)}
+              ${resultState ? `<article class="story-panel">${storyState(state)}</article>` : ""}
+            </section>
+          </div>`;
+      }
+
+      function render() {
+        const { variant, state } = params();
+        clearTimeout(loadingTimer);
+        root.className = `prototype-variant-${variant.toLowerCase()}`;
+        root.innerHTML = variant === "A" ? renderA(state) : variant === "B" ? renderB(state) : renderC(state);
+        variantLabel.textContent = `${variant} — ${variants[variant]}`;
+        stateSelect.value = state;
+      }
+
+      function cycleVariant(direction) {
+        const { variant } = params();
+        const keys = Object.keys(variants);
+        const index = keys.indexOf(variant);
+        updateUrl({ variant: keys[(index + direction + keys.length) % keys.length] });
+      }
+
+      function showToast(message) {
+        document.querySelector(".toast")?.remove();
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2400);
+      }
+
+      document.getElementById("variant-prev").addEventListener("click", () => cycleVariant(-1));
+      document.getElementById("variant-next").addEventListener("click", () => cycleVariant(1));
+      stateSelect.addEventListener("change", (event) => updateUrl({ state: event.target.value }));
+      document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.documentElement;
+        html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+      });
+
+      document.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (!action) return;
+        event.preventDefault();
+        if (action === "generate") {
+          updateUrl({ state: "loading" });
+          loadingTimer = setTimeout(() => updateUrl({ state: "ready" }), 900);
+        } else if (action === "write") {
+          showToast("生产版会带着一个受校验的目标词进入现有造句页。");
+        } else if (action === "library") {
+          showToast("回词库始终可用，故事不会拦住完成流程。");
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const tag = document.activeElement?.tagName;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || document.activeElement?.isContentEditable) return;
+        if (event.key === "ArrowLeft") cycleVariant(-1);
+        if (event.key === "ArrowRight") cycleVariant(1);
+      });
+
+      window.addEventListener("popstate", render);
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -7,6 +7,12 @@
 > B10「双向伙伴确认」、B11「反馈人工拆分为多候选词」与 B12「AI 词语建议」已完成；手动闭环与 AI 增强
 > 已通过自动化测试，等待真实语言交换继续验证产品成功标准。
 > 取代：2026-06-22 旧版「实时协作输入板 / guest / WebSocket room」方案。
+>
+> **后续设计覆盖说明（2026-07-19）**：本文件第 B7/B11/B12 节记录已经上线的历史实现，其中
+> `source_example` 承载完整反馈正文是现状，不是下一版目标。后续开发以
+> `docs/wayfinder/2026-07-19-next-stage-roadmap/resolved/09-sessionpad-context-model.md` 和
+> `10-sessionpad-candidate-review-prototype.md` 为准：新 SessionPad 候选改用可空的短语境字段，完整来源、
+> 候选语境和最终例句分离，语境不得自动成为例句。
 
 ## 一句话定义
 

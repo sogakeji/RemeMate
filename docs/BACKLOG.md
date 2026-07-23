@@ -5,6 +5,20 @@
 
 ---
 
+## 已决下一阶段实施队列
+
+权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
+`resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
+
+1. **Review story + post-review output v1**：恢复环境 PostgreSQL 闸门全绿后，从干净 master 创建
+   `feature/review-story-v1`；第一刀只做 RS1 数据、RLS、日内摘要和确定性选词，不调用 AI、不做 UI。
+2. **SessionPad context-bearing candidate v1**：故事分支合并后串行开发；分离完整来源、候选短语境和
+   最终例句，采用 SessionPad 专属单候选聚焦审核。
+3. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
+   Discord 自动发布。
+
+当前恢复 master 的六项安全/数据可信度修复仍优先于以上功能的生产发布。
+
 ## 上线前必做（开放注册 / 部署前）
 
 - **按 token 计的额度硬约束 + 额度并发 TOCTOU**

@@ -21,6 +21,8 @@ The root `AGENTS.md` contains the shortest operating protocol.
 | `daily-task-card.md` | Daily task card v1/v2 design and implementation notes. |
 | `THIRD_PARTY.md` | Third-party data and dependency notes, especially dictionary provenance. |
 | `strategy/2026-07-09-three-month-focus.md` | Three-month product direction anchor and prioritization filter. |
+| `wayfinder/2026-07-19-next-stage-roadmap/MAP.md` | Completed route: review story, SessionPad context candidates, and privacy-safe observation. |
+| `recovery-validation-2026-07-22.md` | 2026-07-22 GCP Ubuntu recovery-gate validation report (migrations, RLS, six fixes, pytest, doctor). |
 
 ## Plans And Specs
 
@@ -33,6 +35,10 @@ Use these only when the task touches that subsystem.
 | `superpowers/plans/2026-07-03-lute-reading-mvp.md` | Reading collection implementation plan context. |
 | `superpowers/specs/2026-07-03-lute-reading-mvp-design.md` | Reading collection design context. |
 | `arch/` | Architecture notes, if present and relevant to the task. |
+| `wayfinder/2026-07-19-next-stage-roadmap/resolved/08-story-generation-contract.md` | Multilingual story provider, validation, cache, retry, and writing-handoff contract. |
+| `wayfinder/2026-07-19-next-stage-roadmap/resolved/09-sessionpad-context-model.md` | SessionPad source/context/example model and downgrade rules. |
+| `wayfinder/2026-07-19-next-stage-roadmap/resolved/10-sessionpad-candidate-review-prototype.md` | Chosen focused candidate-review UI contract. |
+| `wayfinder/2026-07-19-next-stage-roadmap/resolved/11-observation-and-final-implementation-roadmap.md` | Code-ready branches, migrations, tests, deployment, metrics, and stop gates. |
 
 ## Archive
 
