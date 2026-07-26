@@ -21,6 +21,13 @@
 - 当前迁移 head：`f1a2b3c4d5e6`，单一 head。
 - 下一阶段是 **RS3：复习回执与写作交接**。仓库没有 `RS3-C` 票；开始编码前先从已决 RS3
   边界拆出第一张小票。
+- **RS3 第一张小票：复习完成回执与按需生成。**
+  - 首页和兼容 `/review` 的完成态共用同一独立回执；silent 日完全不渲染，normal/strong
+    只展示各自说明与生成按钮。
+  - 只有用户点击 HTMX POST 后才调用 RS2-C 编排；ready/cached/error/pending 都返回到回执内部，
+    不改变复习完成卡和“回到词库”入口。
+  - 本票的公开测试边界是完成态 HTTP 响应与生成 POST；不接 `/write`，不记录 writing handoff
+    或 output saved，不增加故事历史、发布、图片或第二编辑器。
 - RS2-C 没有增加路由或 UI；故事历史、发布、图片和第二编辑器仍不做，清理 CLI 留到 RS4。
 - 工作区另有 `.reme/`、`_hexdump_keys.js`、`_hexdump_kitty.js` 未跟踪文件，与功能无关，
   不得加入提交。
