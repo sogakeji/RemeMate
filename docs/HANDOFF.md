@@ -29,11 +29,21 @@
   - GCP 验收：定向 **81 passed**，全量 **613 passed, 16 warnings**；桌面 1440px 与移动端
     390px dark mode 真浏览器通过，页面加载不自动调用 AI，重复点击命中缓存，失败留在回执内部。
     migration 保持单一 head `f1a2b3c4d5e6`；strict doctor 非 0 仅因测试机缺 LLM/词典。
-- 下一张 RS3 小票是**从已生成故事进入现有 `/write` 的显式写作交接**。开始前必须先固定：
-  用户点击后携带哪些最小故事字段、如何预填但不自动保存，以及 writing handoff / output saved
-  两个漏斗事件的记录时机。故事历史、发布、图片和第二编辑器仍不做，清理 CLI 留到 RS4。
-- 工作区另有 `.reme/`、`_hexdump_keys.js`、`_hexdump_kitty.js` 未跟踪文件，与功能无关，
-  不得加入提交。
+- **RS3 第二张小票“从复习故事显式交接到现有写作页”已完成并提交：`132fca2`。**
+  - ready/cached 回执中的目标词按钮只提交 `story_run_id + term_key`；服务端重新校验当前用户、
+    ready 状态、有效期、目标语言和词条所有权，URL、session 与 OutputEntry 均不携带故事正文。
+  - 进入 `/write` 后使用用户明确点击的目标词，输入框保持为空；批改不保存，只有显式保存成功后
+    才记录 `story_output_saved`。重复保存不重复创建 OutputEntry 或事件，观测事件异常不阻断交接
+    与业务保存。
+  - GCP 验收：定向 **93 passed**，全量 **618 passed, 16 warnings**；桌面 1440px 与移动端
+    390px dark mode 真浏览器通过，无横向溢出。migration 保持单一 head `f1a2b3c4d5e6`，
+    `git diff --check` 通过；strict doctor 非 0 仍仅因测试机缺 LLM/词典。
+- **RS3 已完成。** 仍不增加故事历史、发布、图片或第二编辑器；这些不是本阶段的隐含尾项。
+- 下一阶段进入 **RS4 收尾**。先定义最小收尾票，范围只包含故事过期数据清理入口、运维/发布说明、
+  最终 i18n 与浏览器回归，不继续扩展产品功能；通过后再评估合并 `master` 与闭测部署。
+- 工作区另有 `docs/README.md` 修改，以及 `.reme/`、`NUL`、`_hexdump_keys.js`、
+  `_hexdump_kitty.js`、`docs/arch/review-2026-07-26-dead-code-and-refactor-audit.md` 未跟踪内容，
+  均与本票无关，不得加入 RS3 提交。
 
 ## 2026-07-22 丢盘恢复闸门
 
