@@ -3135,3 +3135,26 @@ textarea.form-control {
         flex-direction: column;
     }
 }
+
+.review-story-term-form {
+    margin: 0;
+}
+
+button.review-story-term {
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+button.review-story-term:hover,
+button.review-story-term:focus-visible {
+    border-color: var(--primary-color);
+}
+
+.review-story-term-action {
+    color: var(--primary-color);
+    font-weight: 600;
+}

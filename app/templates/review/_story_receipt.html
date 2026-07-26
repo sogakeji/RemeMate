@@ -70,9 +70,19 @@
             {% if sentence.terms %}
               <div class="review-story-terms" aria-label="{{ _('review.story.terms') }}">
                 {% for term in sentence.terms %}
-                  <span class="review-story-term">
-                    {{ term.target_form }} · {{ term.translation_form }}
-                  </span>
+                  <form class="review-story-term-form"
+                        method="post"
+                        action="{{ url_for('write.story_handoff') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="story_run_id" value="{{ story_decision.run_id }}">
+                    <input type="hidden" name="term_key" value="{{ term.key }}">
+                    <button class="review-story-term"
+                            type="submit"
+                            title="{{ _('review.story.use_term') }}">
+                      <span>{{ term.target_form }} · {{ term.translation_form }}</span>
+                      <span class="review-story-term-action">{{ _('review.story.use_term') }}</span>
+                    </button>
+                  </form>
                 {% endfor %}
               </div>
             {% endif %}
