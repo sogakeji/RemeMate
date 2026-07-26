@@ -835,3 +835,538 @@ def test_review_logs_daily_index_exists(bypass_engine):
             "WHERE indexname='ix_review_logs_user_ts_word_grade'"
         )).scalar()
     assert exists == 1
+
+
+# ---------------------------------------------------------------------------
+# RS2-B public state-machine seam
+# ---------------------------------------------------------------------------
+
+
+def test_claim_first_eligible_summary_returns_generation_lease(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import claim_review_story_run
+
+    uid = _seed_user(app, bypass_engine, "rs2b-first@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"lease-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        decision = claim_review_story_run(summary, now_utc=now)
+
+    assert decision.action == "generate"
+    assert decision.run_id > 0
+    assert decision.attempt_count == 1
+    assert decision.attempt_version == 1
+    assert decision.lease_expires_at == now + timedelta(seconds=60)
+    assert decision.story is None
+    assert decision.error_code is None
+
+
+def test_claim_active_pending_returns_same_run_without_new_attempt(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import claim_review_story_run
+
+    uid = _seed_user(app, bypass_engine, "rs2b-pending@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"pending-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = claim_review_story_run(summary, now_utc=now)
+        second = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=30),
+        )
+
+    assert second.action == "pending"
+    assert second.run_id == first.run_id
+    assert second.attempt_count == 1
+    assert second.attempt_version == 1
+    assert second.lease_expires_at == first.lease_expires_at
+
+
+def _successful_story_attempt():
+    from app.services.review_story_generation import (
+        ReviewStoryAttemptResult,
+        ReviewStorySentence,
+        ReviewStoryTermAnchor,
+        ReviewStoryText,
+        ValidatedReviewStory,
+    )
+
+    story = ValidatedReviewStory(
+        title=ReviewStoryText(target="Une journée", translation="一天"),
+        sentences=(
+            ReviewStorySentence(
+                target="Je vois mot-un.",
+                translation="我看见词一。",
+                terms=(ReviewStoryTermAnchor("t1", "mot-un", "词一"),),
+            ),
+            ReviewStorySentence(
+                target="Je vois mot-deux.",
+                translation="我看见词二。",
+                terms=(ReviewStoryTermAnchor("t2", "mot-deux", "词二"),),
+            ),
+            ReviewStorySentence(
+                target="Je vois mot-trois.",
+                translation="我看见词三。",
+                terms=(ReviewStoryTermAnchor("t3", "mot-trois", "词三"),),
+            ),
+            ReviewStorySentence(
+                target="Je vois mot-quatre et mot-cinq.",
+                translation="我看见词四和词五。",
+                terms=(
+                    ReviewStoryTermAnchor("t4", "mot-quatre", "词四"),
+                    ReviewStoryTermAnchor("t5", "mot-cinq", "词五"),
+                ),
+            ),
+        ),
+    )
+    return ReviewStoryAttemptResult(
+        story=story,
+        error_code=None,
+        prompt_tokens=120,
+        completion_tokens=80,
+        provider="fake",
+        model="fake-story",
+    )
+
+
+def test_complete_success_then_claim_returns_cached_story(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import (
+        claim_review_story_run,
+        complete_review_story_run,
+    )
+
+    uid = _seed_user(app, bypass_engine, "rs2b-cache@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"cache-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    attempt = _successful_story_attempt()
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        lease = claim_review_story_run(summary, now_utc=now)
+        applied = complete_review_story_run(
+            user_id=uid,
+            run_id=lease.run_id,
+            attempt_version=lease.attempt_version,
+            result=attempt,
+            now_utc=now + timedelta(seconds=5),
+        )
+        cached = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=10),
+        )
+
+    assert applied is True
+    assert cached.action == "cached"
+    assert cached.run_id == lease.run_id
+    assert cached.attempt_count == 1
+    assert cached.attempt_version == 1
+    assert cached.lease_expires_at is None
+    assert cached.story == attempt.story
+    assert cached.error_code is None
+
+
+def _failed_story_attempt(error_code="invalid_json"):
+    from app.services.review_story_generation import ReviewStoryAttemptResult
+
+    return ReviewStoryAttemptResult(
+        story=None,
+        error_code=error_code,
+        prompt_tokens=40,
+        completion_tokens=10,
+        provider="fake",
+        model="fake-story",
+    )
+
+
+def test_failed_run_allows_only_one_explicit_retry(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import (
+        claim_review_story_run,
+        complete_review_story_run,
+    )
+
+    uid = _seed_user(app, bypass_engine, "rs2b-retry@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"retry-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = claim_review_story_run(summary, now_utc=now)
+        first_applied = complete_review_story_run(
+            user_id=uid,
+            run_id=first.run_id,
+            attempt_version=first.attempt_version,
+            result=_failed_story_attempt(),
+            now_utc=now + timedelta(seconds=5),
+        )
+        without_retry = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=10),
+        )
+        retry = claim_review_story_run(
+            summary,
+            retry_requested=True,
+            now_utc=now + timedelta(seconds=15),
+        )
+        second_applied = complete_review_story_run(
+            user_id=uid,
+            run_id=retry.run_id,
+            attempt_version=retry.attempt_version,
+            result=_failed_story_attempt("provider_unavailable"),
+            now_utc=now + timedelta(seconds=20),
+        )
+        exhausted = claim_review_story_run(
+            summary,
+            retry_requested=True,
+            now_utc=now + timedelta(seconds=25),
+        )
+
+    assert first_applied is True
+    assert without_retry.action == "failed"
+    assert without_retry.run_id == first.run_id
+    assert without_retry.attempt_count == 1
+    assert without_retry.attempt_version == 1
+    assert without_retry.error_code == "invalid_json"
+
+    assert retry.action == "generate"
+    assert retry.run_id == first.run_id
+    assert retry.attempt_count == 2
+    assert retry.attempt_version == 2
+    assert retry.lease_expires_at == now + timedelta(seconds=75)
+    assert retry.error_code is None
+
+    assert second_applied is True
+    assert exhausted.action == "failed"
+    assert exhausted.run_id == first.run_id
+    assert exhausted.attempt_count == 2
+    assert exhausted.attempt_version == 2
+    assert exhausted.lease_expires_at is None
+    assert exhausted.error_code == "provider_unavailable"
+
+
+def test_expired_lease_is_reclaimed_once_then_exhausted(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import claim_review_story_run
+
+    uid = _seed_user(app, bypass_engine, "rs2b-expired@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"expired-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = claim_review_story_run(summary, now_utc=now)
+        reclaimed = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=61),
+        )
+        exhausted = claim_review_story_run(
+            summary,
+            retry_requested=True,
+            now_utc=now + timedelta(seconds=122),
+        )
+        still_exhausted = claim_review_story_run(
+            summary,
+            retry_requested=True,
+            now_utc=now + timedelta(seconds=183),
+        )
+
+    assert first.action == "generate"
+    assert first.attempt_count == 1
+    assert first.attempt_version == 1
+
+    assert reclaimed.action == "generate"
+    assert reclaimed.run_id == first.run_id
+    assert reclaimed.attempt_count == 2
+    assert reclaimed.attempt_version == 2
+    assert reclaimed.lease_expires_at == now + timedelta(seconds=121)
+
+    assert exhausted.action == "failed"
+    assert exhausted.run_id == first.run_id
+    assert exhausted.attempt_count == 2
+    assert exhausted.attempt_version == 2
+    assert exhausted.lease_expires_at is None
+    assert exhausted.error_code == "lease_expired"
+
+    assert still_exhausted.action == "failed"
+    assert still_exhausted.attempt_count == 2
+    assert still_exhausted.attempt_version == 2
+    assert still_exhausted.error_code == "lease_expired"
+
+
+def test_stale_attempt_cannot_overwrite_reclaimed_attempt(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import (
+        claim_review_story_run,
+        complete_review_story_run,
+    )
+
+    uid = _seed_user(app, bypass_engine, "rs2b-stale@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"stale-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    success = _successful_story_attempt()
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = claim_review_story_run(summary, now_utc=now)
+        second = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=61),
+        )
+        stale_applied = complete_review_story_run(
+            user_id=uid,
+            run_id=first.run_id,
+            attempt_version=first.attempt_version,
+            result=success,
+            now_utc=now + timedelta(seconds=62),
+        )
+        while_second_pending = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=63),
+        )
+        current_applied = complete_review_story_run(
+            user_id=uid,
+            run_id=second.run_id,
+            attempt_version=second.attempt_version,
+            result=success,
+            now_utc=now + timedelta(seconds=64),
+        )
+        cached = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=65),
+        )
+
+    assert first.attempt_version == 1
+    assert second.attempt_version == 2
+    assert stale_applied is False
+    assert while_second_pending.action == "pending"
+    assert while_second_pending.attempt_version == 2
+    assert current_applied is True
+    assert cached.action == "cached"
+    assert cached.attempt_count == 2
+    assert cached.attempt_version == 2
+    assert cached.story == success.story
+
+
+def test_concurrent_first_claim_returns_one_generate_and_one_pending(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import claim_review_story_run
+
+    uid = _seed_user(app, bypass_engine, "rs2b-race@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"race-claim-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+
+    barrier = Barrier(2)
+    results = []
+
+    def worker():
+        from flask import g
+
+        with app.test_request_context("/"):
+            g.rls_uid = uid
+            barrier.wait(timeout=10)
+            decision = claim_review_story_run(summary, now_utc=now)
+            return (
+                decision.action,
+                decision.run_id,
+                decision.attempt_count,
+                decision.attempt_version,
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(worker) for _ in range(2)]
+        for future in futures:
+            results.append(future.result(timeout=30))
+
+    actions = sorted(result[0] for result in results)
+    run_ids = {result[1] for result in results}
+    attempts = {(result[2], result[3]) for result in results}
+
+    assert actions == ["generate", "pending"]
+    assert len(run_ids) == 1
+    assert attempts == {(1, 1)}
+
+
+def test_cross_user_cannot_complete_review_story_run(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import (
+        claim_review_story_run,
+        complete_review_story_run,
+    )
+
+    owner = _seed_user(app, bypass_engine, "rs2b-owner@t.com", tz="UTC")
+    peer = _seed_user(app, bypass_engine, "rs2b-peer@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, owner, f"owner-{i}")
+        _log(
+            bypass_engine,
+            owner,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(owner)
+        summary = get_daily_review_story_summary(owner, local_date=day)
+        lease = claim_review_story_run(summary, now_utc=now)
+
+        _set_rls_uid(peer)
+        spoofed = complete_review_story_run(
+            user_id=owner,
+            run_id=lease.run_id,
+            attempt_version=lease.attempt_version,
+            result=_successful_story_attempt(),
+            now_utc=now + timedelta(seconds=5),
+        )
+
+        _set_rls_uid(owner)
+        still_pending = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=10),
+        )
+
+    assert spoofed is False
+    assert still_pending.action == "pending"
+    assert still_pending.run_id == lease.run_id
+    assert still_pending.attempt_version == lease.attempt_version
+
+
+def test_completion_after_lease_expiry_is_rejected_before_reclaim(
+    app, bypass_engine,
+):
+    from app.services.review_story_state import (
+        claim_review_story_run,
+        complete_review_story_run,
+    )
+
+    uid = _seed_user(app, bypass_engine, "rs2b-late@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"late-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.app_context():
+        _set_rls_uid(uid)
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = claim_review_story_run(summary, now_utc=now)
+        late_applied = complete_review_story_run(
+            user_id=uid,
+            run_id=first.run_id,
+            attempt_version=first.attempt_version,
+            result=_successful_story_attempt(),
+            now_utc=now + timedelta(seconds=61),
+        )
+        reclaimed = claim_review_story_run(
+            summary,
+            now_utc=now + timedelta(seconds=62),
+        )
+
+    assert late_applied is False
+    assert reclaimed.action == "generate"
+    assert reclaimed.run_id == first.run_id
+    assert reclaimed.attempt_count == 2
+    assert reclaimed.attempt_version == 2
