@@ -103,7 +103,7 @@ def get_daily_review_story_summary(
     """Build today's summary from trusted user settings and owned review data.
 
     ``local_date`` exists for deterministic tests and maintenance tooling. A
-    future request route must not accept it from the client.
+    request routes must never accept it from the client.
     """
     user = db.session.get(User, user_id)
     if user is None:

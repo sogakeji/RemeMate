@@ -16,6 +16,7 @@ from app.extensions import db
 from app.i18n import (SUPPORTED_UI_LOCALES, get_ui_locale, set_ui_locale,
                       translate as _)
 from app.services import words as words_svc
+from app.services import review_stories as review_stories_svc
 
 bp = Blueprint("main", __name__)
 
@@ -57,12 +58,25 @@ def index():
     if lang is not None:
         due = words_svc.get_due_words(current_user.id, limit=1, language_code=lang)
         word = due[0] if due else None
-    return render_template("main/index.html", user=current_user, word=word,
-                           current_language=lang,
-                           lang_choices=words_svc._LANGUAGE_NAMES,
-                           previous_available=_has_previous_review_word(
-                               current_user.id, lang, word),
-                           stats=words_svc.get_stats(current_user.id))
+    review_story_summary = (
+        review_stories_svc.get_daily_review_story_summary(current_user.id)
+        if lang is not None and word is None
+        else None
+    )
+    return render_template(
+        "main/index.html",
+        user=current_user,
+        word=word,
+        current_language=lang,
+        lang_choices=words_svc._LANGUAGE_NAMES,
+        previous_available=_has_previous_review_word(
+            current_user.id,
+            lang,
+            word,
+        ),
+        review_story_summary=review_story_summary,
+        stats=words_svc.get_stats(current_user.id),
+    )
 
 
 @bp.post("/language/switch")
