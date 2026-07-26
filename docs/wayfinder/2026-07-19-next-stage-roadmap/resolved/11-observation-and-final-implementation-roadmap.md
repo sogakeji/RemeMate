@@ -168,10 +168,11 @@ PostgreSQL 验证闸门。
 本节只记录实施进度，不改写上方已决边界：
 
 - `feature/review-story-v1` 已创建。
-- RS1 数据/RLS/日内摘要、RS2-A 多语言生成契约、RS2-B 事务状态机均已提交并通过 GCP PostgreSQL
-  验收；当前迁移 head 为 `f1a2b3c4d5e6`。
-- 下一票是 RS2-C：组合 claim → 单次 provider attempt → complete，记录实际 token 与
-  `learning_funnel_events` 白名单事件；仍不增加路由或 UI。
-- RS3 保持“复习回执与写作交接”的阶段名，不再拆出一个名为 `RS3-C` 的票。
+- RS1 数据/RLS/日内摘要、RS2-A 多语言生成契约、RS2-B 事务状态机、RS2-C provider 编排/token/
+  无正文漏斗事件均已提交并通过 GCP PostgreSQL 验收；当前迁移 head 为 `f1a2b3c4d5e6`。
+- RS2-C 提交 `e800ef0`；定向 52 passed、两条并发路径各连续 5/5、全量
+  607 passed。测试机 strict doctor 仅因 provider/词典资产缺失非 0。
+- 下一阶段是 RS3“复习回执与写作交接”；不拆出名为 `RS3-C` 的票，先基于已决边界定义第一张
+  可验收小票，再开始路由/UI。
 - 当前状态的权威入口仍是 `docs/HANDOFF.md`。
 

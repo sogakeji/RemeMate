@@ -10,9 +10,9 @@ This directory is intentionally split into a small active layer and a historical
 4. Task-specific docs only when the current request names that area.
 
 The root `AGENTS.md` contains the shortest operating protocol.
-Current active work is `feature/review-story-v1`: RS1, RS2-A, and RS2-B are committed; the next ticket is
-RS2-C provider orchestration. Read `HANDOFF.md` before the Wayfinder documents because the latter preserve
-design decisions and are not the live Git status.
+Current active work is `feature/review-story-v1`: RS1 through RS2-C are committed; the next phase is RS3
+review receipt/UI and validated writing handoff. Read `HANDOFF.md` before the Wayfinder documents because
+the latter preserve design decisions and are not the live Git status.
 
 ## Active Docs
 

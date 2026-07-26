@@ -32,9 +32,10 @@
 
 - 地图完成，无开放规划票文件；以下为 2026-07-26 实施状态。
 - 产品下一阶段顺序为 review story、SessionPad context candidates、closed-beta observation。
-- `feature/review-story-v1` 已完成 RS1 数据地基、RS2-A 生成契约和 RS2-B 事务状态机。
-- 下一票是 RS2-C provider 编排、token 与无正文漏斗事件；随后是 RS3 复习回执/写作交接和
-  RS4 收口。不存在名为 `RS3-C` 的独立票。
+- `feature/review-story-v1` 已完成 RS1 数据地基、RS2-A 生成契约、RS2-B 事务状态机和
+  RS2-C provider 编排/token/无正文事件。
+- 下一阶段是 RS3 复习回执/写作交接，随后是 RS4 收口。不存在名为 `RS3-C` 的独立票；
+  开始编码前先拆第一张 RS3 小票。
 - 生产仍未部署恢复修复或 Review Story；不得绕过目标环境 PostgreSQL、全量测试和 doctor 闸门。
 
 ## Out of scope

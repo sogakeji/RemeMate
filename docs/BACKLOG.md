@@ -10,9 +10,9 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **Review story + post-review output v1（进行中）**：`feature/review-story-v1` 已完成 RS1、
-   RS2-A 和 RS2-B。下一票为 RS2-C provider 编排、token 记账与无正文漏斗事件；之后才进入
-   RS3 复习回执/写作交接和 RS4 收口。不要把 RS2-C 误写为不存在的 `RS3-C`，也不要提前做 UI。
+1. **Review story + post-review output v1（进行中）**：`feature/review-story-v1` 已完成 RS1
+   至 RS2-C；下一阶段为 RS3 复习回执/写作交接，之后是 RS4 收口。仓库不存在 `RS3-C`
+   独立票；开始 RS3 前先拆小票，不扩故事历史、发布、图片或第二编辑器。
 2. **SessionPad context-bearing candidate v1**：故事分支合并后串行开发；分离完整来源、候选短语境和
    最终例句，采用 SessionPad 专属单候选聚焦审核。
 3. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或

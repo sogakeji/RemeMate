@@ -8,14 +8,20 @@
   - RS1 数据/RLS/日内摘要地基：`222d7c0`，PostgreSQL 验收补强为 `f0d90e8`、`c761902`；
   - RS2-A 多语言生成契约：`c07ff42`；
   - RS2-B 事务状态机：`e6f926e`，包含 pending lease、唯一输入并发、两次逻辑尝试、
-    ready cache、attempt version 防旧 worker 覆盖及跨用户 RLS。
+    ready cache、attempt version 防旧 worker 覆盖及跨用户 RLS；
+  - RS2-C provider 编排、token 记账与无正文漏斗事件：`e800ef0`。只有拿到 generation lease
+    才调用一次 provider；缓存、pending 和已有失败不调用 AI，观测或记账失败不重开生成。
 - RS2-B 的 GCP 复验已全绿。曾出现的第五次并发失败来自裸 `app_context` 把 session 级 GUC
   留在连接池中的错误测试模型；并发测试已改走真实 `request_context + after_begin` RLS 注入路径，
   生产状态机没有因此修改。
+- RS2-C GCP 验收：定向 **52 passed**，state claim 与 orchestration/provider-once 两条并发路径
+  各连续 **5/5 passed**，全量 **607 passed, 16 warnings**；migration 单一 head
+  `f1a2b3c4d5e6`。测试机缺 LLM provider 与 `zh/en/ja/fr` 词典使 strict doctor 非 0，
+  DB/dispatch/migrate/keys/admin 均 OK，此环境例外不视为生产发布闸门通过。
 - 当前迁移 head：`f1a2b3c4d5e6`，单一 head。
-- 下一张代码票是 **RS2-C：provider 编排、token 记账与无正文漏斗事件**。仓库没有
-  `RS3-C` 票；RS3 是后续“复习回执与写作交接”阶段。
-- RS2-C 不增加路由或 UI，不实现故事历史、发布、图片、清理 CLI 或写作交接。
+- 下一阶段是 **RS3：复习回执与写作交接**。仓库没有 `RS3-C` 票；开始编码前先从已决 RS3
+  边界拆出第一张小票。
+- RS2-C 没有增加路由或 UI；故事历史、发布、图片和第二编辑器仍不做，清理 CLI 留到 RS4。
 - 工作区另有 `.reme/`、`_hexdump_keys.js`、`_hexdump_kitty.js` 未跟踪文件，与功能无关，
   不得加入提交。
 
