@@ -1,16 +1,14 @@
-"""RS1 integration: daily summary aggregation, RLS, constraints, migration head.
+"""Review-story integration: summary, generation, state, RLS, and observation.
 
-Covers local-day/cross-midnight, worst-grade dedupe, isolation, eligibility with
-real ReviewLog rows, main definition selection, provider-safe snapshots, hash
-stability/bust, FORCE RLS CRUD, unique conflicts, event-type whitelist.
-
-No AI providers, routes, or UI.
+Covers the provider-free data contract plus provider orchestration, transactional
+state, privacy-safe events, token accounting, and concurrency. No routes or UI.
 """
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import json
 from datetime import date, datetime, timedelta, timezone
-from threading import Barrier
+from threading import Barrier, Event
 
 import pytest
 from sqlalchemy import text
@@ -1370,3 +1368,670 @@ def test_completion_after_lease_expiry_is_rejected_before_reclaim(
     assert reclaimed.run_id == first.run_id
     assert reclaimed.attempt_count == 2
     assert reclaimed.attempt_version == 2
+
+
+# ---------------------------------------------------------------------------
+# RS2-C public orchestration and privacy-safe event seams
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_review_story_test_provider():
+    yield
+    from app.services import llm
+
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+
+def _valid_provider_story_json():
+    return json.dumps(
+        {
+            "title": {
+                "target": "Une journée",
+                "translation": "一天",
+            },
+            "sentences": [
+                {
+                    "target": "Je vois mot-un.",
+                    "translation": "我看见词一。",
+                    "terms": [
+                        {
+                            "key": "t1",
+                            "target_form": "mot-un",
+                            "translation_form": "词一",
+                        }
+                    ],
+                },
+                {
+                    "target": "Je vois mot-deux.",
+                    "translation": "我看见词二。",
+                    "terms": [
+                        {
+                            "key": "t2",
+                            "target_form": "mot-deux",
+                            "translation_form": "词二",
+                        }
+                    ],
+                },
+                {
+                    "target": "Je vois mot-trois.",
+                    "translation": "我看见词三。",
+                    "terms": [
+                        {
+                            "key": "t3",
+                            "target_form": "mot-trois",
+                            "translation_form": "词三",
+                        }
+                    ],
+                },
+                {
+                    "target": "Je vois mot-quatre et mot-cinq.",
+                    "translation": "我看见词四和词五。",
+                    "terms": [
+                        {
+                            "key": "t4",
+                            "target_form": "mot-quatre",
+                            "translation_form": "词四",
+                        },
+                        {
+                            "key": "t5",
+                            "target_form": "mot-cinq",
+                            "translation_form": "词五",
+                        },
+                    ],
+                },
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+
+def test_orchestrate_first_generation_returns_ready_and_records_observation(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    class Provider:
+        name = "fake-story"
+        calls = 0
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            return llm.LLMResult(
+                _valid_provider_story_json(),
+                13,
+                21,
+                self.name,
+                "story-model",
+            )
+
+    provider = Provider()
+    llm.set_registry({"general": [provider]})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-ready@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"orchestrate-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        outcome = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert outcome.action == "ready"
+    assert outcome.story is not None
+    assert outcome.error_code is None
+    assert provider.calls == 1
+    with bypass_engine.connect() as connection:
+        token_row = connection.execute(text(
+            "SELECT feature,prompt_tokens,completion_tokens "
+            "FROM token_usage_log WHERE user_id=:uid"
+        ), {"uid": uid}).one()
+        event_types = set(connection.execute(text(
+            "SELECT event_type FROM learning_funnel_events "
+            "WHERE user_id=:uid"
+        ), {"uid": uid}).scalars())
+    assert token_row == ("review_story", 13, 21)
+    assert event_types == {
+        "story_eligible_strong",
+        "story_generation_started",
+        "story_generation_ready",
+    }
+
+
+def test_orchestrate_cached_story_does_not_repeat_provider_or_tokens(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    class Provider:
+        name = "fake-story"
+        calls = 0
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            return llm.LLMResult(
+                _valid_provider_story_json(),
+                8,
+                12,
+                self.name,
+                "story-model",
+            )
+
+    provider = Provider()
+    llm.set_registry({"general": [provider]})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-cache@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"cache-orchestrate-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+        second = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 1),
+        )
+        third = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 2),
+        )
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert first.action == "ready"
+    assert second.action == "cached"
+    assert third.action == "cached"
+    assert provider.calls == 1
+    with bypass_engine.connect() as connection:
+        token_count = connection.execute(text(
+            "SELECT count(*) FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).scalar_one()
+        event_counts = dict(connection.execute(text(
+            "SELECT event_type,count(*) FROM learning_funnel_events "
+            "WHERE user_id=:uid GROUP BY event_type"
+        ), {"uid": uid}).all())
+    assert token_count == 1
+    assert event_counts["story_cache_hit"] == 1
+    assert event_counts["story_generation_started"] == 1
+    assert event_counts["story_generation_ready"] == 1
+
+
+def test_orchestrate_invalid_result_records_tokens_and_failed_event(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    class Provider:
+        name = "fake-invalid"
+
+        def call(self, messages, *, timeout, json_mode=False):
+            return llm.LLMResult(
+                '{"unexpected":true}',
+                7,
+                9,
+                self.name,
+                "invalid-model",
+            )
+
+    llm.set_registry({"general": [Provider()]})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-invalid@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"invalid-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        outcome = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert outcome.action == "failed"
+    assert outcome.story is None
+    assert outcome.error_code == "invalid_schema"
+    with bypass_engine.connect() as connection:
+        token_row = connection.execute(text(
+            "SELECT prompt_tokens,completion_tokens FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).one()
+        run_status = connection.execute(text(
+            "SELECT status,error_code FROM review_story_runs "
+            "WHERE user_id=:uid"
+        ), {"uid": uid}).one()
+        event_types = set(connection.execute(text(
+            "SELECT event_type FROM learning_funnel_events "
+            "WHERE user_id=:uid"
+        ), {"uid": uid}).scalars())
+    assert token_row == (7, 9)
+    assert run_status == ("failed", "invalid_schema")
+    assert "story_generation_failed" in event_types
+    assert "story_generation_ready" not in event_types
+
+
+def test_orchestrate_provider_unavailable_fails_without_token_log(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    llm.set_registry({"general": []})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-down@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"down-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        outcome = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert outcome.action == "failed"
+    assert outcome.story is None
+    assert outcome.error_code == "provider_unavailable"
+    with bypass_engine.connect() as connection:
+        token_count = connection.execute(text(
+            "SELECT count(*) FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).scalar_one()
+        run_status = connection.execute(text(
+            "SELECT status,error_code FROM review_story_runs "
+            "WHERE user_id=:uid"
+        ), {"uid": uid}).one()
+        event_types = set(connection.execute(text(
+            "SELECT event_type FROM learning_funnel_events "
+            "WHERE user_id=:uid"
+        ), {"uid": uid}).scalars())
+    assert token_count == 0
+    assert run_status == ("failed", "provider_unavailable")
+    assert event_types == {
+        "story_eligible_strong",
+        "story_generation_started",
+        "story_generation_failed",
+    }
+
+
+def test_record_review_story_event_is_idempotent_and_run_owned(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services.review_story_events import record_review_story_event
+    from app.services.review_story_state import claim_review_story_run
+
+    owner = _seed_user(app, bypass_engine, "rs2c-event-owner@t.com", tz="UTC")
+    peer = _seed_user(app, bypass_engine, "rs2c-event-peer@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, owner, f"event-{i}")
+        _log(
+            bypass_engine,
+            owner,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    now = datetime(2026, 7, 25, 10, 0, 0)
+    with app.test_request_context("/"):
+        g.rls_uid = owner
+        summary = get_daily_review_story_summary(owner, local_date=day)
+        lease = claim_review_story_run(summary, now_utc=now)
+        created = record_review_story_event(
+            user_id=owner,
+            run_id=lease.run_id,
+            event_type="story_generation_started",
+            attempt_version=lease.attempt_version,
+            occurred_at=now,
+        )
+        duplicate = record_review_story_event(
+            user_id=owner,
+            run_id=lease.run_id,
+            event_type="story_generation_started",
+            attempt_version=lease.attempt_version,
+            occurred_at=now + timedelta(seconds=1),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = peer
+        spoofed = record_review_story_event(
+            user_id=peer,
+            run_id=lease.run_id,
+            event_type="story_generation_started",
+            attempt_version=lease.attempt_version,
+            occurred_at=now,
+        )
+
+    assert created is True
+    assert duplicate is False
+    assert spoofed is False
+    with bypass_engine.connect() as connection:
+        rows = connection.execute(text(
+            "SELECT user_id,event_type FROM learning_funnel_events "
+            "WHERE event_type='story_generation_started'"
+        )).all()
+    assert rows == [(owner, "story_generation_started")]
+
+
+def test_orchestrate_failed_attempt_requires_explicit_single_retry(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    class Provider:
+        name = "fake-retry"
+        calls = 0
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            content = (
+                '{"unexpected":true}'
+                if self.calls == 1
+                else _valid_provider_story_json()
+            )
+            return llm.LLMResult(
+                content,
+                4,
+                6,
+                self.name,
+                "retry-model",
+            )
+
+    provider = Provider()
+    llm.set_registry({"general": [provider]})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-retry@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"retry-orchestrate-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+        without_retry = orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 1),
+        )
+        retry = orchestrate_review_story(
+            summary,
+            retry_requested=True,
+            now_utc=datetime(2026, 7, 25, 10, 0, 2),
+        )
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert first.action == "failed"
+    assert without_retry.action == "failed"
+    assert retry.action == "ready"
+    assert retry.attempt_count == 2
+    assert retry.attempt_version == 2
+    assert provider.calls == 2
+    with bypass_engine.connect() as connection:
+        token_count = connection.execute(text(
+            "SELECT count(*) FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).scalar_one()
+        event_counts = dict(connection.execute(text(
+            "SELECT event_type,count(*) FROM learning_funnel_events "
+            "WHERE user_id=:uid GROUP BY event_type"
+        ), {"uid": uid}).all())
+    assert token_count == 2
+    assert event_counts["story_generation_started"] == 2
+    assert event_counts["story_generation_failed"] == 1
+    assert event_counts["story_generation_ready"] == 1
+
+
+def test_concurrent_orchestration_calls_provider_once(
+    app, bypass_engine,
+):
+    from flask import g
+    from app.services import llm
+    from app.services.review_story_orchestration import orchestrate_review_story
+
+    class Provider:
+        name = "fake-concurrent"
+
+        def __init__(self):
+            self.calls = 0
+            self.started = Event()
+            self.release = Event()
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            self.started.set()
+            assert self.release.wait(timeout=10)
+            return llm.LLMResult(
+                _valid_provider_story_json(),
+                5,
+                7,
+                self.name,
+                "concurrent-model",
+            )
+
+    provider = Provider()
+    llm.set_registry({"general": [provider]})
+    llm.reset_breaker()
+    uid = _seed_user(app, bypass_engine, "rs2c-concurrent@t.com", tz="UTC")
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(bypass_engine, uid, f"concurrent-{i}")
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+
+    def first_request():
+        with app.test_request_context("/"):
+            g.rls_uid = uid
+            return orchestrate_review_story(
+                summary,
+                now_utc=datetime(2026, 7, 25, 10, 0, 0),
+            )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(first_request)
+        assert provider.started.wait(timeout=10)
+        with app.test_request_context("/"):
+            g.rls_uid = uid
+            pending = orchestrate_review_story(
+                summary,
+                now_utc=datetime(2026, 7, 25, 10, 0, 1),
+            )
+        provider.release.set()
+        ready = future.result(timeout=30)
+    llm.set_registry(None)
+    llm.reset_breaker()
+
+    assert pending.action == "pending"
+    assert ready.action == "ready"
+    assert pending.run_id == ready.run_id
+    assert provider.calls == 1
+    with bypass_engine.connect() as connection:
+        token_count = connection.execute(text(
+            "SELECT count(*) FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).scalar_one()
+    assert token_count == 1
+
+
+@pytest.mark.parametrize(
+    ("failing_side_effect", "expected_token_count"),
+    (("event", 1), ("usage", 0)),
+)
+def test_orchestration_side_effect_failure_does_not_reopen_generation(
+    app,
+    bypass_engine,
+    monkeypatch,
+    failing_side_effect,
+    expected_token_count,
+):
+    from flask import g
+    from app.services import llm
+    from app.services import review_story_orchestration as orchestration
+
+    class Provider:
+        name = "fake-side-effect"
+
+        def __init__(self):
+            self.calls = 0
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            return llm.LLMResult(
+                _valid_provider_story_json(),
+                3,
+                5,
+                self.name,
+                "side-effect-model",
+            )
+
+    def fail_observation(*args, **kwargs):
+        raise RuntimeError(f"{failing_side_effect} unavailable")
+
+    provider = Provider()
+    llm.set_registry({"general": [provider]})
+    llm.reset_breaker()
+    if failing_side_effect == "event":
+        monkeypatch.setattr(
+            orchestration,
+            "record_review_story_event",
+            fail_observation,
+        )
+    else:
+        monkeypatch.setattr(
+            orchestration.quota_svc,
+            "record_feature_usage",
+            fail_observation,
+        )
+
+    uid = _seed_user(
+        app,
+        bypass_engine,
+        f"rs2c-{failing_side_effect}-failure@t.com",
+        tz="UTC",
+    )
+    day = date(2026, 7, 25)
+    reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
+    for i in range(6):
+        word_id = _add_word(
+            bypass_engine,
+            uid,
+            f"{failing_side_effect}-failure-{i}",
+        )
+        _log(
+            bypass_engine,
+            uid,
+            word_id,
+            2,
+            ts=reviewed_at + timedelta(seconds=i),
+        )
+
+    with app.test_request_context("/"):
+        g.rls_uid = uid
+        summary = get_daily_review_story_summary(uid, local_date=day)
+        first = orchestration.orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 0),
+        )
+        second = orchestration.orchestrate_review_story(
+            summary,
+            now_utc=datetime(2026, 7, 25, 10, 0, 1),
+        )
+
+    assert first.action == "ready"
+    assert second.action == "cached"
+    assert first.run_id == second.run_id
+    assert provider.calls == 1
+    with bypass_engine.connect() as connection:
+        run_status = connection.execute(text(
+            "SELECT status FROM review_story_runs WHERE user_id=:uid"
+        ), {"uid": uid}).scalar_one()
+        token_count = connection.execute(text(
+            "SELECT count(*) FROM token_usage_log "
+            "WHERE user_id=:uid AND feature='review_story'"
+        ), {"uid": uid}).scalar_one()
+    assert run_status == "ready"
+    assert token_count == expected_token_count

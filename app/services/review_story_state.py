@@ -26,6 +26,7 @@ REVIEW_STORY_LEASE_SECONDS = 60
 ACTION_GENERATE = "generate"
 ACTION_PENDING = "pending"
 ACTION_CACHED = "cached"
+ACTION_READY = "ready"
 ACTION_FAILED = "failed"
 
 
