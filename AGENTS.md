@@ -13,34 +13,41 @@ Read these files in order before changing code:
 
 Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historical context for archaeology, not the working handoff.
 
-## Current Recovery Gate
+## Current Authority And Development State
 
 - The WSL2 virtual disk was lost on 2026-07-22. The recovered authoritative local repository is now
   `D:\home\RemeMate`.
 - Production remains at `1b72128`; do not push the local recovery commits to production without an explicit
   deploy decision. Production still lacks the six post-`1b72128` safety/data-trust fixes.
-- Local `master` contains six replayed safety/data-trust fixes after production:
+- Local `master` at `f795b4a` contains the six replayed safety/data-trust fixes after production:
   output-entry word ownership RLS, dedicated NSFW moderation, recoverable reciprocal partner confirmation,
   normalized word idempotency and uniqueness, and Web/Bark review-grade idempotency.
-- Local migration head is `e0f1a2b3c4d5`.
+- The active branch is `feature/review-story-v1`. It must not be merged, pushed, or deployed without an explicit
+  decision.
+- Review story progress:
+  - RS1 data/RLS/daily-summary foundation: `222d7c0`, with PostgreSQL validation follow-ups `f0d90e8` and
+    `c761902`.
+  - RS2-A multilingual provider contract: `c07ff42`.
+  - RS2-B transactional run state machine: `e6f926e`; GCP revalidation is green, including the corrected
+    request-context concurrency path.
+  - Next ticket: **RS2-C provider orchestration, token accounting, and privacy-safe funnel events**.
+    There is no ticket named `RS3-C`; RS3 is the later receipt/UI and writing-handoff phase.
+- Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
   One test-only SQL fix: `tests/integration/test_words.py` (`w.word, w.id`). No business code changes for
   that fix. `flask doctor --strict` on the test box: DB/migration/admin OK; LLM/dictionary WARN only.
   Full write-up: `docs/recovery-validation-2026-07-22.md`.
-- **pytest behavior gate is green**. Create `feature/review-story-v1` only after explicit user instruction.
 - `origin` points directly at the production working repository. Never push as part of ordinary local recovery work.
 
 ## Recovered Next-Stage Plan
 
 - The completed Wayfinder map was recovered to
   `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
-- Its decisions are code-ready but not implemented: first review story, then SessionPad context candidates, then the
-  private closed-beta observation panel. Keep their migrations serial to avoid Alembic forks.
-- The next feature branch, only after explicit user instruction (pytest recovery gate is already green), is
-  `feature/review-story-v1`.
-- The first code slice is RS1 only: story/cache/event schema, FORCE RLS, daily review summary, deterministic target
-  selection, and tests. Do not call AI or build UI in RS1.
+- The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
+  panel. Keep their migrations serial to avoid Alembic forks.
+- Review story RS1, RS2-A, and RS2-B are implemented. Continue with RS2-C only; do not jump to RS3 UI or start
+  the SessionPad migration branch early.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule

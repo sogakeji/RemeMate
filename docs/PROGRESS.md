@@ -169,3 +169,16 @@
 - Wayfinder 已完成，无开放规划票；恢复没有修改任何生产代码、模型或迁移。
 - 未来仍先满足六项安全修复的数据库验证闸门，再串行 review story、SessionPad context candidates、
   closed-beta observation，避免迁移分叉。
+
+### 2026-07-23 ~ 2026-07-26：Review Story RS1 至 RS2-B
+
+- 从恢复后干净 `master` 创建 `feature/review-story-v1`。
+- RS1 建立 `review_story_runs`、`learning_funnel_events`、FORCE RLS、日内摘要、确定性 3–5 词
+  快照与 input hash；迁移 head 为 `f1a2b3c4d5e6`。
+- RS2-A 完成 `review_story_v1` provider-safe 输入、固定双语 JSON、自然词形锚点、文字系统守卫、
+  稳定错误码和单次 provider 尝试，不产生数据库副作用。
+- RS2-B 完成事务状态机：首次 claim、60 秒租约、同输入并发唯一、ready cache、一次主动重试、
+  租约接管和 attempt version 防陈旧回写。
+- GCP PostgreSQL 验收全绿。并发复验曾暴露测试夹具把 session 级 RLS GUC 绑定到池连接的问题；
+  测试改为 request context 后稳定通过，生产状态机未因此改动。
+- RS2-B 提交为 `e6f926e`。下一票为 RS2-C provider 编排、token 与无正文漏斗事件；尚无路由/UI。

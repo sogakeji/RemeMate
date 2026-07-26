@@ -1,5 +1,24 @@
 # RemeMate HANDOFF
 
+## 2026-07-26 Review Story 开发状态
+
+- 当前权威仓库：`D:\home\RemeMate`；当前分支：`feature/review-story-v1`。
+- `master` 仍停在 `f795b4a`；Review Story 尚未合并、推送或部署，生产仍为 `1b72128`。
+- 已完成并提交：
+  - RS1 数据/RLS/日内摘要地基：`222d7c0`，PostgreSQL 验收补强为 `f0d90e8`、`c761902`；
+  - RS2-A 多语言生成契约：`c07ff42`；
+  - RS2-B 事务状态机：`e6f926e`，包含 pending lease、唯一输入并发、两次逻辑尝试、
+    ready cache、attempt version 防旧 worker 覆盖及跨用户 RLS。
+- RS2-B 的 GCP 复验已全绿。曾出现的第五次并发失败来自裸 `app_context` 把 session 级 GUC
+  留在连接池中的错误测试模型；并发测试已改走真实 `request_context + after_begin` RLS 注入路径，
+  生产状态机没有因此修改。
+- 当前迁移 head：`f1a2b3c4d5e6`，单一 head。
+- 下一张代码票是 **RS2-C：provider 编排、token 记账与无正文漏斗事件**。仓库没有
+  `RS3-C` 票；RS3 是后续“复习回执与写作交接”阶段。
+- RS2-C 不增加路由或 UI，不实现故事历史、发布、图片、清理 CLI 或写作交接。
+- 工作区另有 `.reme/`、`_hexdump_keys.js`、`_hexdump_kitty.js` 未跟踪文件，与功能无关，
+  不得加入提交。
+
 ## 2026-07-22 丢盘恢复闸门
 
 - WSL2 虚拟磁盘已丢失且不再做磁盘恢复。本地项目从闭测云机恢复到 `D:\home\RemeMate`；

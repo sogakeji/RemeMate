@@ -163,3 +163,15 @@ Wayfinder 已无开放票。下一次明确开发指令从干净 master 创建 `
 只做 RS1 数据地基与日内摘要，不调用 AI、不做 UI。当前恢复环境仍须先满足 `docs/HANDOFF.md` 的
 PostgreSQL 验证闸门。
 
+## Implementation status — 2026-07-26
+
+本节只记录实施进度，不改写上方已决边界：
+
+- `feature/review-story-v1` 已创建。
+- RS1 数据/RLS/日内摘要、RS2-A 多语言生成契约、RS2-B 事务状态机均已提交并通过 GCP PostgreSQL
+  验收；当前迁移 head 为 `f1a2b3c4d5e6`。
+- 下一票是 RS2-C：组合 claim → 单次 provider attempt → complete，记录实际 token 与
+  `learning_funnel_events` 白名单事件；仍不增加路由或 UI。
+- RS3 保持“复习回执与写作交接”的阶段名，不再拆出一个名为 `RS3-C` 的票。
+- 当前状态的权威入口仍是 `docs/HANDOFF.md`。
+
