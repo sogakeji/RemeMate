@@ -101,6 +101,30 @@ flask deactivate-user --email friend@example.com
 flask reset-quota --email friend@example.com
 ```
 
+## Review Story 保留数据清理
+
+Review Story 是短期私有缓存，不是故事历史。ready 故事正文最多保留 7 天；失败或中断的输入快照
+也在最后更新时间超过 7 天后清理。`learning_funnel_events` 不含正文，保留 180 天。
+
+先预览，不会修改数据库：
+
+```bash
+flask cleanup-review-stories
+```
+
+输出中的 `runs` 和 `events` 是本次符合清理条件的行数。执行删除前，按本项目部署规范用 PostgreSQL
+owner 备份数据库；不要使用受 FORCE RLS 限制的 app 角色做备份。
+
+```bash
+sudo -u postgres pg_dump -Fc rememate > /home/ubuntu/rememate-backups/rememate-$(date +%F-%H%M%S).dump
+flask cleanup-review-stories --apply
+flask cleanup-review-stories
+```
+
+最后一次 dry-run 应显示 `runs=0 events=0`。命令只使用 `DISPATCH_DATABASE_URL`，缺少后台连接时
+会拒绝运行。闭测期至少每日执行一次；正式调度前仍保留人工检查，不把清理失败变成登录、复习或
+写作流程的门禁。
+
 ## 部署后冒烟
 
 ```bash

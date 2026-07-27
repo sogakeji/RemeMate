@@ -12,6 +12,7 @@ from app.extensions import db
 from app.models.user import User
 from app.services import provisioning
 from app.services import llm
+from app.services import review_story_cleanup
 from app.services import words as words_svc
 from app.services import notifications
 from config import INSECURE_SECRET_DEFAULT, is_configured, validate_fernet_key
@@ -106,6 +107,34 @@ def register_commands(app):
             f"users={stats.users_seen} sent={stats.sent} "
             f"duplicates={stats.skipped_duplicate} no_due={stats.skipped_no_due} "
             f"failed={stats.failed}"
+        )
+
+    @app.cli.command("cleanup-review-stories")
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        default=False,
+        help="实际删除；不传时只预览符合保留策略的数据量",
+    )
+    def cleanup_review_stories(apply_changes):
+        """清理过期故事缓存和超过 180 天的无正文事件。"""
+        dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+        if not dispatch_url:
+            raise click.ClickException("DISPATCH_DATABASE_URL missing")
+        engine = create_engine(dispatch_url, pool_pre_ping=True)
+        try:
+            with engine.begin() as connection:
+                stats = review_story_cleanup.cleanup_review_story_data(
+                    connection,
+                    apply_changes=apply_changes,
+                )
+        finally:
+            engine.dispose()
+        mode = "apply" if apply_changes else "dry-run"
+        click.echo(
+            f"review story cleanup: mode={mode} "
+            f"runs={stats.runs} events={stats.events}"
         )
 
     @app.cli.command("doctor")
