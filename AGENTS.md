@@ -32,8 +32,14 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     request-context concurrency path.
   - RS2-C provider orchestration, token accounting, and privacy-safe funnel events: `e800ef0`; GCP validation
     passed 52 targeted tests, both concurrency paths 5/5, and the 607-test full suite.
-  - Next phase: **RS3 review receipt/UI and validated writing handoff**. There is no ticket named `RS3-C`;
-    define the first RS3 slice before coding and do not start SessionPad early.
+  - RS3 review receipt and explicit writing handoff: `4937253` and `132fca2`; GCP browser, RLS, idempotency,
+    and full-suite validation passed.
+  - RS4 retention cleanup and operations closeout: `bf1ee9b`; dry-run is the default, `--apply` is explicit,
+    two-user dispatch/BYPASSRLS cleanup passed, and the final full suite is **620 passed, 16 warnings**.
+  - Review Story v1 is code-complete on this branch. Do not add story history, publishing, images, or a second
+    editor before closed-beta evidence justifies them.
+  - Next decision is merge/deploy validation. Start SessionPad context candidates only from the resulting clean,
+    updated `master`.
 - Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
@@ -48,8 +54,8 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
   `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
 - The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
   panel. Keep their migrations serial to avoid Alembic forks.
-- Review story RS1 through RS2-C are implemented. Continue with RS3 receipt/writing handoff only; do not start
-  the SessionPad migration branch early.
+- Review Story RS1 through RS4 are complete on `feature/review-story-v1`. Merge and deploy it explicitly before
+  creating the SessionPad context-candidate branch from the updated `master`.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule

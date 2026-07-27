@@ -1,6 +1,6 @@
 # RemeMate HANDOFF
 
-## 2026-07-26 Review Story 开发状态
+## 2026-07-27 Review Story 开发状态
 
 - 当前权威仓库：`D:\home\RemeMate`；当前分支：`feature/review-story-v1`。
 - `master` 仍停在 `f795b4a`；Review Story 尚未合并、推送或部署，生产仍为 `1b72128`。
@@ -39,11 +39,20 @@
     390px dark mode 真浏览器通过，无横向溢出。migration 保持单一 head `f1a2b3c4d5e6`，
     `git diff --check` 通过；strict doctor 非 0 仍仅因测试机缺 LLM/词典。
 - **RS3 已完成。** 仍不增加故事历史、发布、图片或第二编辑器；这些不是本阶段的隐含尾项。
-- 下一阶段进入 **RS4 收尾**。先定义最小收尾票，范围只包含故事过期数据清理入口、运维/发布说明、
-  最终 i18n 与浏览器回归，不继续扩展产品功能；通过后再评估合并 `master` 与闭测部署。
+- **RS4 收尾已完成并提交：`bf1ee9b`。**
+  - `flask cleanup-review-stories` 默认 dry-run；只有显式 `--apply` 才通过 dispatch/BYPASSRLS
+    删除过期缓存。ready 正文及 failed/pending 私有输入快照保留 7 天，无正文漏斗事件保留 180 天。
+  - GCP 验收：定向 **67 passed**，全量 **620 passed, 16 warnings**；两用户真实清理得到
+    `dry-run 4/2 → apply 4/2 → dry-run 0/0`，新鲜缓存和 180 天内事件保留。migration 仍为单一
+    head `f1a2b3c4d5e6`，`git diff --check` 通过；strict doctor 非 0 仅因测试机缺 LLM/词典。
+  - RS4 未修改 UI、路由、模板、CSS 或翻译文件；RS3 已验收的 1440px/390px 浏览器代码字节未变，
+    因此不要求重复截图。中英文 582 个键对齐、51 个模板本地编译通过。
+- **Review Story v1 分支开发完成。** 下一步是代码审查后合并到 `master`，再按
+  `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；尚未合并、推送或部署。
+  SessionPad context candidates 只能从合并后的干净 `master` 新建分支。
 - 工作区另有 `docs/README.md` 修改，以及 `.reme/`、`NUL`、`_hexdump_keys.js`、
   `_hexdump_kitty.js`、`docs/arch/review-2026-07-26-dead-code-and-refactor-audit.md` 未跟踪内容，
-  均与本票无关，不得加入 RS3 提交。
+  均与本票无关，不得加入 Review Story 收口提交。
 
 ## 2026-07-22 丢盘恢复闸门
 
