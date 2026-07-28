@@ -59,8 +59,6 @@ def _record_story_event_safely(*, run_id, event_type):
 @bp.post("/write/from-story")
 @login_required
 def story_handoff():
-    from app.services import words as words_svc
-
     run_id = request.form.get("story_run_id", type=int)
     term_key = (request.form.get("term_key") or "").strip()
     if run_id is None:
@@ -73,7 +71,6 @@ def story_handoff():
     if target is None:
         abort(404)
 
-    words_svc.set_current_language(_uid(), target.target_language)
     session[_STORY_HANDOFF_SESSION_KEY] = {
         "run_id": target.run_id,
         "term_key": target.term_key,
@@ -97,7 +94,12 @@ def compose():
             session.pop(_STORY_HANDOFF_SESSION_KEY, None)
 
     mode = request.args.get("mode") if request.args.get("mode") in {"diary"} else "sentence"
-    lang = words_svc.get_current_language(_uid())
+    stored_lang = words_svc.get_current_language(_uid())
+    lang = (
+        story_target.target_language
+        if story_target is not None
+        else stored_lang
+    )
     feedback_lang = words_svc.get_feedback_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
@@ -118,7 +120,7 @@ def compose():
         diary_line_chars=writing_svc.MAX_DIARY_LINE_CHARS,
         diary_prompt=writing_svc.random_diary_prompt(feedback_lang),
         mode=mode,
-        current_language=lang,
+        writing_language=lang,
         lang_name=localized_language_names().get(lang, lang) if lang else None,
     )
 
@@ -133,9 +135,6 @@ def submit():
     sentence = request.form.get("sentence", "")
     if mode != "diary" and not word_id:
         abort(400)
-    lang = words_svc.get_current_language(_uid())
-    if lang is None:
-        abort(400)
     story_target = None
     if request.form.get("story_handoff") == "1":
         if mode == "diary":
@@ -143,6 +142,13 @@ def submit():
         story_target = _story_handoff_from_session()
         if story_target is None or story_target.word_id != word_id:
             abort(404)
+    lang = (
+        story_target.target_language
+        if story_target is not None
+        else words_svc.get_current_language(_uid())
+    )
+    if lang is None:
+        abort(400)
     feedback_lang = words_svc.get_feedback_language(_uid())
     try:
         if mode == "diary":

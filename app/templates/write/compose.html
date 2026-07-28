@@ -23,7 +23,7 @@
     </a>
   </div>
 
-  {% if not current_language %}
+  {% if not writing_language %}
   <div class="word-card" style="text-align:center;">
     <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.choose_learning') }}</p>
     <a class="btn success" href="{{ url_for('main.settings') }}">{{ _('write.open_settings') }}</a>

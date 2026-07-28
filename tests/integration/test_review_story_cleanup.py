@@ -38,7 +38,8 @@ def _seed_retention_rows(app, bypass_engine):
                     :uid, current_date, 'fr', 'zh', 'review_story_v1',
                     :fresh_hash, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb,
                     'ready', 1, 1, now() + interval '1 day',
-                    now(), now()
+                    now() - interval '30 days',
+                    now() - interval '30 days'
                 )
         """), {
             "uid": user_id,

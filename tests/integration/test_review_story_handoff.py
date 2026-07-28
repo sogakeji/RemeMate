@@ -282,3 +282,57 @@ def test_observation_failure_does_not_block_handoff_or_saved_output(
             "SELECT count(*) FROM output_entries "
             "WHERE user_id=:uid AND word_id=:word_id"
         ), {"uid": uid, "word_id": word_id}).scalar_one() == 1
+
+
+def test_story_handoff_does_not_change_global_language_preferences(
+    app,
+    client,
+    bypass_engine,
+    fake_llm,
+):
+    uid, run_id, term_key, word_id, word = _generate_ready_story(
+        app,
+        client,
+        bypass_engine,
+        email="receipt-handoff-language@t.com",
+    )
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='en', learning_languages='en' "
+            "WHERE id=:uid"
+        ), {"uid": uid})
+
+    handoff = client.post(
+        "/write/from-story",
+        data={"story_run_id": run_id, "term_key": term_key},
+        follow_redirects=True,
+    )
+
+    assert handoff.status_code == 200
+    assert word in handoff.get_data(as_text=True)
+    with bypass_engine.connect() as connection:
+        preferences = connection.execute(text(
+            "SELECT current_language, learning_languages "
+            "FROM users WHERE id=:uid"
+        ), {"uid": uid}).one()
+    assert preferences == ("en", "en")
+
+    fake_llm["reinstall"]()
+    corrected = client.post(
+        "/write/submit",
+        data={
+            "mode": "sentence",
+            "word_id": word_id,
+            "story_handoff": "1",
+            "sentence": f"J'utilise {word}.",
+        },
+    )
+
+    assert corrected.status_code == 200
+    assert "保存" in corrected.get_data(as_text=True)
+    with bypass_engine.connect() as connection:
+        preferences = connection.execute(text(
+            "SELECT current_language, learning_languages "
+            "FROM users WHERE id=:uid"
+        ), {"uid": uid}).one()
+    assert preferences == ("en", "en")
