@@ -36,6 +36,10 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     and full-suite validation passed.
   - RS4 retention cleanup and operations closeout: `bf1ee9b`; dry-run is the default, `--apply` is explicit,
     two-user dispatch/BYPASSRLS cleanup passed, and the final full suite is **620 passed, 16 warnings**.
+  - Post-branch review fix: `4825336` keeps Review Story writing handoff language request-scoped instead of
+    mutating `current_language` or `learning_languages`; GCP passed 63 targeted tests and the final
+    **621-test** full suite. The review's summary-query and global-cleanup observations are deferred
+    scalability notes, not merge-blocking correctness bugs.
   - Review Story v1 is code-complete on this branch. Do not add story history, publishing, images, or a second
     editor before closed-beta evidence justifies them.
   - Next decision is merge/deploy validation. Start SessionPad context candidates only from the resulting clean,

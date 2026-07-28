@@ -47,6 +47,17 @@
     head `f1a2b3c4d5e6`，`git diff --check` 通过；strict doctor 非 0 仅因测试机缺 LLM/词典。
   - RS4 未修改 UI、路由、模板、CSS 或翻译文件；RS3 已验收的 1440px/390px 浏览器代码字节未变，
     因此不要求重复截图。中英文 582 个键对齐、51 个模板本地编译通过。
+- **整分支只读审查后的合并前修复已完成并提交：`4825336`。**
+  - 修复 Review Story 写作交接会持久修改 `current_language`、并可能扩写 `learning_languages`
+    的多语言状态污染；写作页和提交现在只在本次交接中使用故事目标语言，用户全局语言偏好保持不变。
+  - 同一修复消除了用户在交接后切换全局语言时，提交阶段拿错语言导致批改不匹配的边界。
+  - 补充多语言回归测试，并收紧 cleanup 对“`content_expires_at` 尚未到期但 `updated_at`
+    已很旧”的保留测试。GCP 定向 **63 passed**，全量 **621 passed, 16 warnings**；
+    migration current/heads 均为单一 `f1a2b3c4d5e6`，`git diff --check` 通过。
+  - strict doctor 非 0 仍只因 GCP 未配置 LLM provider 和 `zh/en/ja/fr` 外置词典；数据库、
+    dispatch、迁移、密钥和管理员检查均通过。
+  - 审查中的日内 summary 重复聚合和全局 cleanup 扫描是后续规模化观察项，不是当前硬 bug，
+    本轮未借机改动缓存或清理架构。
 - **Review Story v1 分支开发完成。** 下一步是代码审查后合并到 `master`，再按
   `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；尚未合并、推送或部署。
   SessionPad context candidates 只能从合并后的干净 `master` 新建分支。
