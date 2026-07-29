@@ -188,3 +188,19 @@
   **607 passed, 16 warnings**；单一 migration head `f1a2b3c4d5e6`。strict doctor 仅因测试机
   未配置 provider/词典非 0，数据库与迁移项均 OK。
 - RS2-C 提交为 `e800ef0`；下一阶段为 RS3 复习回执与安全写作交接，尚无路由/UI。
+### 2026-07-30：Review Story v1 合并与闭测部署
+
+- Review Story v1 完成 RS1 至 RS4、整分支只读审查与多语言写作交接修复；GCP 最终全量
+  **621 passed, 16 warnings**，migration 保持单一 head `f1a2b3c4d5e6`。
+- 功能分支由 `a7fcf91` 合并到本地 `master`，部署前文档状态为 `ce79a74`。
+- 部署前创建并校验代码与数据库备份：
+  - `/home/ubuntu/rememate-backups/rememate-code-before-review-story-20260730-071534.tgz`
+  - `/home/ubuntu/rememate-backups/rememate-db-before-review-story-20260730-071534.dump`
+- 通过 Git bundle 将生产从 `1b72128` fast-forward 到恢复修复与 Review Story 版本；未覆盖
+  `.env`、`.venv`、生产数据库、词典目录或既有 `admin-initial-login.txt`。
+- 生产迁移由 `c8d9e0f1a2b3` 升至 `f1a2b3c4d5e6`；升级前重复词组检查为 0。
+  `flask doctor --strict`、服务重启、日志检查、公网首页与 `/healthz` 均通过。
+- 部署前后用户与核心业务数据计数保持一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6；
+  新增故事运行与漏斗事件表初始为空。
+- 发布自动化闸门完成。仍待闭测账号进行一次真实 provider 的“复习达阈值 → 生成故事 →
+  选词写作 → 批改保存”人测；通过后进入 SessionPad context-bearing candidate v1。

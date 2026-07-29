@@ -1,9 +1,10 @@
 # RemeMate HANDOFF
 
-## 2026-07-29 Review Story 合并状态
+## 2026-07-30 Review Story 闭测部署状态
 
 - 当前权威仓库：`D:\home\RemeMate`；当前分支：`master`。
-- Review Story v1 已通过 `a7fcf91` 合并进本地 `master`；尚未 push 或部署，生产仍为 `1b72128`。
+- Review Story v1 已通过 `a7fcf91` 合并进本地 `master`，并于 2026-07-30 连同恢复后的六项
+  安全/数据可信度修复部署到闭测生产；部署前本地文档状态为 `ce79a74`。
 - 已完成并提交：
   - RS1 数据/RLS/日内摘要地基：`222d7c0`，PostgreSQL 验收补强为 `f0d90e8`、`c761902`；
   - RS2-A 多语言生成契约：`c07ff42`；
@@ -58,9 +59,20 @@
     dispatch、迁移、密钥和管理员检查均通过。
   - 审查中的日内 summary 重复聚合和全局 cleanup 扫描是后续规模化观察项，不是当前硬 bug，
     本轮未借机改动缓存或清理架构。
-- **Review Story v1 已完成整分支审查并合并本地 `master`。** 下一步是显式决定 push/部署，再按
-  `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；当前尚未 push 或部署。
-  SessionPad context candidates 只能在 Review Story 部署决策明确后，从当前干净 `master` 新建分支。
+- **Review Story v1 已完成整分支审查、合并并部署闭测生产。**
+  - 部署前代码备份：
+    `/home/ubuntu/rememate-backups/rememate-code-before-review-story-20260730-071534.tgz`
+    （SHA-256 `fa0be2fc1b3d8961321f15a47d3c81704c26ad48c5ab701b8096b7c48c505749`）。
+  - 部署前数据库备份：
+    `/home/ubuntu/rememate-backups/rememate-db-before-review-story-20260730-071534.dump`
+    （SHA-256 `902356f29511d2812db493f177e3f66bfd36facd9cc8623c329ab0c486c267df`）。
+  - 生产迁移从 `c8d9e0f1a2b3` 升至单一 head `f1a2b3c4d5e6`；迁移前规范化重复词组为 0。
+  - 生产 `flask doctor --strict` 全绿，`rememate.service` 重启正常，公网首页与 `/healthz`
+    均返回 200，journal 未见新错误。
+  - 部署前后数据计数一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6；新故事表初始为空。
+  - 自动化与发布闸门已通过；仍需用真实闭测账号完成一次“复习达阈值 → 生成故事 → 选词写作 →
+    批改保存”的最终人测，确认生产 provider 真实回路。
+  - 人测通过后，下一条功能分支是 SessionPad context-bearing candidate v1。
 - 工作区另有 `docs/README.md` 修改，以及 `.reme/`、`NUL`、`_hexdump_keys.js`、
   `_hexdump_kitty.js`、`docs/arch/review-2026-07-26-dead-code-and-refactor-audit.md` 未跟踪内容，
   均与本票无关，不得加入 Review Story 收口提交。
@@ -69,7 +81,7 @@
 
 - WSL2 虚拟磁盘已丢失且不再做磁盘恢复。本地项目从闭测云机恢复到 `D:\home\RemeMate`；
   云机代码 `1b72128` 是恢复基线，线上用户数据、`.env`、`.venv` 和词典目录均未复制或覆盖。
-- 本地 `master` 在生产基线之后重放了六项尚未部署的安全/数据可信度修复：
+- 本地 `master` 在生产基线之后重放了六项安全/数据可信度修复，并已于 2026-07-30 部署：
   - `26f481a`：`output_entries.word_id` 所有权 RLS，迁移 `d9e0f1a2b3c4`；
   - `994362a`：广场 NSFW 审核与批改 failover 分离，审核不可用时公开 fail-closed；
   - `637cd93`：已接受邀请但未建立反向资料时，伙伴页持续显示待确认关系；
@@ -90,7 +102,8 @@
   开 `feature/review-story-v1` 前：接受测试机 doctor WARN，或补配置后再 strict；
   仍须用户明确启动分支。生产部署前另跑目标环境 `pytest -q` +
   `flask doctor --strict`（生产有 admin/LLM/词典）。
-- `origin` 直接指向生产工作仓库；恢复阶段禁止推送。生产仍为 `1b72128`，未收到上述六项修复。
+- `origin` 直接指向生产工作仓库；普通开发仍不得直接推送。上述六项修复与 Review Story 已按
+  `docs/deploy-closed-beta.md` 的备份、迁移、doctor、重启和冒烟流程部署。
 
 ## 2026-07-22 Wayfinder 规划恢复
 
@@ -108,8 +121,8 @@
 - Wayfinder 已完成且无开放规划票。pytest 恢复闸门已绿；仍须用户明确启动后，才能创建
   `feature/review-story-v1`（见上方恢复闸门与 `docs/recovery-validation-2026-07-22.md`）。
 
-下面的“当前状态”是 2026-07-15 云机里程碑基线，保留用于说明闭测版具备的功能，不代表六项恢复
-修复已经在生产验证或部署。
+下面的“当前状态”是 2026-07-15 云机里程碑基线，保留用于说明当时闭测版具备的功能；最新生产
+状态以上方 2026-07-30 部署记录为准。
 
 > 轻量交接页。历史过程已移到 `docs/PROGRESS.md`，完整旧文档见
 > `docs/archive/HANDOFF.full-2026-07-08.md`。软 bug / 延后事项统一进

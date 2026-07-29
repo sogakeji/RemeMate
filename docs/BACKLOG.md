@@ -10,13 +10,14 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：Review Story 已合并本地 `master`；在其部署决策
-   明确后串行开发。分离完整来源、候选短语境和最终例句，采用 SessionPad 专属单候选聚焦审核。
+1. **SessionPad context-bearing candidate v1**：Review Story 已合并并部署闭测生产；完成真实账号
+   的故事生成与写作交接验收后串行开发。分离完整来源、候选短语境和最终例句，采用 SessionPad
+   专属单候选聚焦审核。
 2. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
    Discord 自动发布。
 
-生产仍未收到恢复 master 的六项安全/数据可信度修复或 Review Story；任何部署仍须显式决策并先过
-目标环境 migration、全量测试和 strict doctor。
+恢复 master 的六项安全/数据可信度修复与 Review Story 已于 2026-07-30 部署；后续部署仍须显式
+决策并先过目标环境 migration、全量测试和 strict doctor。
 
 ## 上线前必做（开放注册 / 部署前）
 
@@ -62,18 +63,7 @@
 
 ## 句子广场上线前（phase 7）必做
 
-- **NSFW 判定不能搭批改的 failover 链**（review 阶段四 M，MEDIUM）
-  ✅ 2026-07-22 已在本地恢复分支由 `994362a` 修复，尚未部署；独立 `nsfw` provider 链
-  成为公开审核唯一权威，审核不可用时内容仍可私下保存但不可公开。完成 PostgreSQL 全量验证并
-  部署后，将本条移入历史。
-  `is_nsfw` 是批改 JSON 的字段，走 `task="correction"` 链（DeepSeek→GPT）。DeepSeek 挂时
-  GPT 同时做批改和 NSFW 判定，违反 llm-failover.md「NSFW 仅 DeepSeek、fail-closed」。全挂时
-  已 fail-closed（degraded→is_nsfw=True），缺口在「DeepSeek 挂、GPT 在」半挂态：GPT 可能漏判
-  NSFW→用户能公开 NSFW 到广场。P1 广场未上线影响小。phase 7 前修：批改 provider≠deepseek 时
-  publish 用的 is_nsfw 强制 True（保守），或公开前单独跑一次仅 DeepSeek 的 nsfw 链
-  （llm.py 已留 `"nsfw"` 链，当前未被调用）。
 
----
 
 ## 功能 / 体验（相关阶段顺带）
 
@@ -127,11 +117,7 @@
   `due_count` 实为「所有到期（due_date<=now）」（含逾期），文案从「今日到期」改述
   为「待复习」/「待复习：N」（main/index.html + words/stats.html）。语义与 query 对齐。
 
-- **add_word 词表内去重**（review 2026-06-23 L10）
-  ✅ 2026-07-22 已在本地恢复分支由 `5a27f78` + `b88ba88` 修复，尚未部署；服务层顺序幂等，
-  数据库以 `(list_id, lower(btrim(word)))` 唯一索引兜底并发，编辑冲突和候选批量写入均有明确
-  行为。完成 PostgreSQL 全量验证并部署后，将本条移入历史。
-  同表可重复加同词；输入管道 commit 时会埋重复牌。加服务层去重或 unique。
+
 
 ---
 
@@ -139,12 +125,7 @@
 
 - **迁移约束名动态化**（review 2026-06-23 M7）✅ 2026-06-28 → 见「上线前必做」段同名条目的完成注记。
 
-- **output_entries INSERT policy 校验 word_id 归属**（review 2026-06-23 L12）
-  ✅ 2026-07-22 已在本地恢复分支由 `26f481a` 修复，尚未部署；INSERT/UPDATE 均要求关联词条
-  属于当前用户，三行日记仍允许 `word_id=NULL`。完成 PostgreSQL RLS 测试并部署后，将本条
-  移入历史。
-  oe_ins 只校验 user_id，未断言 word_id 属于本人。正常路径不可达，但配合 word_id CASCADE
-  是纵深缺口。policy 加 `word_id IN (本人的 words)`。
+
 
 - **provisioning engine 复用**（review 2026-06-23 L2）
   `_bypass_session` 每次 `create_engine`。CLI 一次性 OK；P2 开放注册路由需长生命周期共享
