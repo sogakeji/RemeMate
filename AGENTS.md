@@ -19,11 +19,9 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
   `D:\home\RemeMate`.
 - Production remains at `1b72128`; do not push the local recovery commits to production without an explicit
   deploy decision. Production still lacks the six post-`1b72128` safety/data-trust fixes.
-- Local `master` at `f795b4a` contains the six replayed safety/data-trust fixes after production:
-  output-entry word ownership RLS, dedicated NSFW moderation, recoverable reciprocal partner confirmation,
-  normalized word idempotency and uniqueness, and Web/Bark review-grade idempotency.
-- The active branch is `feature/review-story-v1`. It must not be merged, pushed, or deployed without an explicit
-  decision.
+- Local `master` now contains the six replayed safety/data-trust fixes and Review Story v1. Review Story was
+  merged locally by `a7fcf91`; it has not been pushed or deployed.
+- The active branch is `master`. Production remains unchanged until an explicit deploy decision.
 - Review story progress:
   - RS1 data/RLS/daily-summary foundation: `222d7c0`, with PostgreSQL validation follow-ups `f0d90e8` and
     `c761902`.
@@ -40,10 +38,10 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     mutating `current_language` or `learning_languages`; GCP passed 63 targeted tests and the final
     **621-test** full suite. The review's summary-query and global-cleanup observations are deferred
     scalability notes, not merge-blocking correctness bugs.
-  - Review Story v1 is code-complete on this branch. Do not add story history, publishing, images, or a second
-    editor before closed-beta evidence justifies them.
-  - Next decision is merge/deploy validation. Start SessionPad context candidates only from the resulting clean,
-    updated `master`.
+  - Review Story v1 is code-complete and merged into local `master`. Do not add story history, publishing,
+    images, or a second editor before closed-beta evidence justifies them.
+  - Next decision is push/deploy validation. Start SessionPad context candidates only from this updated `master`
+    after the Review Story deployment decision is explicit.
 - Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
@@ -58,8 +56,8 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
   `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
 - The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
   panel. Keep their migrations serial to avoid Alembic forks.
-- Review Story RS1 through RS4 are complete on `feature/review-story-v1`. Merge and deploy it explicitly before
-  creating the SessionPad context-candidate branch from the updated `master`.
+- Review Story RS1 through RS4 are merged into local `master` by `a7fcf91` but are not pushed or deployed.
+  Deploy it explicitly before creating the SessionPad context-candidate branch from the updated `master`.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule

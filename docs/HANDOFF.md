@@ -1,9 +1,9 @@
 # RemeMate HANDOFF
 
-## 2026-07-27 Review Story 开发状态
+## 2026-07-29 Review Story 合并状态
 
-- 当前权威仓库：`D:\home\RemeMate`；当前分支：`feature/review-story-v1`。
-- `master` 仍停在 `f795b4a`；Review Story 尚未合并、推送或部署，生产仍为 `1b72128`。
+- 当前权威仓库：`D:\home\RemeMate`；当前分支：`master`。
+- Review Story v1 已通过 `a7fcf91` 合并进本地 `master`；尚未 push 或部署，生产仍为 `1b72128`。
 - 已完成并提交：
   - RS1 数据/RLS/日内摘要地基：`222d7c0`，PostgreSQL 验收补强为 `f0d90e8`、`c761902`；
   - RS2-A 多语言生成契约：`c07ff42`；
@@ -58,9 +58,9 @@
     dispatch、迁移、密钥和管理员检查均通过。
   - 审查中的日内 summary 重复聚合和全局 cleanup 扫描是后续规模化观察项，不是当前硬 bug，
     本轮未借机改动缓存或清理架构。
-- **Review Story v1 分支开发完成。** 下一步是代码审查后合并到 `master`，再按
-  `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；尚未合并、推送或部署。
-  SessionPad context candidates 只能从合并后的干净 `master` 新建分支。
+- **Review Story v1 已完成整分支审查并合并本地 `master`。** 下一步是显式决定 push/部署，再按
+  `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；当前尚未 push 或部署。
+  SessionPad context candidates 只能在 Review Story 部署决策明确后，从当前干净 `master` 新建分支。
 - 工作区另有 `docs/README.md` 修改，以及 `.reme/`、`NUL`、`_hexdump_keys.js`、
   `_hexdump_kitty.js`、`docs/arch/review-2026-07-26-dead-code-and-refactor-audit.md` 未跟踪内容，
   均与本票无关，不得加入 Review Story 收口提交。
