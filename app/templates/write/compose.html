@@ -23,7 +23,7 @@
     </a>
   </div>
 
-  {% if not current_language %}
+  {% if not writing_language %}
   <div class="word-card" style="text-align:center;">
     <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.choose_learning') }}</p>
     <a class="btn success" href="{{ url_for('main.settings') }}">{{ _('write.open_settings') }}</a>
@@ -67,11 +67,20 @@
           hx-swap="innerHTML" hx-disabled-elt="find button">
       <input type="hidden" name="mode" value="sentence">
       <input type="hidden" name="word_id" value="{{ target_word.id }}">
+      {% if story_handoff %}
+        <input type="hidden" name="story_handoff" value="1">
+      {% endif %}
       <div class="form-group">
         <label class="form-label">{{ _('write.target_word') }}</label>
         <div class="write-target-word">
           <div class="write-target-main">
-            <span class="write-target-label">{{ _('write.today_recommendation') }}</span>
+            <span class="write-target-label">
+              {% if story_handoff %}
+                {{ _('write.story_handoff_label') }}
+              {% else %}
+                {{ _('write.today_recommendation') }}
+              {% endif %}
+            </span>
             <strong>{{ target_word.word }}</strong>
           </div>
           {% if target_word.definitions %}
@@ -84,6 +93,9 @@
           </div>
           {% endif %}
         </div>
+        {% if story_handoff %}
+          <span class="form-text">{{ _('write.story_handoff_hint') }}</span>
+        {% endif %}
       </div>
       <div class="form-group">
         <textarea name="sentence" rows="3" maxlength="{{ max_chars }}" required

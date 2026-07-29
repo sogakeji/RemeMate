@@ -13,34 +13,53 @@ Read these files in order before changing code:
 
 Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historical context for archaeology, not the working handoff.
 
-## Current Recovery Gate
+## Current Authority And Development State
 
 - The WSL2 virtual disk was lost on 2026-07-22. The recovered authoritative local repository is now
   `D:\home\RemeMate`.
 - Production remains at `1b72128`; do not push the local recovery commits to production without an explicit
   deploy decision. Production still lacks the six post-`1b72128` safety/data-trust fixes.
-- Local `master` contains six replayed safety/data-trust fixes after production:
+- Local `master` at `f795b4a` contains the six replayed safety/data-trust fixes after production:
   output-entry word ownership RLS, dedicated NSFW moderation, recoverable reciprocal partner confirmation,
   normalized word idempotency and uniqueness, and Web/Bark review-grade idempotency.
-- Local migration head is `e0f1a2b3c4d5`.
+- The active branch is `feature/review-story-v1`. It must not be merged, pushed, or deployed without an explicit
+  decision.
+- Review story progress:
+  - RS1 data/RLS/daily-summary foundation: `222d7c0`, with PostgreSQL validation follow-ups `f0d90e8` and
+    `c761902`.
+  - RS2-A multilingual provider contract: `c07ff42`.
+  - RS2-B transactional run state machine: `e6f926e`; GCP revalidation is green, including the corrected
+    request-context concurrency path.
+  - RS2-C provider orchestration, token accounting, and privacy-safe funnel events: `e800ef0`; GCP validation
+    passed 52 targeted tests, both concurrency paths 5/5, and the 607-test full suite.
+  - RS3 review receipt and explicit writing handoff: `4937253` and `132fca2`; GCP browser, RLS, idempotency,
+    and full-suite validation passed.
+  - RS4 retention cleanup and operations closeout: `bf1ee9b`; dry-run is the default, `--apply` is explicit,
+    two-user dispatch/BYPASSRLS cleanup passed, and the final full suite is **620 passed, 16 warnings**.
+  - Post-branch review fix: `4825336` keeps Review Story writing handoff language request-scoped instead of
+    mutating `current_language` or `learning_languages`; GCP passed 63 targeted tests and the final
+    **621-test** full suite. The review's summary-query and global-cleanup observations are deferred
+    scalability notes, not merge-blocking correctness bugs.
+  - Review Story v1 is code-complete on this branch. Do not add story history, publishing, images, or a second
+    editor before closed-beta evidence justifies them.
+  - Next decision is merge/deploy validation. Start SessionPad context candidates only from the resulting clean,
+    updated `master`.
+- Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
   One test-only SQL fix: `tests/integration/test_words.py` (`w.word, w.id`). No business code changes for
   that fix. `flask doctor --strict` on the test box: DB/migration/admin OK; LLM/dictionary WARN only.
   Full write-up: `docs/recovery-validation-2026-07-22.md`.
-- **pytest behavior gate is green**. Create `feature/review-story-v1` only after explicit user instruction.
 - `origin` points directly at the production working repository. Never push as part of ordinary local recovery work.
 
 ## Recovered Next-Stage Plan
 
 - The completed Wayfinder map was recovered to
   `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
-- Its decisions are code-ready but not implemented: first review story, then SessionPad context candidates, then the
-  private closed-beta observation panel. Keep their migrations serial to avoid Alembic forks.
-- The next feature branch, only after explicit user instruction (pytest recovery gate is already green), is
-  `feature/review-story-v1`.
-- The first code slice is RS1 only: story/cache/event schema, FORCE RLS, daily review summary, deterministic target
-  selection, and tests. Do not call AI or build UI in RS1.
+- The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
+  panel. Keep their migrations serial to avoid Alembic forks.
+- Review Story RS1 through RS4 are complete on `feature/review-story-v1`. Merge and deploy it explicitly before
+  creating the SessionPad context-candidate branch from the updated `master`.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule

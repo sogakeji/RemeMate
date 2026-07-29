@@ -3027,3 +3027,134 @@ textarea.form-control {
         gap: 8px;
     }
 }
+
+.review-story-receipt {
+    margin-top: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+}
+
+.review-story-receipt.strong {
+    border-left: 4px solid var(--primary-color);
+}
+
+.review-story-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.review-story-heading h2,
+.review-story-title h3 {
+    margin: 0;
+    font-size: 18px;
+    text-align: left;
+}
+
+.review-story-eyebrow {
+    margin-bottom: 3px;
+    color: var(--primary-color);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.review-story-copy,
+.review-story-title p,
+.review-story-translation {
+    color: var(--text-secondary);
+}
+
+.review-story-copy {
+    margin-bottom: 14px;
+}
+
+.review-story-status,
+.review-story-term {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 6px;
+    background: var(--table-header-bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.review-story-status {
+    padding: 5px 8px;
+}
+
+.review-story-loading {
+    margin-left: 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.review-story-title {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.review-story-sentence {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.review-story-sentence:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.review-story-target {
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.review-story-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.review-story-term {
+    padding: 4px 7px;
+}
+
+@media (max-width: 640px) {
+    .review-story-receipt {
+        padding: 16px;
+    }
+
+    .review-story-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+.review-story-term-form {
+    margin: 0;
+}
+
+button.review-story-term {
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+button.review-story-term:hover,
+button.review-story-term:focus-visible {
+    border-color: var(--primary-color);
+}
+
+.review-story-term-action {
+    color: var(--primary-color);
+    font-weight: 600;
+}

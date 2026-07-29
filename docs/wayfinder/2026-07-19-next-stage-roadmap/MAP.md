@@ -30,10 +30,13 @@
 
 ## Status
 
-- 地图完成，无开放票文件。
+- 地图完成，无开放规划票文件；以下为 2026-07-27 实施状态。
 - 产品下一阶段顺序为 review story、SessionPad context candidates、closed-beta observation。
-- 第一张未来代码票为 RS1 数据地基与日内摘要，不调用 AI、不做 UI。
-- 当前不得绕过 2026-07-22 丢盘恢复后的 PostgreSQL 全量验证闸门。
+- `feature/review-story-v1` 已完成 RS1 至 RS4：数据/RLS、生成契约、事务状态机、provider 编排、
+  复习回执、显式写作交接、7/180 天保留清理和运维说明；GCP 最终全量 **620 passed**。
+- 下一步是审查后合并并部署 Review Story；随后才能从更新后的干净 `master` 创建
+  SessionPad context-candidate 分支。
+- 生产仍未部署恢复修复或 Review Story；不得绕过目标环境 PostgreSQL、全量测试和 doctor 闸门。
 
 ## Out of scope
 

@@ -98,5 +98,8 @@
       <a class="btn success" href="{{ url_for('words.lists') }}">{{ _('review.back_to_library') }}</a>
     </div>
   </div>
+  {% if review_story_summary and review_story_summary.eligibility != 'silent' %}
+    {% include "review/_story_receipt.html" %}
+  {% endif %}
 {% endif %}
 </div>

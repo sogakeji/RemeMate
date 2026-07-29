@@ -1,5 +1,70 @@
 # RemeMate HANDOFF
 
+## 2026-07-27 Review Story 开发状态
+
+- 当前权威仓库：`D:\home\RemeMate`；当前分支：`feature/review-story-v1`。
+- `master` 仍停在 `f795b4a`；Review Story 尚未合并、推送或部署，生产仍为 `1b72128`。
+- 已完成并提交：
+  - RS1 数据/RLS/日内摘要地基：`222d7c0`，PostgreSQL 验收补强为 `f0d90e8`、`c761902`；
+  - RS2-A 多语言生成契约：`c07ff42`；
+  - RS2-B 事务状态机：`e6f926e`，包含 pending lease、唯一输入并发、两次逻辑尝试、
+    ready cache、attempt version 防旧 worker 覆盖及跨用户 RLS；
+  - RS2-C provider 编排、token 记账与无正文漏斗事件：`e800ef0`。只有拿到 generation lease
+    才调用一次 provider；缓存、pending 和已有失败不调用 AI，观测或记账失败不重开生成。
+- RS2-B 的 GCP 复验已全绿。曾出现的第五次并发失败来自裸 `app_context` 把 session 级 GUC
+  留在连接池中的错误测试模型；并发测试已改走真实 `request_context + after_begin` RLS 注入路径，
+  生产状态机没有因此修改。
+- RS2-C GCP 验收：定向 **52 passed**，state claim 与 orchestration/provider-once 两条并发路径
+  各连续 **5/5 passed**，全量 **607 passed, 16 warnings**；migration 单一 head
+  `f1a2b3c4d5e6`。测试机缺 LLM provider 与 `zh/en/ja/fr` 词典使 strict doctor 非 0，
+  DB/dispatch/migrate/keys/admin 均 OK，此环境例外不视为生产发布闸门通过。
+- 当前迁移 head：`f1a2b3c4d5e6`，单一 head。
+- **RS3 第一张小票“复习完成回执与按需生成”已完成并提交：`4937253`。**
+  - 首页和兼容 `/review` 的完成态共用同一独立回执；silent 日完全不渲染，normal/strong
+    只展示各自说明与生成按钮。
+  - 只有用户点击 HTMX POST 后才调用 RS2-C 编排；ready/cached/error/pending 都返回到回执内部，
+    不改变复习完成卡和“回到词库”入口。
+  - 本票的公开测试边界是完成态 HTTP 响应与生成 POST；不接 `/write`，不记录 writing handoff
+    或 output saved，不增加故事历史、发布、图片或第二编辑器。
+  - GCP 验收：定向 **81 passed**，全量 **613 passed, 16 warnings**；桌面 1440px 与移动端
+    390px dark mode 真浏览器通过，页面加载不自动调用 AI，重复点击命中缓存，失败留在回执内部。
+    migration 保持单一 head `f1a2b3c4d5e6`；strict doctor 非 0 仅因测试机缺 LLM/词典。
+- **RS3 第二张小票“从复习故事显式交接到现有写作页”已完成并提交：`132fca2`。**
+  - ready/cached 回执中的目标词按钮只提交 `story_run_id + term_key`；服务端重新校验当前用户、
+    ready 状态、有效期、目标语言和词条所有权，URL、session 与 OutputEntry 均不携带故事正文。
+  - 进入 `/write` 后使用用户明确点击的目标词，输入框保持为空；批改不保存，只有显式保存成功后
+    才记录 `story_output_saved`。重复保存不重复创建 OutputEntry 或事件，观测事件异常不阻断交接
+    与业务保存。
+  - GCP 验收：定向 **93 passed**，全量 **618 passed, 16 warnings**；桌面 1440px 与移动端
+    390px dark mode 真浏览器通过，无横向溢出。migration 保持单一 head `f1a2b3c4d5e6`，
+    `git diff --check` 通过；strict doctor 非 0 仍仅因测试机缺 LLM/词典。
+- **RS3 已完成。** 仍不增加故事历史、发布、图片或第二编辑器；这些不是本阶段的隐含尾项。
+- **RS4 收尾已完成并提交：`bf1ee9b`。**
+  - `flask cleanup-review-stories` 默认 dry-run；只有显式 `--apply` 才通过 dispatch/BYPASSRLS
+    删除过期缓存。ready 正文及 failed/pending 私有输入快照保留 7 天，无正文漏斗事件保留 180 天。
+  - GCP 验收：定向 **67 passed**，全量 **620 passed, 16 warnings**；两用户真实清理得到
+    `dry-run 4/2 → apply 4/2 → dry-run 0/0`，新鲜缓存和 180 天内事件保留。migration 仍为单一
+    head `f1a2b3c4d5e6`，`git diff --check` 通过；strict doctor 非 0 仅因测试机缺 LLM/词典。
+  - RS4 未修改 UI、路由、模板、CSS 或翻译文件；RS3 已验收的 1440px/390px 浏览器代码字节未变，
+    因此不要求重复截图。中英文 582 个键对齐、51 个模板本地编译通过。
+- **整分支只读审查后的合并前修复已完成并提交：`4825336`。**
+  - 修复 Review Story 写作交接会持久修改 `current_language`、并可能扩写 `learning_languages`
+    的多语言状态污染；写作页和提交现在只在本次交接中使用故事目标语言，用户全局语言偏好保持不变。
+  - 同一修复消除了用户在交接后切换全局语言时，提交阶段拿错语言导致批改不匹配的边界。
+  - 补充多语言回归测试，并收紧 cleanup 对“`content_expires_at` 尚未到期但 `updated_at`
+    已很旧”的保留测试。GCP 定向 **63 passed**，全量 **621 passed, 16 warnings**；
+    migration current/heads 均为单一 `f1a2b3c4d5e6`，`git diff --check` 通过。
+  - strict doctor 非 0 仍只因 GCP 未配置 LLM provider 和 `zh/en/ja/fr` 外置词典；数据库、
+    dispatch、迁移、密钥和管理员检查均通过。
+  - 审查中的日内 summary 重复聚合和全局 cleanup 扫描是后续规模化观察项，不是当前硬 bug，
+    本轮未借机改动缓存或清理架构。
+- **Review Story v1 分支开发完成。** 下一步是代码审查后合并到 `master`，再按
+  `docs/deploy-closed-beta.md` 备份、迁移、doctor、重启与冒烟；尚未合并、推送或部署。
+  SessionPad context candidates 只能从合并后的干净 `master` 新建分支。
+- 工作区另有 `docs/README.md` 修改，以及 `.reme/`、`NUL`、`_hexdump_keys.js`、
+  `_hexdump_kitty.js`、`docs/arch/review-2026-07-26-dead-code-and-refactor-audit.md` 未跟踪内容，
+  均与本票无关，不得加入 Review Story 收口提交。
+
 ## 2026-07-22 丢盘恢复闸门
 
 - WSL2 虚拟磁盘已丢失且不再做磁盘恢复。本地项目从闭测云机恢复到 `D:\home\RemeMate`；

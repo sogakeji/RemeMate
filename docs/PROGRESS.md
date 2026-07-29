@@ -169,3 +169,22 @@
 - Wayfinder 已完成，无开放规划票；恢复没有修改任何生产代码、模型或迁移。
 - 未来仍先满足六项安全修复的数据库验证闸门，再串行 review story、SessionPad context candidates、
   closed-beta observation，避免迁移分叉。
+
+### 2026-07-23 ~ 2026-07-26：Review Story RS1 至 RS2-C
+
+- 从恢复后干净 `master` 创建 `feature/review-story-v1`。
+- RS1 建立 `review_story_runs`、`learning_funnel_events`、FORCE RLS、日内摘要、确定性 3–5 词
+  快照与 input hash；迁移 head 为 `f1a2b3c4d5e6`。
+- RS2-A 完成 `review_story_v1` provider-safe 输入、固定双语 JSON、自然词形锚点、文字系统守卫、
+  稳定错误码和单次 provider 尝试，不产生数据库副作用。
+- RS2-B 完成事务状态机：首次 claim、60 秒租约、同输入并发唯一、ready cache、一次主动重试、
+  租约接管和 attempt version 防陈旧回写。
+- GCP PostgreSQL 验收全绿。并发复验曾暴露测试夹具把 session 级 RLS GUC 绑定到池连接的问题；
+  测试改为 request context 后稳定通过，生产状态机未因此改动。
+- RS2-B 提交为 `e6f926e`。
+- RS2-C 串联 claim、单次 provider attempt、complete、ready cache、实际 token 记账和
+  `learning_funnel_events` 无正文幂等事件；观测/记账失败只降级，不改变已完成状态或重复调用 AI。
+- RS2-C GCP 验收定向 52 passed，两条并发路径各连续 5/5，全量
+  **607 passed, 16 warnings**；单一 migration head `f1a2b3c4d5e6`。strict doctor 仅因测试机
+  未配置 provider/词典非 0，数据库与迁移项均 OK。
+- RS2-C 提交为 `e800ef0`；下一阶段为 RS3 复习回执与安全写作交接，尚无路由/UI。

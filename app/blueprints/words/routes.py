@@ -13,6 +13,8 @@ from app.i18n import localized_language_names, translate as _
 from app.services import words as words_svc
 from app.services import llm as llm_svc
 from app.services import review_links
+from app.services import review_stories as review_stories_svc
+from app.services import review_story_orchestration as story_orchestration_svc
 from app.blueprints.words.forms import LanguageChoiceForm
 
 bp = Blueprint("words", __name__)
@@ -68,6 +70,12 @@ def _current_review_word():
     lang = words_svc.get_current_language(_uid())
     due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
     return due[0] if due else None
+
+
+def _completion_story_summary(word):
+    if word is not None:
+        return None
+    return review_stories_svc.get_daily_review_story_summary(_uid())
 
 
 @bp.get("/words/add")
@@ -293,16 +301,24 @@ def review():
     lang = words_svc.get_current_language(_uid())
     due = words_svc.get_due_words(_uid(), limit=1, language_code=lang) if lang else []
     word = due[0] if due else None
-    return render_template("review/review.html", word=word,
-                           previous_available=_previous_available(word))
+    return render_template(
+        "review/review.html",
+        word=word,
+        previous_available=_previous_available(word),
+        review_story_summary=_completion_story_summary(word),
+    )
 
 
 @bp.get("/review/current")
 @login_required
 def current_review_card():
     word = _current_review_word()
-    return render_template("review/_card.html", word=word,
-                           previous_available=_previous_available(word))
+    return render_template(
+        "review/_card.html",
+        word=word,
+        previous_available=_previous_available(word),
+        review_story_summary=_completion_story_summary(word),
+    )
 
 
 @bp.get("/review/previous")
@@ -334,8 +350,35 @@ def grade(word_id):
     nxt = words_svc.get_due_words(_uid(), limit=1, language_code=lang)
     # HTMX：返回下一张卡片片段（无则完成提示）
     word = nxt[0] if nxt else None
-    return render_template("review/_card.html", word=word,
-                           previous_available=_previous_available(word))
+    return render_template(
+        "review/_card.html",
+        word=word,
+        previous_available=_previous_available(word),
+        review_story_summary=_completion_story_summary(word),
+    )
+
+
+@bp.post("/review/story")
+@login_required
+def review_story():
+    """Generate or reuse today's optional story after review completion."""
+    if _current_review_word() is not None:
+        abort(404)
+    summary = review_stories_svc.get_daily_review_story_summary(_uid())
+    if (
+        summary is None
+        or summary.eligibility == review_stories_svc.ELIGIBILITY_SILENT
+    ):
+        abort(404)
+    decision = story_orchestration_svc.orchestrate_review_story(
+        summary,
+        retry_requested=(request.form.get("retry") == "1"),
+    )
+    return render_template(
+        "review/_story_receipt.html",
+        review_story_summary=summary,
+        story_decision=decision,
+    )
 
 
 def _dispatch_engine():

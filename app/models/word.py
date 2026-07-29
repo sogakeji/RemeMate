@@ -54,6 +54,12 @@ class Definition(db.Model):
 
 class ReviewLog(db.Model):
     __tablename__ = "review_logs"
+    __table_args__ = (
+        db.Index(
+            "ix_review_logs_user_ts_word_grade",
+            "user_id", "ts", "word_id", "grade",
+        ),
+    )
 
     id             = db.Column(db.Integer, primary_key=True)
     word_id        = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="CASCADE"), nullable=False)

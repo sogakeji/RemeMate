@@ -1,0 +1,94 @@
+{% set state = story_decision.action if story_decision else review_story_summary.eligibility %}
+<section id="review-story-receipt"
+         class="review-story-receipt{% if review_story_summary.eligibility == 'strong' %} strong{% endif %}"
+         data-state="{{ state }}">
+  <div class="review-story-heading">
+    <div>
+      <p class="review-story-eyebrow">{{ _('review.story.eyebrow') }}</p>
+      <h2>{{ _('review.story.title') }}</h2>
+    </div>
+    {% if state == 'cached' %}
+      <span class="review-story-status">{{ _('review.story.cached') }}</span>
+    {% endif %}
+  </div>
+
+  {% if state in ('normal', 'strong') %}
+    <p class="review-story-copy">
+      {% if state == 'strong' %}
+        {{ _('review.story.strong') }}
+      {% else %}
+        {{ _('review.story.normal') }}
+      {% endif %}
+    </p>
+    <form hx-post="{{ url_for('words.review_story') }}"
+          hx-target="#review-story-receipt"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          hx-indicator="#review-story-loading">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">{{ _('review.story.generate') }}</button>
+      <span id="review-story-loading" class="htmx-indicator review-story-loading">
+        {{ _('review.story.generating') }}
+      </span>
+    </form>
+  {% elif state == 'pending' %}
+    <p class="review-story-copy">{{ _('review.story.pending') }}</p>
+    <form hx-post="{{ url_for('words.review_story') }}"
+          hx-target="#review-story-receipt"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn default" type="submit">{{ _('review.story.check') }}</button>
+    </form>
+  {% elif state == 'failed' %}
+    <p class="review-story-copy">{{ _('review.story.failed') }}</p>
+    {% if story_decision.attempt_count < 2 %}
+      <form hx-post="{{ url_for('words.review_story') }}"
+            hx-target="#review-story-receipt"
+            hx-swap="outerHTML"
+            hx-disabled-elt="find button"
+            hx-indicator="#review-story-retry-loading">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="retry" value="1">
+        <button class="btn default" type="submit">{{ _('review.story.retry') }}</button>
+        <span id="review-story-retry-loading" class="htmx-indicator review-story-loading">
+          {{ _('review.story.generating') }}
+        </span>
+      </form>
+    {% endif %}
+  {% elif state in ('ready', 'cached') and story_decision.story %}
+    <div class="review-story-result">
+      <div class="review-story-title">
+        <h3>{{ story_decision.story.title.target }}</h3>
+        <p>{{ story_decision.story.title.translation }}</p>
+      </div>
+      <div class="review-story-sentences">
+        {% for sentence in story_decision.story.sentences %}
+          <div class="review-story-sentence">
+            <p class="review-story-target">{{ sentence.target }}</p>
+            <p class="review-story-translation">{{ sentence.translation }}</p>
+            {% if sentence.terms %}
+              <div class="review-story-terms" aria-label="{{ _('review.story.terms') }}">
+                {% for term in sentence.terms %}
+                  <form class="review-story-term-form"
+                        method="post"
+                        action="{{ url_for('write.story_handoff') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="story_run_id" value="{{ story_decision.run_id }}">
+                    <input type="hidden" name="term_key" value="{{ term.key }}">
+                    <button class="review-story-term"
+                            type="submit"
+                            title="{{ _('review.story.use_term') }}">
+                      <span>{{ term.target_form }} · {{ term.translation_form }}</span>
+                      <span class="review-story-term-action">{{ _('review.story.use_term') }}</span>
+                    </button>
+                  </form>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</section>

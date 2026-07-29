@@ -35,6 +35,7 @@ if "rememate_test" not in APP_URL:
 # FK 安全的删除顺序（子表在前，users 最后）。
 # 用 DELETE 而非 TRUNCATE：dispatch 角色有 DML 权限但无 TRUNCATE（非 owner）。
 _TABLES = [
+    "learning_funnel_events", "review_story_runs",
     "partner_packet_item_adoptions",
     "partner_packet_intakes",
     "partner_packet_thanks",
