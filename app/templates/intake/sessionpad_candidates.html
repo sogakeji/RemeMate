@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ _('candidate.title') }} · RemeMate{% endblock %}
+{% block content %}
+<main class="container sessionpad-review-page" data-sessionpad-review="focused">
+  <header class="header-section">
+    <h1>{{ _('candidate.title') }}</h1>
+  </header>
+
+  {% set source_info = state.source_summary %}
+  <section class="sessionpad-review-source"
+           data-sessionpad-source-kind="{{ source_info.kind }}">
+    <div>
+      {% if source_info.partner_name %}<strong>{{ source_info.partner_name }}</strong>{% endif %}
+      {% if source_info.session_date %}<span>{{ source_info.session_date.isoformat() }}</span>{% endif %}
+      {% if source_info.title %}<span>{{ source_info.title }}</span>{% endif %}
+    </div>
+    {% if source_info.kind == 'packet' %}
+    <a href="{{ url_for('partners.show_packet', packet_id=source_info.packet_id) }}">
+      {{ _('packet.received') }}
+    </a>
+    {% elif source_info.kind == 'recap' %}
+    <a href="{{ url_for('partners.show_recap', partner_id=source_info.partner_id, recap_id=source_info.recap_id) }}">
+      {{ _('recap.title') }}
+    </a>
+    {% endif %}
+  </section>
+
+  <nav class="sessionpad-review-tabs" aria-label="{{ _('candidate.title') }}">
+    <a class="btn {{ 'primary' if state.status == 'pending' else 'secondary' }}"
+       href="{{ url_for('intake.candidates', source_id=state.source.id, status='pending') }}">
+      {{ _('candidate.pending') }}
+    </a>
+    <a class="btn {{ 'primary' if state.status == 'accepted' else 'secondary' }}"
+       href="{{ url_for('intake.candidates', source_id=state.source.id, status='accepted') }}">
+      {{ _('candidate.accepted') }}
+    </a>
+    <a class="btn {{ 'primary' if state.status == 'ignored' else 'secondary' }}"
+       href="{{ url_for('intake.candidates', source_id=state.source.id, status='ignored') }}">
+      {{ _('candidate.ignored') }}
+    </a>
+  </nav>
+
+  {% if ai_degraded %}
+  <aside class="sessionpad-review-notice" data-ai-degraded="true">
+    {{ _('candidate.sessionpad_ai_degraded') }}
+  </aside>
+  {% endif %}
+
+  {% include "intake/_sessionpad_review_main.html" %}
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-use-context-as-example]");
+    if (!button) return;
+    const form = button.closest("form");
+    const context = form.querySelector("[name='context_excerpt']");
+    const example = form.querySelector("[name='example']");
+    if (context && example) example.value = context.value;
+  });
+</script>
+{% endblock %}

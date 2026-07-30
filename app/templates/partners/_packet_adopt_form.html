@@ -22,6 +22,9 @@
   <form method="post"
         action="{{ url_for('partners.adopt_packet_item', packet_id=packet_id, item_id=item.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if ai_unavailable %}
+    <input type="hidden" name="ai_unavailable" value="1">
+    {% endif %}
     {% for row in rows %}
     <div class="packet-candidate-row">
       <label class="form-label">{{ _('packet.term_label') }}</label>

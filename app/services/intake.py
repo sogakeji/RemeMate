@@ -487,6 +487,20 @@ def _get_candidate(user_id, candidate_id) -> WordCandidate | None:
     return WordCandidate.query.filter_by(id=candidate_id, user_id=user_id).first()
 
 
+def get_candidate_source(user_id, candidate_id) -> IntakeSource | None:
+    """Return the user-owned source for a candidate."""
+    return (
+        IntakeSource.query
+        .join(WordCandidate, WordCandidate.source_id == IntakeSource.id)
+        .filter(
+            WordCandidate.id == candidate_id,
+            WordCandidate.user_id == user_id,
+            IntakeSource.user_id == user_id,
+        )
+        .first()
+    )
+
+
 def accept_candidate(user_id, candidate_id, edits=None) -> bool:
     """接受候选词（可带内联编辑后的字段）。"""
     c = _get_candidate(user_id, candidate_id)
@@ -502,7 +516,7 @@ def accept_candidate(user_id, candidate_id, edits=None) -> bool:
         for f in ("word", "part_of_speech", "meaning", "example", "note"):
             if f in edits and edits[f] is not None:
                 setattr(c, f, edits[f])
-    if has_context_edit:
+    if has_context_edit and edited_context != c.context_excerpt:
         c.context_excerpt = edited_context
         c.context_provenance = "user_edited" if edited_context else None
     c.status = "accepted"
@@ -539,6 +553,16 @@ def commit_intake_source(user_id, source_id) -> int:
     for c in accepted:
         identity = words_svc.normalize_word_identity(c.word)
         if identity in existing:        # 静默去重
+            conflict = (
+                Word.query
+                .filter(
+                    Word.list_id == source.word_list_id,
+                    db.func.lower(db.func.btrim(Word.word)) == identity,
+                )
+                .first()
+            )
+            if conflict is not None:
+                c.word_id = conflict.id
             continue
         try:
             with db.session.begin_nested():
@@ -569,6 +593,7 @@ def commit_intake_source(user_id, source_id) -> int:
                         ).first())
             if conflict is None:
                 raise
+            c.word_id = conflict.id
             existing.add(identity)
             continue
         existing.add(identity)

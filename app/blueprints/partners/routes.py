@@ -168,6 +168,7 @@ def _render_packet_adopt_form(
     terms: str = "",
     candidate_rows: list[dict] | None = None,
     suggestion_message: str,
+    ai_unavailable: bool = False,
 ):
     return render_template(
         "partners/_packet_adopt_form.html",
@@ -177,6 +178,7 @@ def _render_packet_adopt_form(
         terms=terms,
         candidate_rows=candidate_rows,
         suggestion_message=suggestion_message,
+        ai_unavailable=ai_unavailable,
         form_open=True,
     )
 
@@ -687,9 +689,10 @@ def adopt_packet_item(packet_id, item_id):
     if result["existing_word_count"]:
         message += _("packet.words_existing", count=result["existing_word_count"])
     flash(message)
-    return redirect(url_for(
-        "intake.candidates", source_id=result["source_id"],
-    ))
+    redirect_args = {"source_id": result["source_id"]}
+    if request.form.get("ai_unavailable") == "1":
+        redirect_args["ai"] = "unavailable"
+    return redirect(url_for("intake.candidates", **redirect_args))
 
 
 @bp.post(
@@ -718,6 +721,7 @@ def suggest_packet_item_terms(packet_id, item_id):
             packet_id, item,
             terms=item.content,
             suggestion_message=_("packet.ai_unavailable"),
+            ai_unavailable=True,
         )
     if result is None:
         abort(404)

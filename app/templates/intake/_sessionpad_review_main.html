@@ -1,0 +1,119 @@
+<section id="sessionpad-review-main">
+  {% if review_error %}
+  <p class="sessionpad-review-error" data-review-error="{{ review_error_code }}">
+    {{ review_error }}
+  </p>
+  {% endif %}
+  {% if state.status == 'pending' and state.current %}
+  {% set candidate = state.current %}
+  <article class="word-card sessionpad-review-focus"
+           data-review-progress="{{ state.position }}/{{ state.total }}"
+           data-existing-word="{{ 'true' if state.existing_word else 'false' }}">
+    <header class="sessionpad-review-heading">
+      <p class="sessionpad-review-progress">{{ state.position }} / {{ state.total }}</p>
+      <h2>{{ candidate.word }}</h2>
+      {% if state.existing_word %}
+      <span class="badge sessionpad-existing-word">{{ _('candidate.sessionpad_existing') }}</span>
+      {% endif %}
+    </header>
+
+    <form method="post"
+          action="{{ url_for('intake.accept_sessionpad_candidate', candidate_id=candidate.id) }}"
+          hx-post="{{ url_for('intake.accept_sessionpad_candidate', candidate_id=candidate.id) }}"
+          hx-target="#sessionpad-review-main"
+          hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="form-label" for="sessionpad-word-{{ candidate.id }}">
+        {{ _('candidate.sessionpad_term') }}
+      </label>
+      <input id="sessionpad-word-{{ candidate.id }}" class="form-control"
+             name="word" maxlength="80" required value="{{ candidate.word }}">
+
+      <label class="form-label" for="sessionpad-context-{{ candidate.id }}">
+        {{ _('packet.context_label') }}
+      </label>
+      <textarea id="sessionpad-context-{{ candidate.id }}"
+                class="form-control sessionpad-context-input"
+                name="context_excerpt" rows="3"
+                maxlength="300">{{ candidate.context_excerpt or '' }}</textarea>
+      {% if candidate.context_provenance == 'source_quote' %}
+      <p class="sessionpad-context-state" data-context-state="source_quote">
+        {{ _('candidate.sessionpad_context_source') }}
+      </p>
+      {% elif candidate.context_provenance == 'user_edited' %}
+      <p class="sessionpad-context-state" data-context-state="user_edited">
+        {{ _('candidate.sessionpad_context_edited') }}
+      </p>
+      {% else %}
+      <p class="sessionpad-context-state" data-context-state="missing">
+        {{ _('candidate.sessionpad_context_missing') }}
+      </p>
+      {% endif %}
+
+      <details class="sessionpad-review-details">
+        <summary>{{ _('candidate.sessionpad_details') }}</summary>
+        <label class="form-label" for="sessionpad-pos-{{ candidate.id }}">
+          {{ _('word.part_of_speech') }}
+        </label>
+        <input id="sessionpad-pos-{{ candidate.id }}" class="form-control"
+               name="part_of_speech" value="{{ candidate.part_of_speech or '' }}">
+        <label class="form-label" for="sessionpad-meaning-{{ candidate.id }}">
+          {{ _('word.meaning') }}
+        </label>
+        <input id="sessionpad-meaning-{{ candidate.id }}" class="form-control"
+               name="meaning" value="{{ candidate.meaning or '' }}">
+        <label class="form-label" for="sessionpad-example-{{ candidate.id }}">
+          {{ _('word.example') }}
+        </label>
+        <div class="sessionpad-example-row">
+          <input id="sessionpad-example-{{ candidate.id }}" class="form-control"
+                 name="example" value="{{ candidate.example or '' }}">
+          <button type="button" class="btn secondary"
+                  data-use-context-as-example>
+            {{ _('candidate.sessionpad_use_context') }}
+          </button>
+        </div>
+        <label class="form-label" for="sessionpad-note-{{ candidate.id }}">
+          {{ _('word.note') }}
+        </label>
+        <textarea id="sessionpad-note-{{ candidate.id }}" class="form-control"
+                  name="note" rows="2">{{ candidate.note or '' }}</textarea>
+      </details>
+
+      <div class="sessionpad-review-actions">
+        <button type="submit" class="btn success">
+          {{ _('candidate.sessionpad_accept_next') if state.pending_count > 1 else _('candidate.sessionpad_accept_finish') }}
+        </button>
+      </div>
+    </form>
+    <form class="sessionpad-ignore-form" method="post"
+          action="{{ url_for('intake.ignore_sessionpad_candidate', candidate_id=candidate.id) }}"
+          hx-post="{{ url_for('intake.ignore_sessionpad_candidate', candidate_id=candidate.id) }}"
+          hx-target="#sessionpad-review-main" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn default">
+        {{ _('candidate.sessionpad_ignore_next') if state.pending_count > 1 else _('candidate.sessionpad_ignore_finish') }}
+      </button>
+    </form>
+  </article>
+  {% elif state.status == 'pending' %}
+  <div class="sessionpad-review-empty">
+    <p>{{ _('candidate.sessionpad_complete') }}</p>
+    {% if state.uncommitted_count %}
+    <form method="post" action="{{ url_for('intake.commit', source_id=state.source.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn primary">{{ _('candidate.commit') }}</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+    {% for candidate in state.candidates %}
+    <article class="word-card sessionpad-review-row">
+      <strong>{{ candidate.word }}</strong>
+      {% if candidate.context_excerpt %}<p>{{ candidate.context_excerpt }}</p>{% endif %}
+    </article>
+    {% else %}
+    <p class="sessionpad-review-empty">{{ _('candidate.empty') }}</p>
+    {% endfor %}
+  {% endif %}
+</section>

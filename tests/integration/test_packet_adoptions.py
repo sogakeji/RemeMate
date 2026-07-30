@@ -181,13 +181,14 @@ def test_sessionpad_source_feedback_is_not_committed_as_example(
 
     candidate_page = f"/intake/{source_id}/candidates"
     accepted = client.post(
-        f"/intake/candidates/{candidate_id}/accept",
+        f"/intake/sessionpad/candidates/{candidate_id}/accept",
         data={
             "word": "追溯",
             "meaning": "trace back",
             "example": "",
             "csrf_token": _csrf(client, candidate_page),
         },
+        headers={"HX-Request": "true"},
     )
     assert accepted.status_code == 200
     committed = client.post(
@@ -233,13 +234,14 @@ def test_sessionpad_explicit_example_is_committed(
 
     candidate_page = f"/intake/{source_id}/candidates"
     accepted = client.post(
-        f"/intake/candidates/{candidate_id}/accept",
+        f"/intake/sessionpad/candidates/{candidate_id}/accept",
         data={
             "word": "prendre des cours",
             "meaning": "to take lessons",
             "example": "Elle prend des cours de danse.",
             "csrf_token": _csrf(client, candidate_page),
         },
+        headers={"HX-Request": "true"},
     )
     assert accepted.status_code == 200
     committed = client.post(
@@ -365,6 +367,22 @@ def test_ai_suggestion_failure_keeps_manual_split_available(
     assert "AI 暂时不可用，可继续手动拆分" in body
     assert 'name="candidate_term"' in body
     assert 'name="candidate_context"' in body
+    assert 'name="ai_unavailable" value="1"' in body
+    adopted = client.post(
+        f"/partner-packets/{packet_id}/items/{item_ids[0]}/add-candidate",
+        data={
+            "candidate_term": "保留",
+            "candidate_context": context,
+            "candidate_origin": "source_quote",
+            "candidate_original_context": context,
+            "ai_unavailable": "1",
+            "csrf_token": _csrf(client, f"/partner-packets/{packet_id}"),
+        },
+    )
+    assert adopted.status_code == 302
+    assert adopted.location.endswith("?ai=unavailable")
+    review = client.get(adopted.location).get_data(as_text=True)
+    assert 'data-ai-degraded="true"' in review
     with bypass_engine.connect() as conn:
         assert conn.execute(text(
             "SELECT count(*) FROM token_usage_log WHERE user_id=:user"
