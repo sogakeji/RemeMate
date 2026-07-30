@@ -1,5 +1,14 @@
 # RemeMate HANDOFF
 
+## 2026-07-30 SessionPad 带语境候选 v1 — SP1 数据地基
+
+- 功能分支：`feature/sessionpad-context-candidates-v1`，从已部署里程碑 `master@1be9ddc` 创建；生产仍停在 `1be9ddc`，本分支尚未部署。
+- 顺序迁移 `a2b3c4d5e6f7` 为 `word_candidates` 增加可空 `context_excerpt` / `context_provenance`；来源只允许 `source_quote`、`user_edited` 或空，语境与来源必须成对，服务层限制 300 字符。
+- 不回填历史 `source_example`，不改历史 `definitions`。SessionPad 入库不再用完整伙伴反馈 `source_example` 兜底最终例句；用户明确填写的 `example` 仍正常保存，阅读及其他 intake 来源保持旧规则。
+- 用户编辑语境会 trim 并标为 `user_edited`；清空时两字段同时置空；超长编辑在修改候选前失败，原状态与数据保持不变。
+- GCP PostgreSQL 验收：迁移实际 downgrade/upgrade 往返成功，单一 head `a2b3c4d5e6f7`；相邻边界 **73 passed**，全量 **627 passed, 16 warnings**，`git diff --check` 通过。测试曾抓出 PostgreSQL CHECK 对 `NULL` 的三值逻辑漏口，已用显式 `context_provenance IS NOT NULL` 修正并回归。
+- SP1 没有路由、模板或 UI 改动。下一张票是 SP2：SessionPad AI/人工统一产生 `term + context`、原文定位、同来源规范化合并与并发兜底；不得提前进入 SP3 聚焦审核 UI。
+
 ## 2026-07-30 Review Story 部分队列硬修复
 
 - 闭测真实使用暴露：用户当天已复习足量词，但只要仍有其他到期词，故事回执就不会出现；到期词多时等同于功能长期不可达。

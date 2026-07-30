@@ -213,3 +213,12 @@
 - 修复提交 `2f09304` 已纯快进合并到本地 `master` 并部署闭测生产。部署前完成代码与 PostgreSQL
   备份；strict doctor、服务重启、内外网 200、日志与核心数据计数核验均通过。真实账号部分队列
   场景复验通过，Review Story v1 本轮硬修复正式收口。
+
+### 2026-07-30：SessionPad 带语境候选 SP1
+
+- 从已部署 `master@1be9ddc` 创建 `feature/sessionpad-context-candidates-v1`，生产未变。
+- `word_candidates` 新增可空候选语境与来源字段，迁移 head 顺序推进到 `a2b3c4d5e6f7`；不回填历史数据。
+- SessionPad 完整伙伴反馈不再自动写入最终例句；显式例句仍保存，阅读及其他 intake 来源不回归。
+- 服务层完成 trim、300 字符上限、`source_quote` / `user_edited` 来源契约、清空联动和失败不变更。
+- GCP 实际完成 migration downgrade/upgrade，扩大定向 **73 passed**，全量
+  **627 passed, 16 warnings**；SP1 无 UI 改动，下一票为 SP2 候选产生。

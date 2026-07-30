@@ -37,6 +37,17 @@ class WordCandidate(db.Model):
     __tablename__ = "word_candidates"
     __table_args__ = (
         db.UniqueConstraint("id", "user_id", name="uq_word_candidates_id_user_id"),
+        db.CheckConstraint(
+            "("
+            "context_excerpt IS NULL AND context_provenance IS NULL"
+            ") OR ("
+            "context_excerpt IS NOT NULL "
+            "AND context_provenance IS NOT NULL "
+            "AND length(btrim(context_excerpt)) BETWEEN 1 AND 300 "
+            "AND context_provenance IN ('source_quote', 'user_edited')"
+            ")",
+            name="ck_word_candidates_context_pair",
+        ),
     )
 
     id             = db.Column(db.Integer, primary_key=True)
@@ -47,6 +58,8 @@ class WordCandidate(db.Model):
     meaning        = db.Column(db.Text)
     example        = db.Column(db.Text)
     source_example = db.Column(db.Text, nullable=True)
+    context_excerpt = db.Column(db.Text, nullable=True)
+    context_provenance = db.Column(db.String(20), nullable=True)
     note           = db.Column(db.Text)
     context_start  = db.Column(db.Integer, nullable=True)  # /extract 原文偏移，用于高亮
     context_end    = db.Column(db.Integer, nullable=True)

@@ -156,6 +156,106 @@ def test_recipient_can_edit_received_expression_before_candidate_review(
     assert 'class="packet-adopted-link"' not in sender_body
 
 
+def test_sessionpad_source_feedback_is_not_committed_as_example(
+    app, client, bypass_engine,
+):
+    sender_id = provision_user(app, "context-source-sender@t.com", PW)
+    recipient_id = _provision_learning_user(app, "context-source-recipient@t.com")
+    feedback = "完整伙伴反馈只用于追溯，不应自动成为最终例句。"
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine,
+        sender_id,
+        recipient_id,
+        items=[("expression", feedback)],
+    )
+    login(client, "context-source-recipient@t.com", PW)
+
+    adoption = _adopt(client, packet_id, item_ids[0], "追溯")
+    source_id = int(re.search(r"/intake/(\d+)/candidates", adoption.location).group(1))
+    with bypass_engine.connect() as conn:
+        candidate_id = conn.execute(text(
+            "SELECT candidate_id FROM partner_packet_item_adoptions "
+            "WHERE packet_item_id=:item"
+        ), {"item": item_ids[0]}).scalar_one()
+
+    candidate_page = f"/intake/{source_id}/candidates"
+    accepted = client.post(
+        f"/intake/candidates/{candidate_id}/accept",
+        data={
+            "word": "追溯",
+            "meaning": "trace back",
+            "example": "",
+            "csrf_token": _csrf(client, candidate_page),
+        },
+    )
+    assert accepted.status_code == 200
+    committed = client.post(
+        f"/intake/{source_id}/commit",
+        data={"csrf_token": _csrf(client, candidate_page)},
+    )
+    assert committed.status_code == 302
+
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT c.source_example,d.example FROM word_candidates c "
+            "JOIN definitions d ON d.word_id=c.word_id WHERE c.id=:candidate"
+        ), {"candidate": candidate_id}).mappings().one()
+    assert row["source_example"] == feedback
+    assert row["example"] is None
+
+def test_sessionpad_explicit_example_is_committed(
+    app, client, bypass_engine,
+):
+    sender_id = provision_user(app, "explicit-example-sender@t.com", PW)
+    recipient_id = _provision_learning_user(
+        app,
+        "explicit-example-recipient@t.com",
+    )
+    feedback = "Long partner feedback remains source evidence."
+    packet_id, item_ids, _ = _make_packet(
+        bypass_engine,
+        sender_id,
+        recipient_id,
+        items=[("expression", feedback)],
+    )
+    login(client, "explicit-example-recipient@t.com", PW)
+
+    adoption = _adopt(client, packet_id, item_ids[0], "prendre des cours")
+    source_id = int(
+        re.search(r"/intake/(\d+)/candidates", adoption.location).group(1)
+    )
+    with bypass_engine.connect() as conn:
+        candidate_id = conn.execute(text(
+            "SELECT candidate_id FROM partner_packet_item_adoptions "
+            "WHERE packet_item_id=:item"
+        ), {"item": item_ids[0]}).scalar_one()
+
+    candidate_page = f"/intake/{source_id}/candidates"
+    accepted = client.post(
+        f"/intake/candidates/{candidate_id}/accept",
+        data={
+            "word": "prendre des cours",
+            "meaning": "to take lessons",
+            "example": "Elle prend des cours de danse.",
+            "csrf_token": _csrf(client, candidate_page),
+        },
+    )
+    assert accepted.status_code == 200
+    committed = client.post(
+        f"/intake/{source_id}/commit",
+        data={"csrf_token": _csrf(client, candidate_page)},
+    )
+    assert committed.status_code == 302
+
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT c.source_example,d.example FROM word_candidates c "
+            "JOIN definitions d ON d.word_id=c.word_id WHERE c.id=:candidate"
+        ), {"candidate": candidate_id}).mappings().one()
+    assert row["source_example"] == feedback
+    assert row["example"] == "Elle prend des cours de danse."
+
+
 def test_one_received_sentence_can_create_multiple_word_level_candidates(
     app, client, bypass_engine,
 ):

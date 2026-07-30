@@ -27,6 +27,8 @@ INTAKE_MAX_CSV_ROWS = 500
 INTAKE_MAX_CSV_BYTES = 256 * 1024
 INTAKE_BATCH_SIZE = 20
 QUICK_ADD_MAX_CHARS = 140
+CANDIDATE_CONTEXT_MAX_CHARS = 300
+VALID_CONTEXT_PROVENANCE = frozenset({"source_quote", "user_edited"})
 
 _CSV_HEADER_ALIASES = {
     "word": ("word", "term", "单词", "词", "词语"),
@@ -393,17 +395,47 @@ def _dedupe(items):
     return out
 
 
+def _normalize_context_excerpt(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("candidate context must be text")
+    value = value.strip()
+    if not value:
+        return None
+    if len(value) > CANDIDATE_CONTEXT_MAX_CHARS:
+        raise ValueError("candidate context cannot exceed 300 characters")
+    return value
+
+
+def _candidate_context_pair(value, provenance):
+    context = _normalize_context_excerpt(value)
+    if context is None:
+        if provenance not in (None, ""):
+            raise ValueError("empty candidate context cannot have provenance")
+        return None, None
+    if provenance not in VALID_CONTEXT_PROVENANCE:
+        raise ValueError("invalid candidate context provenance")
+    return context, provenance
+
+
 def _write_candidates(user_id, source, items) -> int:
     n = 0
     for it in items:
         w = (it.get("word") or "").strip()
         if not w:
             continue
+        context_excerpt, context_provenance = _candidate_context_pair(
+            it.get("context_excerpt"),
+            it.get("context_provenance"),
+        )
         db.session.add(WordCandidate(
             source_id=source.id, user_id=user_id, word=w,
             part_of_speech=it.get("part_of_speech"),
             meaning=it.get("meaning"), example=it.get("example"),
             source_example=it.get("source_example"),
+            context_excerpt=context_excerpt,
+            context_provenance=context_provenance,
             note=it.get("note"),
             context_start=it.get("context_start"),
             context_end=it.get("context_end"),
@@ -460,10 +492,19 @@ def accept_candidate(user_id, candidate_id, edits=None) -> bool:
     c = _get_candidate(user_id, candidate_id)
     if c is None:
         return False
+
+    has_context_edit = edits is not None and "context_excerpt" in edits
+    edited_context = None
+    if has_context_edit:
+        edited_context = _normalize_context_excerpt(edits["context_excerpt"])
+
     if edits:
         for f in ("word", "part_of_speech", "meaning", "example", "note"):
             if f in edits and edits[f] is not None:
                 setattr(c, f, edits[f])
+    if has_context_edit:
+        c.context_excerpt = edited_context
+        c.context_provenance = "user_edited" if edited_context else None
     c.status = "accepted"
     db.session.commit()
     return True
@@ -506,7 +547,14 @@ def commit_intake_source(user_id, source_id) -> int:
                             reps=0, lapses=0)
                 db.session.add(word)
                 db.session.flush()
-                example = c.source_example or c.example
+                if source.source_type == "sessionpad":
+                    example = (
+                        c.example
+                        if c.example and c.example.strip()
+                        else None
+                    )
+                else:
+                    example = c.source_example or c.example
                 if any([c.meaning, c.part_of_speech, example, c.note]):
                     db.session.add(Definition(
                         word_id=word.id, part_of_speech=c.part_of_speech,

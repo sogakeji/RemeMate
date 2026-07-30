@@ -157,22 +157,16 @@ migration、定向测试、全量 pytest 和 strict doctor，再单独备份并�
 - 完成 2–3 次真实双人 SessionPad 交换仍无 thank 或 adoption，不加聊天、群组或复杂互动。
 - 约 10 个周活跃用户前不自动向 Discord 发布小样本数据。
 
-## Code-ready handoff
+## Current implementation status — 2026-07-30
 
-Wayfinder 已无开放票。下一次明确开发指令从干净 master 创建 `feature/review-story-v1`，第一张代码票
-只做 RS1 数据地基与日内摘要，不调用 AI、不做 UI。当前恢复环境仍须先满足 `docs/HANDOFF.md` 的
-PostgreSQL 验证闸门。
+本节只记录实施进度，不改写上方已决边界；实时 Git 与部署状态仍以 `docs/HANDOFF.md` 为准。
 
-## Implementation status — 2026-07-27
-
-本节只记录实施进度，不改写上方已决边界：
-
-- `feature/review-story-v1` 已创建。
-- RS1 至 RS4 均已提交并通过 GCP PostgreSQL 验收：数据/RLS、生成契约、事务状态机、provider
-  编排、复习回执、显式写作交接、保留清理和运维说明均完成；当前迁移 head 为 `f1a2b3c4d5e6`。
-- RS4 提交 `bf1ee9b`；定向 67 passed、两用户 dispatch/BYPASSRLS 真实清理通过、全量
-  **620 passed, 16 warnings**。测试机 strict doctor 仍仅因 provider/词典资产缺失非 0。
-- Review Story v1 已完成，尚未合并、推送或部署。下一步先完成 merge/deploy 决策与目标环境闸门，
-  再从更新后的干净 `master` 创建 SessionPad context-candidate 分支。
-- 当前状态的权威入口仍是 `docs/HANDOFF.md`。
-
+- Review Story RS1 至 RS4、整分支审查修复和部分队列可达性硬修复均已合并并部署；生产为
+  `master@1be9ddc`，生产 migration head 为 `f1a2b3c4d5e6`。
+- `feature/sessionpad-context-candidates-v1` 已从该里程碑创建。SP1 schema 与服务契约完成：
+  `context_excerpt` / `context_provenance`、严格配对约束、300 字符服务上限、SessionPad
+  `source_example` 与最终例句分离。
+- GCP PostgreSQL 已验证迁移 downgrade/upgrade、73 个相邻边界测试及全量
+  **627 passed, 16 warnings**；功能分支 migration head 为单一 `a2b3c4d5e6f7`。
+- SP1 未增加路由、模板或 UI，未部署。下一票是 SP2 SessionPad 候选产生；SP3 聚焦审核和
+  closed-beta observation 尚未开始。

@@ -20,8 +20,8 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
 - Production was upgraded from `1b72128` on 2026-07-30. The six replayed safety/data-trust fixes and
   Review Story v1 are now deployed from local `master`.
 - Review Story was merged by `a7fcf91`; the pre-deploy local documentation state was `ce79a74`.
-- The active branch is `master`. Production migration is the single head `f1a2b3c4d5e6`; strict doctor,
-  service health, public HTTPS, and pre/post user-data counts passed during deployment.
+- The active branch is `feature/sessionpad-context-candidates-v1`, based on deployed `master@1be9ddc`.
+  Production remains at `1be9ddc` with migration head `f1a2b3c4d5e6`; this feature branch is not deployed.
 - Review story progress:
   - RS1 data/RLS/daily-summary foundation: `222d7c0`, with PostgreSQL validation follow-ups `f0d90e8` and
     `c761902`.
@@ -46,7 +46,11 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     public HTTPS, logs, and pre/post data counts passed; real-account partial-queue verification also passed.
     SessionPad context-bearing candidate v1 is now the next feature. Do not add story history, publishing, images,
     or a second editor.
-- Local migration head is `f1a2b3c4d5e6`.
+- SessionPad context-candidate SP1 is implemented on the feature branch: candidate context/provenance schema,
+  strict pair constraints, service normalization, and separation of partner source feedback from final examples.
+  GCP validation passed 73 adjacent tests and the **627-test** full suite; migration downgrade/upgrade passed.
+  Next is SP2 candidate creation; SP3 UI has not started.
+- Feature-branch migration head is `a2b3c4d5e6f7`; production remains `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
   One test-only SQL fix: `tests/integration/test_words.py` (`w.word, w.id`). No business code changes for
@@ -60,8 +64,9 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
   `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
 - The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
   panel. Keep their migrations serial to avoid Alembic forks.
-- Review Story RS1 through RS4 were merged into local `master` by `a7fcf91` and deployed on 2026-07-30.
-  Start the SessionPad context-candidate branch only after the closed-beta human acceptance check.
+- Review Story RS1 through RS4 and the partial-queue hard fix are merged and deployed.
+- SessionPad context-candidate SP1 is complete on `feature/sessionpad-context-candidates-v1`; proceed serially to
+  SP2, then SP3 and SP4. Do not mix in the observation dashboard or unrelated closed-beta polish.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule
