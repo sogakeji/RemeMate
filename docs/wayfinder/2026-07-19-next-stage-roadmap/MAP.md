@@ -39,7 +39,7 @@
   生产 migration 为单一 head `f1a2b3c4d5e6`，strict doctor、服务健康和公网冒烟均通过。
 - 闭测真实使用发现回执错误依赖“到期队列清空”；`2f09304` 已改为当天累计复习至少 10 个
   不同词即可显示，模糊或遗忘超过 5 个只提升为 strong，并已合并、部署闭测生产。真实账号复验
-  通过后，再从更新后的 `master` 创建 SessionPad context-candidate 分支。不得绕过目标环境
+  已通过；下一步从更新后的 `master` 创建 SessionPad context-candidate 分支。不得绕过目标环境
   PostgreSQL、全量测试和 doctor 闸门。
 
 ## Out of scope

@@ -211,4 +211,5 @@
 - `fix/review-story-partial-queue` 让回执可与当前到期词卡同时存在，继续保持显式点击才调用 AI、服务端选词、缓存和写作交接边界。
 - GCP 定向 151 passed、全量 **621 passed, 16 warnings**；无迁移。
 - 修复提交 `2f09304` 已纯快进合并到本地 `master` 并部署闭测生产。部署前完成代码与 PostgreSQL
-  备份；strict doctor、服务重启、内外网 200、日志与核心数据计数核验均通过，仍待真实账号复验。
+  备份；strict doctor、服务重启、内外网 200、日志与核心数据计数核验均通过。真实账号部分队列
+  场景复验通过，Review Story v1 本轮硬修复正式收口。

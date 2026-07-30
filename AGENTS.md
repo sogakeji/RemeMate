@@ -43,8 +43,8 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     dependency. Eligibility is now at least 10 distinct words reviewed today; more than 5 distinct fuzzy-or-forgotten
     words changes the receipt to strong, but never bypasses the 10-word floor. GCP full suite: **621 passed**.
   - Hotfix `2f09304` is merged into local `master` and deployed to closed beta. Production strict doctor, service,
-    public HTTPS, logs, and pre/post data counts passed. A real account should still verify the partial-queue receipt
-    before SessionPad context-bearing candidate implementation starts. Do not add story history, publishing, images,
+    public HTTPS, logs, and pre/post data counts passed; real-account partial-queue verification also passed.
+    SessionPad context-bearing candidate v1 is now the next feature. Do not add story history, publishing, images,
     or a second editor.
 - Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
