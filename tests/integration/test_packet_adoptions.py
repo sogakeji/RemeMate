@@ -127,7 +127,8 @@ def test_recipient_can_edit_received_expression_before_candidate_review(
         rf'data-packet-item-id="{next_time_id}".*?</article>', body, re.S,
     ).group()
     assert "拆分为候选词" in expression_card
-    assert 'name="terms"' in expression_card
+    assert 'name="candidate_term"' in expression_card
+    assert 'name="candidate_context"' in expression_card
     assert "拆分为候选词" in correction_card
     assert "拆分为候选词" not in next_card
 
@@ -144,7 +145,7 @@ def test_recipient_can_edit_received_expression_before_candidate_review(
             "WHERE a.packet_item_id = :item"
         ), {"item": correction_id}).mappings().one()
     assert row["word"] == "我很赞同"
-    assert row["source_example"] == "我很同意 → 我很赞同"
+    assert row["source_example"] is None
     assert row["user_id"] == row["recipient_user_id"] == recipient_id
     assert row["language_code"] == "zh"
     assert row["source_type"] == "sessionpad"
@@ -200,7 +201,7 @@ def test_sessionpad_source_feedback_is_not_committed_as_example(
             "SELECT c.source_example,d.example FROM word_candidates c "
             "JOIN definitions d ON d.word_id=c.word_id WHERE c.id=:candidate"
         ), {"candidate": candidate_id}).mappings().one()
-    assert row["source_example"] == feedback
+    assert row["source_example"] is None
     assert row["example"] is None
 
 def test_sessionpad_explicit_example_is_committed(
@@ -252,7 +253,7 @@ def test_sessionpad_explicit_example_is_committed(
             "SELECT c.source_example,d.example FROM word_candidates c "
             "JOIN definitions d ON d.word_id=c.word_id WHERE c.id=:candidate"
         ), {"candidate": candidate_id}).mappings().one()
-    assert row["source_example"] == feedback
+    assert row["source_example"] is None
     assert row["example"] == "Elle prend des cours de danse."
 
 
@@ -280,7 +281,7 @@ def test_one_received_sentence_can_create_multiple_word_level_candidates(
             "WHERE a.packet_item_id=:item ORDER BY c.id"
         ), {"item": item_ids[0]}).mappings().all()
     assert [row["word"] for row in rows] == ["赞同", "观点"]
-    assert {row["source_example"] for row in rows} == {context}
+    assert {row["source_example"] for row in rows} == {None}
 
 
 def test_recipient_can_request_editable_ai_term_suggestions(
@@ -299,7 +300,10 @@ def test_recipient_can_request_editable_ai_term_suggestions(
         captured["messages"] = messages
         captured["kwargs"] = kwargs
         return llm.LLMResult(
-            '{"terms":["赞同","观点","赞同"]}',
+            '{"candidates":['
+            '{"term":"赞同","context":"我很赞同你的观点"},'
+            '{"term":"观点","context":"你的观点"},'
+            '{"term":"赞同","context":null}]}',
             17, 9, "fake", "fake-extract",
         )
 
@@ -310,8 +314,10 @@ def test_recipient_can_request_editable_ai_term_suggestions(
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert 'name="terms"' in body
-    assert "赞同\n观点" in body
+    assert body.count('name="candidate_term"') == 2
+    assert 'value="赞同"' in body
+    assert 'value="观点"' in body
+    assert "我很赞同你的观点" in body
     assert context not in body
     assert "AI 建议已填入，可继续修改" in body
     assert captured["kwargs"] == {"task": "extract", "json_mode": True}
@@ -357,7 +363,8 @@ def test_ai_suggestion_failure_keeps_manual_split_available(
     assert response.status_code == 200
     assert context in body
     assert "AI 暂时不可用，可继续手动拆分" in body
-    assert 'name="terms"' in body
+    assert 'name="candidate_term"' in body
+    assert 'name="candidate_context"' in body
     with bypass_engine.connect() as conn:
         assert conn.execute(text(
             "SELECT count(*) FROM token_usage_log WHERE user_id=:user"
@@ -378,7 +385,7 @@ def test_invalid_ai_output_falls_back_but_still_records_consumed_tokens(
     monkeypatch.setattr(
         "app.services.packets.llm.chat",
         lambda *args, **kwargs: llm.LLMResult(
-            '{"terms":[]}', 7, 3, "fake", "bad-output",
+            '{"candidates":[]}', 7, 3, "fake", "bad-output",
         ),
     )
     login(client, "suggest-invalid-recipient@t.com", PW)

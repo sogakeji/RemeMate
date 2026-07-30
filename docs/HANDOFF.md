@@ -1,5 +1,15 @@
 # RemeMate HANDOFF
 
+## 2026-07-30 SessionPad 带语境候选 v1 — SP2 候选产生
+
+- 功能分支仍为 `feature/sessionpad-context-candidates-v1`；SP1 已提交为 `d2ec131`，SP2 实现已完成、尚未合并或部署。生产仍为 `master@1be9ddc`，生产 migration head 仍为 `f1a2b3c4d5e6`。
+- 新增共享 `sessionpad_candidates` 服务：AI 与人工统一生成最多 8 / 20 个 `term + context`；term 最多 80 字符，context 最多 300 字符。同次输入按 `normalize_word_identity` 合并，保留首个展示写法，首个有效非空语境可补空。
+- AI context 只能是当前反馈原文的连续片段，仅允许 Unicode 空白折叠差异；无法定位时置空，不允许生成或改写例句。未改的 AI 片段为 `source_quote`，用户新建或编辑后为 `user_edited`。
+- packet 收到反馈与 recap「帮自己记」已接入同一创建服务。新 SessionPad 候选不再写 `source_example`；AI 建议只预填表单，不创建候选，AI 不可用时仍显示人工 term/context 表单。
+- 同一来源用行锁串行创建；迁移 `b3c4d5e6f7a8` 增加 active partial unique expression index：同 `source_id + lower(btrim(word))` 在 pending/accepted 中只能有一个，ignored 不阻止重新候选，不同来源可保留同词。迁移前发现历史重复会明确失败，不猜测合并。
+- GCP 已完成迁移 downgrade/upgrade 往返，当前单一 head `b3c4d5e6f7a8`；相邻回归 **80 passed**，packet 真实 HTTP 并发连续 **5/5 passed**，最终全量 **644 passed, 16 warnings**。SP3 聚焦候选审核 UI 尚未开始。
+- GCP `flask doctor --strict` 的非零仅因测试环境无管理员、LLM provider 和外置词典，数据库/dispatch/migrate/迁移/密钥均正常。`flask db check` 仍会报告本票之前已存在的 reading/recap 外键与索引 metadata 漂移；未报告 SP2 新索引缺失，本票不顺手修旧漂移。
+
 ## 2026-07-30 SessionPad 带语境候选 v1 — SP1 数据地基
 
 - 功能分支：`feature/sessionpad-context-candidates-v1`，从已部署里程碑 `master@1be9ddc` 创建；生产仍停在 `1be9ddc`，本分支尚未部署。
@@ -7,7 +17,7 @@
 - 不回填历史 `source_example`，不改历史 `definitions`。SessionPad 入库不再用完整伙伴反馈 `source_example` 兜底最终例句；用户明确填写的 `example` 仍正常保存，阅读及其他 intake 来源保持旧规则。
 - 用户编辑语境会 trim 并标为 `user_edited`；清空时两字段同时置空；超长编辑在修改候选前失败，原状态与数据保持不变。
 - GCP PostgreSQL 验收：迁移实际 downgrade/upgrade 往返成功，单一 head `a2b3c4d5e6f7`；相邻边界 **73 passed**，全量 **627 passed, 16 warnings**，`git diff --check` 通过。测试曾抓出 PostgreSQL CHECK 对 `NULL` 的三值逻辑漏口，已用显式 `context_provenance IS NOT NULL` 修正并回归。
-- SP1 没有路由、模板或 UI 改动。下一张票是 SP2：SessionPad AI/人工统一产生 `term + context`、原文定位、同来源规范化合并与并发兜底；不得提前进入 SP3 聚焦审核 UI。
+- SP1 本身没有路由、模板或 UI 改动；后续 SP2 状态见上节，SP3 仍不得提前混入本数据地基。
 
 ## 2026-07-30 Review Story 部分队列硬修复
 

@@ -66,3 +66,12 @@ class WordCandidate(db.Model):
     status         = db.Column(db.String(20), default="pending")  # pending / accepted / ignored
     word_id        = db.Column(db.Integer, db.ForeignKey("words.id", ondelete="SET NULL"), nullable=True)  # commit 后填入；词删则断链
     created_at     = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+
+db.Index(
+    "uq_word_candidates_active_source_word",
+    WordCandidate.source_id,
+    db.func.lower(db.func.btrim(WordCandidate.word)),
+    unique=True,
+    postgresql_where=WordCandidate.status.in_(("pending", "accepted")),
+)

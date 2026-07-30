@@ -10,9 +10,9 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：SP1 schema 与服务契约已在功能分支完成并通过 GCP
-   全量回归。下一张票为 SP2：AI/人工统一产生 `term + context`、原文定位、同来源规范化合并与
-   并发兜底；随后才进入 SP3 SessionPad 专属单候选聚焦审核。
+1. **SessionPad context-bearing candidate v1**：SP1 已提交；SP2 的 AI/人工 `term + context`、原文
+   定位、packet/recap 统一创建、同来源合并与并发兜底已完成，并通过 644 项最终全量验收。
+   下一张票才是 SP3 SessionPad 专属单候选聚焦审核，不要提前混入 observation dashboard。
 2. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
    Discord 自动发布。
 
@@ -36,6 +36,11 @@
 - **htmx 本地化**（review 2026-06-23 L7）✅ 2026-06-28
   base.html 改用 `app/static/vendor/htmx.min.js` 本地引用，不再走 unpkg CDN。
 
+- **SQLAlchemy metadata 与既有迁移结构对齐**（SP2 发布检查 2026-07-30）
+  GCP `flask db check` 会把 reading/recap 的复合外键、若干既有索引和
+  `uq_words_list_normalized_word` 报为待删除/重建；这些漂移早于 SP2，SP2 新 partial unique index
+  已被正确识别。引入 CI migration check 前应单独审计模型声明与实际迁移，避免自动生成破坏性
+  “修复”迁移；不要在业务功能票中顺手接受 autogenerate 输出。
 - **CI 自动跑迁移**（review 2026-06-23 L6）
   conftest 不自动迁移；测试库需手动 `flask db upgrade` 到最新。CI 必须有该步骤，否则
   级联/索引类回归测试会因 DB 落后而误判。

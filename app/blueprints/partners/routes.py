@@ -85,6 +85,17 @@ def _service_error(exc: ValueError) -> str:
         "每个候选词需为 1-200 个字符": "packet.error.term_length",
         "请至少填写一个候选词或表达": "packet.error.term_required",
         "一次最多加入 20 个候选词": "packet.error.term_limit",
+        "candidate term is required": "candidate.error.term_required",
+        "candidate term cannot exceed 80 characters": (
+            "candidate.error.term_too_long"
+        ),
+        "candidate context cannot exceed 300 characters": (
+            "candidate.error.context_too_long"
+        ),
+        "manual submission allows at most 20 candidates": (
+            "candidate.error.too_many"
+        ),
+        "at least one candidate is required": "candidate.error.term_required",
         "这类反馈不能加入候选词": "packet.error.kind_not_adoptable",
         "选择的反馈内容不正确": "packet.error.invalid_items",
         "请至少选择一条帮他记的内容": "packet.error.select_one",
@@ -154,7 +165,8 @@ def _render_packet_adopt_form(
     packet_id: int,
     item,
     *,
-    terms: str,
+    terms: str = "",
+    candidate_rows: list[dict] | None = None,
     suggestion_message: str,
 ):
     return render_template(
@@ -163,9 +175,30 @@ def _render_packet_adopt_form(
         item=item,
         source_id=packets_svc.adoption_source_ids(_uid(), [item]).get(item.id),
         terms=terms,
+        candidate_rows=candidate_rows,
         suggestion_message=suggestion_message,
         form_open=True,
     )
+
+
+def _packet_candidate_rows_from_form() -> list[dict] | None:
+    terms = request.form.getlist("candidate_term")
+    if not terms:
+        return None
+    contexts = request.form.getlist("candidate_context")
+    origins = request.form.getlist("candidate_origin")
+    originals = request.form.getlist("candidate_original_context")
+    return [
+        {
+            "term": term,
+            "context": contexts[index] if index < len(contexts) else "",
+            "origin": origins[index] if index < len(origins) else "manual",
+            "original_context": (
+                originals[index] if index < len(originals) else ""
+            ),
+        }
+        for index, term in enumerate(terms)
+    ]
 
 
 @bp.get("/partners")
@@ -633,7 +666,11 @@ def thank_packet(packet_id):
 def adopt_packet_item(packet_id, item_id):
     try:
         result = packets_svc.add_received_item_to_candidates(
-            _uid(), packet_id, item_id, request.form.get("terms", ""),
+            _uid(),
+            packet_id,
+            item_id,
+            request.form.get("terms", ""),
+            candidate_rows=_packet_candidate_rows_from_form(),
         )
     except ValueError as exc:
         flash(_service_error(exc))
@@ -685,8 +722,19 @@ def suggest_packet_item_terms(packet_id, item_id):
     if result is None:
         abort(404)
     return _render_packet_adopt_form(
-        packet_id, result["item"],
-        terms="\n".join(result["terms"]),
+        packet_id,
+        result["item"],
+        candidate_rows=[
+            {
+                "term": draft.term,
+                "context": draft.context or "",
+                "origin": draft.provenance or "manual",
+                "original_context": (
+                    draft.context if draft.provenance == "source_quote" else ""
+                ),
+            }
+            for draft in result["candidates"]
+        ],
         suggestion_message=_("packet.ai_suggested"),
     )
 

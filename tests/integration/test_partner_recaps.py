@@ -390,6 +390,43 @@ def test_adding_same_recap_item_to_candidates_is_idempotent(
     assert count == 1
 
 
+def test_recap_candidate_uses_shared_eighty_character_term_limit(
+    app, client, bypass_engine,
+):
+    user_id = _provision_learning_user(app, "recap-candidate-limit@t.com")
+    login(client, "recap-candidate-limit@t.com", PW)
+    partner_id = _create_partner(client)
+    recap_id = _create_recap(client, partner_id)
+    recap_url = f"/partners/{partner_id}/recaps/{recap_id}"
+    added = client.post(f"{recap_url}/items", data={
+        "side": "for_me",
+        "kind": "expression",
+        "content": "x" * 81,
+        "csrf_token": _csrf(client, recap_url),
+    }, follow_redirects=True)
+    item_id = int(re.search(
+        r'data-recap-item-id="(\d+)"', added.get_data(as_text=True),
+    ).group(1))
+
+    response = client.post(
+        f"{recap_url}/items/{item_id}/add-candidate",
+        data={"csrf_token": _csrf(client, recap_url)},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert "候选词或表达不能超过 80 个字符" in response.get_data(as_text=True)
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT candidate_id FROM partner_recap_items "
+            "WHERE id=:item AND user_id=:user"
+        ), {"item": item_id, "user": user_id}).mappings().one()
+        candidate_count = conn.execute(text(
+            "SELECT count(*) FROM word_candidates WHERE user_id=:user"
+        ), {"user": user_id}).scalar_one()
+    assert row["candidate_id"] is None
+    assert candidate_count == 0
+
 def test_recap_candidate_source_keeps_its_original_language(
     app, client, bypass_engine,
 ):

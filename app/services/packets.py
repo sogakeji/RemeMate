@@ -20,6 +20,7 @@ from app.models.recap import PartnerRecap, PartnerRecapItem
 from app.models.user import User
 from app.models.word import Word, WordList
 from app.services import llm, quota as quota_svc
+from app.services import sessionpad_candidates as candidate_svc
 from app.services import words as words_svc
 from app.services.timeutil import utc_now
 
@@ -306,7 +307,8 @@ def add_received_item_to_candidates(
     recipient_user_id: int,
     packet_id: int,
     packet_item_id: int,
-    terms: str,
+    terms: str = "",
+    candidate_rows: list[dict] | None = None,
 ) -> dict | None:
     received = _received_adoptable_item(
         recipient_user_id, packet_id, packet_item_id,
@@ -315,7 +317,17 @@ def add_received_item_to_candidates(
         return None
     packet, item = received
 
-    normalized_terms = _normalize_adoption_terms(terms)
+    if candidate_rows is None:
+        drafts = candidate_svc.normalize_manual_candidates([
+            {"term": term, "context": None}
+            for term in _normalize_adoption_terms(terms)
+        ])
+    else:
+        drafts = candidate_svc.normalize_submitted_candidates(
+            candidate_rows,
+            item.content,
+        )
+
     language_code = packet.language_code
     if not language_code:
         raise ValueError("这份旧反馈没有语言信息，暂时不能加入候选词")
@@ -331,30 +343,6 @@ def add_received_item_to_candidates(
             recipient_user_id, language_code,
         )
 
-    term_by_key = {term.lower(): term for term in normalized_terms}
-    existing_word_keys = {
-        word.lower() for word, in (
-            Word.query
-            .with_entities(Word.word)
-            .filter(
-                Word.list_id == word_list.id,
-                db.func.lower(Word.word).in_(term_by_key),
-            )
-            .all()
-        )
-    }
-    candidate_terms = [
-        term for key, term in term_by_key.items()
-        if key not in existing_word_keys
-    ]
-    if not candidate_terms:
-        return {
-            "state": "existing-word",
-            "candidate_count": 0,
-            "created_count": 0,
-            "existing_word_count": len(existing_word_keys),
-        }
-
     db.session.execute(
         text("SELECT pg_advisory_xact_lock(:lock_key)"),
         {"lock_key": 7_700_000_000 + packet_id},
@@ -362,41 +350,24 @@ def add_received_item_to_candidates(
     source = _source_for_received_packet(
         recipient_user_id, packet, word_list.id, language_code,
     )
+    creation = candidate_svc.create_sessionpad_candidates(
+        recipient_user_id,
+        source.id,
+        drafts,
+    )
+    if creation is None:
+        return None
 
-    candidate_keys = {term.lower() for term in candidate_terms}
-    existing_candidates = {
-        candidate.word.lower(): candidate
-        for candidate in (
-            WordCandidate.query
-            .filter(
-                WordCandidate.source_id == source.id,
-                WordCandidate.user_id == recipient_user_id,
-                WordCandidate.status.in_(["pending", "accepted"]),
-                db.func.lower(WordCandidate.word).in_(candidate_keys),
-            )
-            .all()
-        )
-    }
-    created_count = 0
-    ordered_candidates = []
-    for term in candidate_terms:
-        key = term.lower()
-        candidate = existing_candidates.get(key)
-        if candidate is None:
-            candidate = WordCandidate(
-                source_id=source.id,
-                user_id=recipient_user_id,
-                word=term,
-                source_example=item.content,
-                status="pending",
-            )
-            db.session.add(candidate)
-            existing_candidates[key] = candidate
-            created_count += 1
-        ordered_candidates.append(candidate)
-    db.session.flush()
+    candidate_ids = list(creation.candidate_ids)
+    if not candidate_ids:
+        db.session.commit()
+        return {
+            "state": "existing-word",
+            "candidate_count": 0,
+            "created_count": 0,
+            "existing_word_count": creation.existing_word_count,
+        }
 
-    candidate_ids = [candidate.id for candidate in ordered_candidates]
     adopted_ids = set(
         candidate_id for candidate_id, in (
             PartnerPacketItemAdoption.query
@@ -409,24 +380,20 @@ def add_received_item_to_candidates(
             .all()
         )
     )
-    for candidate in ordered_candidates:
-        if candidate.id not in adopted_ids:
+    for candidate_id in candidate_ids:
+        if candidate_id not in adopted_ids:
             db.session.add(PartnerPacketItemAdoption(
                 packet_item_id=packet_item_id,
                 packet_id=packet_id,
                 recipient_user_id=recipient_user_id,
-                candidate_id=candidate.id,
+                candidate_id=candidate_id,
             ))
-    if created_count:
-        source.total_candidates = (
-            source.total_candidates or 0
-        ) + created_count
     db.session.commit()
     return {
-        "state": "created" if created_count else "already-candidate",
-        "candidate_count": len(ordered_candidates),
-        "created_count": created_count,
-        "existing_word_count": len(existing_word_keys),
+        "state": "created" if creation.created_count else "already-candidate",
+        "candidate_count": len(candidate_ids),
+        "created_count": creation.created_count,
+        "existing_word_count": creation.existing_word_count,
         "source_id": source.id,
     }
 
@@ -464,10 +431,13 @@ def suggest_received_item_terms(
         model=result.model,
         feature="sessionpad_term_suggestions",
     )
-    suggestions = normalize_term_suggestions(_parse_json_object(result.content))
+    suggestions = candidate_svc.normalize_ai_suggestions(
+        _parse_json_object(result.content),
+        item.content,
+    )
     if not suggestions:
         raise TermSuggestionUnavailable()
-    return {"terms": suggestions, "item": item}
+    return {"candidates": suggestions, "item": item}
 
 
 def _normalize_adoption_terms(value: str) -> list[str]:
@@ -524,7 +494,12 @@ def _term_suggestion_messages(content: str, language_name: str) -> list[dict]:
         "从下面这条语言交换反馈中谨慎提取 1-8 个学习项；宁缺毋滥。"
         "每项脱离原句后仍应有学习价值，保留原语言写法并去重，"
         "每项不超过 80 个字符。"
-        "输出格式：{\"terms\":[\"词语或短表达\"]}\n\n"
+        "context 必须是反馈原文中连续出现的短语或句子，只允许折叠空白，"
+        "不得改写或编造；找不到可靠原文时设为 null。"
+        "输出格式："
+        "{\"candidates\":[{\"term\":\"词语或短表达\","
+        "\"context\":\"原文中的连续片段\"}]}。"
+        "找不到语境时，context 必须使用 JSON null，而不是字符串。\n\n"
         f"反馈：{content}"
     )
     return [

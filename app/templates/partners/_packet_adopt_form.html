@@ -10,11 +10,31 @@
   {% if suggestion_message %}
   <p class="form-hint">{{ suggestion_message }}</p>
   {% endif %}
+  {% set default_context = item.content if item.content|length <= 300 else '' %}
+  {% set rows = candidate_rows if candidate_rows is defined and candidate_rows is not none else [
+    {
+      'term': '',
+      'context': default_context,
+      'origin': 'source_quote' if default_context else 'manual',
+      'original_context': default_context
+    }
+  ] %}
   <form method="post"
         action="{{ url_for('partners.adopt_packet_item', packet_id=packet_id, item_id=item.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label class="form-label">{{ _('packet.terms_label') }}</label>
-    <textarea class="form-control" name="terms" rows="4" maxlength="4020" required>{{ terms }}</textarea>
+    {% for row in rows %}
+    <div class="packet-candidate-row">
+      <label class="form-label">{{ _('packet.term_label') }}</label>
+      <input class="form-control" name="candidate_term" maxlength="80"
+             value="{{ row.term }}" required>
+      <label class="form-label">{{ _('packet.context_label') }}</label>
+      <textarea class="form-control" name="candidate_context" rows="2"
+                maxlength="300">{{ row.context }}</textarea>
+      <input type="hidden" name="candidate_origin" value="{{ row.origin }}">
+      <input type="hidden" name="candidate_original_context"
+             value="{{ row.original_context }}">
+    </div>
+    {% endfor %}
     <button class="btn primary" type="submit">{{ _('packet.add_candidates') }}</button>
   </form>
 </details>

@@ -4,8 +4,9 @@ from datetime import date
 from app.extensions import db
 from app.models.intake import IntakeSource, WordCandidate
 from app.models.recap import PartnerRecap, PartnerRecapItem
-from app.models.word import Word, WordList
+from app.models.word import WordList
 from app.services import partners as partners_svc, words as words_svc
+from app.services import sessionpad_candidates as candidate_svc
 from app.services.timeutil import utc_now
 
 
@@ -244,11 +245,13 @@ def add_item_to_candidates(
         raise ValueError(f"请先在设置中把{language_name}加入正在学")
 
     word_list = WordList.query.filter_by(
-        user_id=user_id, language_code=language_code,
+        user_id=user_id,
+        language_code=language_code,
     ).first()
     if word_list is None:
         word_list = words_svc.get_or_create_language_list(
-            user_id, language_code,
+            user_id,
+            language_code,
         )
 
     recap = (
@@ -270,7 +273,8 @@ def add_item_to_candidates(
 
     if item.candidate_id is not None:
         candidate = WordCandidate.query.filter_by(
-            id=item.candidate_id, user_id=user_id,
+            id=item.candidate_id,
+            user_id=user_id,
         ).first()
         if candidate is not None:
             return {
@@ -279,57 +283,33 @@ def add_item_to_candidates(
                 "source_id": candidate.source_id,
             }
 
-    term = item.content.strip()
-    if len(term) > 200:
-        raise ValueError("加入候选词的内容不能超过 200 个字符")
-
-    existing_word = (
-        Word.query
-        .filter(
-            Word.list_id == word_list.id,
-            db.func.lower(Word.word) == term.lower(),
-        )
-        .first()
-    )
-    if existing_word is not None:
-        return {"state": "existing-word", "word_id": existing_word.id}
-
+    drafts = candidate_svc.normalize_manual_candidates([{
+        "term": item.content,
+        "context": None,
+    }])
     source = _source_for_recap(
-        user_id, recap, partner, word_list.id, language_code,
+        user_id,
+        recap,
+        partner,
+        word_list.id,
+        language_code,
     )
-    existing_candidate = (
-        WordCandidate.query
-        .filter(
-            WordCandidate.source_id == source.id,
-            WordCandidate.user_id == user_id,
-            WordCandidate.status.in_(["pending", "accepted"]),
-            db.func.lower(WordCandidate.word) == term.lower(),
-        )
-        .first()
+    creation = candidate_svc.create_sessionpad_candidates(
+        user_id,
+        source.id,
+        drafts,
     )
-    if existing_candidate is not None:
-        item.candidate_id = existing_candidate.id
+    if creation is None:
+        return None
+    if not creation.candidate_ids:
         db.session.commit()
-        return {
-            "state": "already-candidate",
-            "candidate_id": existing_candidate.id,
-            "source_id": source.id,
-        }
+        return {"state": "existing-word"}
 
-    candidate = WordCandidate(
-        source_id=source.id,
-        user_id=user_id,
-        word=term,
-        status="pending",
-    )
-    db.session.add(candidate)
-    db.session.flush()
-    item.candidate_id = candidate.id
-    source.total_candidates = (source.total_candidates or 0) + 1
+    item.candidate_id = creation.candidate_ids[0]
     db.session.commit()
     return {
-        "state": "created",
-        "candidate_id": candidate.id,
+        "state": "created" if creation.created_count else "already-candidate",
+        "candidate_id": item.candidate_id,
         "source_id": source.id,
     }
 
