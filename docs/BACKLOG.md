@@ -10,9 +10,9 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：Review Story 已合并并部署闭测生产，但真实使用暴露
-   “必须清空到期队列”硬 bug；先合并、部署并复验 `fix/review-story-partial-queue`，再串行开发。
-   分离完整来源、候选短语境和最终例句，采用 SessionPad 专属单候选聚焦审核。
+1. **SessionPad context-bearing candidate v1**：Review Story 部分队列硬修复 `2f09304` 已合并并部署；
+   先用真实账号复验“达到 10 个不同词且仍有到期词时出现回执”，通过后再串行开发。分离完整来源、
+   候选短语境和最终例句，采用 SessionPad 专属单候选聚焦审核。
 2. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
    Discord 自动发布。
 

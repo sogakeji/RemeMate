@@ -6,7 +6,11 @@
 - 修复分支：`fix/review-story-partial-queue`。资格统一为按用户本地日和当前语言累计不同词：少于 10 个始终静默；达到 10 个后，`模糊 + 遗忘`不同词超过 5 个为 strong，否则 normal。strong 不再绕过 10 词下限。
 - 回执现在可与当前到期词卡同时显示，用户可以继续复习；AI 仍只在显式点击后调用，不把故事变成复习门禁，也不要求清空到期队列。
 - 实现未新增迁移或会话表；缓存仍绑定服务端选择的目标词快照与 input hash。
-- GCP 验收：Review Story 相邻边界 **151 passed**，全量 **621 passed, 16 warnings**；JSON、Python 编译与 `git diff --check` 通过。尚未合并或部署生产。
+- GCP 验收：Review Story 相邻边界 **151 passed**，全量 **621 passed, 16 warnings**；JSON、Python 编译与 `git diff --check` 通过。
+- 修复提交 `2f09304` 已于 2026-07-30 纯快进合并到本地 `master` 并部署闭测生产。部署前代码/数据库备份分别为
+  `rememate-code-before-review-story-hotfix-20260730-1105.tgz` 和
+  `rememate-db-before-review-story-hotfix-20260730-1105.dump`；生产 strict doctor、服务重启、内外网 200 与新日志检查均通过。
+  部署前后计数一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6、故事运行 0。仍待真实账号复验部分队列场景。
 
 ## 2026-07-30 Review Story 闭测部署状态
 
