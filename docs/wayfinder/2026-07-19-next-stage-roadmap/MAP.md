@@ -22,7 +22,7 @@
 - [路线顺序与范围边界](resolved/04-order-and-scope.md) — 先可信地基，再故事、SessionPad、观察面板和后续体验批次。
 - [核验复习会话与每日选词数据](resolved/05-review-session-data.md) — 无需复习会话表；按本地日和语言聚合去重日志，使用私有幂等缓存。
 - [复习评分幂等边界](resolved/06-review-grade-idempotency.md) — 以到期时间作为尝试版本，Web/Bark 锁同一词行并原子校验。
-- [复习完成卡与短故事体验](resolved/07-review-story-experience.md) — 选择独立复习回执；完成卡不变，符合条件才在其下方显示。
+- [复习流程与短故事体验](resolved/07-review-story-experience.md) — 选择独立复习回执；累计达到门槛即可显示，不要求清空到期队列。
 - [多语言短故事生成契约](resolved/08-story-generation-contract.md) — 最小输入快照、逐句双语 JSON、严格锚点校验、两次尝试和安全写作交接。
 - [SessionPad 带语境候选数据模型](resolved/09-sessionpad-context-model.md) — 交换来源、候选短语境和最终例句分离，统一 AI/人工降级契约。
 - [SessionPad 候选审核原型](resolved/10-sessionpad-candidate-review-prototype.md) — 单候选聚焦审核，吸收缺语境空态和 AI 降级提示。
@@ -37,8 +37,10 @@
   **621 passed, 16 warnings**。
 - Review Story 已由 `a7fcf91` 合并到 `master`，并于 2026-07-30 连同六项恢复修复部署闭测生产；
   生产 migration 为单一 head `f1a2b3c4d5e6`，strict doctor、服务健康和公网冒烟均通过。
-- 下一步先完成真实账号的故事生成与写作交接人测；通过后从更新后的 `master` 创建
-  SessionPad context-candidate 分支。不得绕过目标环境 PostgreSQL、全量测试和 doctor 闸门。
+- 闭测真实使用发现回执错误依赖“到期队列清空”；`fix/review-story-partial-queue` 已改为当天累计
+  复习至少 10 个不同词即可显示，模糊或遗忘超过 5 个只提升为 strong。该硬修复须先合并、部署并
+  复验，再从更新后的 `master` 创建 SessionPad context-candidate 分支。不得绕过目标环境
+  PostgreSQL、全量测试和 doctor 闸门。
 
 ## Out of scope
 

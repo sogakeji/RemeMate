@@ -72,9 +72,7 @@ def _current_review_word():
     return due[0] if due else None
 
 
-def _completion_story_summary(word):
-    if word is not None:
-        return None
+def _review_story_summary():
     return review_stories_svc.get_daily_review_story_summary(_uid())
 
 
@@ -305,7 +303,7 @@ def review():
         "review/review.html",
         word=word,
         previous_available=_previous_available(word),
-        review_story_summary=_completion_story_summary(word),
+        review_story_summary=_review_story_summary(),
     )
 
 
@@ -317,7 +315,7 @@ def current_review_card():
         "review/_card.html",
         word=word,
         previous_available=_previous_available(word),
-        review_story_summary=_completion_story_summary(word),
+        review_story_summary=_review_story_summary(),
     )
 
 
@@ -354,16 +352,14 @@ def grade(word_id):
         "review/_card.html",
         word=word,
         previous_available=_previous_available(word),
-        review_story_summary=_completion_story_summary(word),
+        review_story_summary=_review_story_summary(),
     )
 
 
 @bp.post("/review/story")
 @login_required
 def review_story():
-    """Generate or reuse today's optional story after review completion."""
-    if _current_review_word() is not None:
-        abort(404)
+    """Generate or reuse today's optional story after its review threshold."""
     summary = review_stories_svc.get_daily_review_story_summary(_uid())
     if (
         summary is None

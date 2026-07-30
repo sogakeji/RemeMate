@@ -1,5 +1,13 @@
 # RemeMate HANDOFF
 
+## 2026-07-30 Review Story 部分队列硬修复
+
+- 闭测真实使用暴露：用户当天已复习足量词，但只要仍有其他到期词，故事回执就不会出现；到期词多时等同于功能长期不可达。
+- 修复分支：`fix/review-story-partial-queue`。资格统一为按用户本地日和当前语言累计不同词：少于 10 个始终静默；达到 10 个后，`模糊 + 遗忘`不同词超过 5 个为 strong，否则 normal。strong 不再绕过 10 词下限。
+- 回执现在可与当前到期词卡同时显示，用户可以继续复习；AI 仍只在显式点击后调用，不把故事变成复习门禁，也不要求清空到期队列。
+- 实现未新增迁移或会话表；缓存仍绑定服务端选择的目标词快照与 input hash。
+- GCP 验收：Review Story 相邻边界 **151 passed**，全量 **621 passed, 16 warnings**；JSON、Python 编译与 `git diff --check` 通过。尚未合并或部署生产。
+
 ## 2026-07-30 Review Story 闭测部署状态
 
 - 当前权威仓库：`D:\home\RemeMate`；当前分支：`master`。

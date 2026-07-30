@@ -241,13 +241,13 @@ def test_strong_receipt_is_visible_without_automatic_generation(
         client,
         bypass_engine,
         email="receipt-strong@t.com",
-        grades=[2] * 6,
+        grades=[2] * 3 + [3] * 3 + [5] * 4,
     )
 
     body = client.get("/").get_data(as_text=True)
 
     assert 'data-state="strong"' in body
-    assert "遗忘词有点多" in body
+    assert "模糊或遗忘的词有点多" in body
     assert provider.calls == 0
 
 
@@ -289,7 +289,7 @@ def test_last_grade_response_adds_receipt_without_generating(
     assert provider.calls == 0
 
 
-def test_story_generation_is_rejected_until_review_is_complete(
+def test_story_is_available_after_threshold_with_due_words_remaining(
     app,
     client,
     bypass_engine,
@@ -313,10 +313,16 @@ def test_story_generation_is_rejected_until_review_is_complete(
         "/review/story",
         headers={"HX-Request": "true"},
     )
+    body = response.get_data(as_text=True)
 
-    assert 'id="review-story-receipt"' not in page
-    assert response.status_code == 404
-    assert provider.calls == 0
+    assert "receipt-due" in page
+    assert 'class="srs-grade-group"' in page
+    assert "今日复习完成" not in page
+    assert 'id="review-story-receipt"' in page
+    assert page.index('class="srs-grade-group"') < page.index('id="review-story-receipt"')
+    assert response.status_code == 200
+    assert 'data-state="ready"' in body
+    assert provider.calls == 1
 
 
 def test_provider_failure_stays_inside_receipt_and_offers_one_retry(

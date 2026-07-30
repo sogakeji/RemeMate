@@ -38,10 +38,12 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     mutating `current_language` or `learning_languages`; GCP passed 63 targeted tests and the final
     **621-test** full suite. The review's summary-query and global-cleanup observations are deferred
     scalability notes, not merge-blocking correctness bugs.
-  - Review Story v1 is code-complete, merged, and deployed to closed beta. Do not add story history, publishing,
-    images, or a second editor before closed-beta evidence justifies them.
-  - The remaining release acceptance is a real-account story generation and writing handoff using the configured
-    production provider. After that human check, the next feature is SessionPad context-bearing candidate v1.
+  - Review Story v1 is merged and deployed to closed beta. Real use then exposed a hard reachability bug: the
+    receipt incorrectly required the entire due queue to be empty. `fix/review-story-partial-queue` removes that
+    dependency. Eligibility is now at least 10 distinct words reviewed today; more than 5 distinct fuzzy-or-forgotten
+    words changes the receipt to strong, but never bypasses the 10-word floor. GCP full suite: **621 passed**.
+  - The hotfix is not yet merged or deployed. Do not start SessionPad context-bearing candidate implementation until
+    this hard fix is merged and production-verified. Do not add story history, publishing, images, or a second editor.
 - Local migration head is `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.

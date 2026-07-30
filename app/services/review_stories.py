@@ -81,6 +81,7 @@ class DailyReviewStorySummary:
     eligibility: str
     targets: tuple[ReviewStoryTarget, ...]
     input_hash: str | None
+    weak_word_count: int = 0
 
     @property
     def provider_terms(self) -> tuple[dict[str, str], ...]:
@@ -156,9 +157,10 @@ def build_daily_review_story_summary(
         day_end_utc=day_end,
     )
     forgotten_count = sum(row.worst_grade == 2 for row in reviewed_words)
+    weak_count = sum(row.worst_grade in {2, 3} for row in reviewed_words)
     eligibility = review_story_eligibility(
         reviewed_word_count=len(reviewed_words),
-        forgotten_word_count=forgotten_count,
+        weak_word_count=weak_count,
     )
 
     targets: tuple[ReviewStoryTarget, ...] = ()
@@ -185,21 +187,22 @@ def build_daily_review_story_summary(
         eligibility=eligibility,
         targets=targets,
         input_hash=input_hash,
+        weak_word_count=weak_count,
     )
 
 
 def review_story_eligibility(
-    *, reviewed_word_count: int, forgotten_word_count: int,
+    *, reviewed_word_count: int, weak_word_count: int,
 ) -> str:
-    if reviewed_word_count < 0 or forgotten_word_count < 0:
+    if reviewed_word_count < 0 or weak_word_count < 0:
         raise ValueError("review counts cannot be negative")
-    if forgotten_word_count > reviewed_word_count:
-        raise ValueError("forgotten count cannot exceed reviewed count")
-    if forgotten_word_count > 5:
+    if weak_word_count > reviewed_word_count:
+        raise ValueError("weak count cannot exceed reviewed count")
+    if reviewed_word_count < 10:
+        return ELIGIBILITY_SILENT
+    if weak_word_count > 5:
         return ELIGIBILITY_STRONG
-    if reviewed_word_count >= 10:
-        return ELIGIBILITY_NORMAL
-    return ELIGIBILITY_SILENT
+    return ELIGIBILITY_NORMAL
 
 
 def select_review_story_targets(

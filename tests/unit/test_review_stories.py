@@ -30,33 +30,31 @@ from app.services.timeutil import local_day_window_utc
 
 
 @pytest.mark.parametrize(
-    "reviewed,forgotten,expected",
+    "reviewed,weak,expected",
     [
         (0, 0, ELIGIBILITY_SILENT),
         (9, 0, ELIGIBILITY_SILENT),
         (9, 5, ELIGIBILITY_SILENT),
+        (9, 6, ELIGIBILITY_SILENT),
         (10, 0, ELIGIBILITY_NORMAL),
         (10, 5, ELIGIBILITY_NORMAL),
-        (9, 6, ELIGIBILITY_STRONG),  # strong overrides count floor
         (10, 6, ELIGIBILITY_STRONG),
-        (6, 6, ELIGIBILITY_STRONG),  # forgotten is subset of reviewed
-        (7, 6, ELIGIBILITY_STRONG),
     ],
 )
-def test_review_story_eligibility_boundaries(reviewed, forgotten, expected):
+def test_review_story_eligibility_boundaries(reviewed, weak, expected):
     assert review_story_eligibility(
         reviewed_word_count=reviewed,
-        forgotten_word_count=forgotten,
+        weak_word_count=weak,
     ) == expected
 
 
 def test_review_story_eligibility_rejects_negative_and_impossible():
     with pytest.raises(ValueError):
-        review_story_eligibility(reviewed_word_count=-1, forgotten_word_count=0)
+        review_story_eligibility(reviewed_word_count=-1, weak_word_count=0)
     with pytest.raises(ValueError):
-        review_story_eligibility(reviewed_word_count=3, forgotten_word_count=-1)
+        review_story_eligibility(reviewed_word_count=3, weak_word_count=-1)
     with pytest.raises(ValueError):
-        review_story_eligibility(reviewed_word_count=2, forgotten_word_count=3)
+        review_story_eligibility(reviewed_word_count=2, weak_word_count=3)
 
 
 # ---------------------------------------------------------------------------

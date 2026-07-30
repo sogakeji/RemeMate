@@ -181,6 +181,7 @@ def test_summary_uses_local_day_and_excludes_adjacent_nights(
     # 3 boundary-in + 7 pad; adjacent-night words excluded
     assert summary.reviewed_word_count == 10
     assert summary.forgotten_word_count == 1
+    assert summary.weak_word_count == 2
     assert summary.eligibility == ELIGIBILITY_NORMAL
     target_ids = {t.word_id for t in summary.targets}
     # grade-2 edge word is selected first among targets
@@ -214,6 +215,7 @@ def test_summary_same_word_repeated_grades_uses_worst(
 
     assert summary.reviewed_word_count == 10
     assert summary.forgotten_word_count == 1
+    assert summary.weak_word_count == 1
     assert summary.eligibility == ELIGIBILITY_NORMAL
     # maison (grade 2) must be first among targets
     assert summary.targets[0].word_id == wid
@@ -268,29 +270,31 @@ def test_summary_cross_user_and_cross_language_isolation(
 
 
 @pytest.mark.parametrize(
-    "n_reviewed,n_forgot,expected",
+    "n_reviewed,n_forgot,n_fuzzy,expected",
     [
-        (9, 0, ELIGIBILITY_SILENT),
-        (10, 0, ELIGIBILITY_NORMAL),
-        (9, 5, ELIGIBILITY_SILENT),
-        (9, 6, ELIGIBILITY_STRONG),
-        (10, 5, ELIGIBILITY_NORMAL),
-        (10, 6, ELIGIBILITY_STRONG),
+        (9, 0, 0, ELIGIBILITY_SILENT),
+        (10, 0, 0, ELIGIBILITY_NORMAL),
+        (9, 5, 0, ELIGIBILITY_SILENT),
+        (9, 6, 0, ELIGIBILITY_SILENT),
+        (10, 5, 0, ELIGIBILITY_NORMAL),
+        (10, 0, 5, ELIGIBILITY_NORMAL),
+        (10, 0, 6, ELIGIBILITY_STRONG),
+        (10, 3, 3, ELIGIBILITY_STRONG),
     ],
 )
 def test_summary_eligibility_boundaries_with_logs(
-    app, bypass_engine, n_reviewed, n_forgot, expected,
+    app, bypass_engine, n_reviewed, n_forgot, n_fuzzy, expected,
 ):
     uid = _seed_user(
         app, bypass_engine,
-        f"elig-{n_reviewed}-{n_forgot}@t.com",
+        f"elig-{n_reviewed}-{n_forgot}-{n_fuzzy}@t.com",
         tz="UTC",
     )
     day = date(2026, 7, 22)
     ts = datetime(2026, 7, 22, 9, 0, 0)
-    assert n_forgot <= n_reviewed
+    assert n_forgot + n_fuzzy <= n_reviewed
     for i in range(n_reviewed):
-        grade = 2 if i < n_forgot else 5
+        grade = 2 if i < n_forgot else 3 if i < n_forgot + n_fuzzy else 5
         wid = _add_word(bypass_engine, uid, f"w{i}")
         _log(bypass_engine, uid, wid, grade, ts=ts + timedelta(seconds=i))
 
@@ -300,6 +304,7 @@ def test_summary_eligibility_boundaries_with_logs(
 
     assert summary.reviewed_word_count == n_reviewed
     assert summary.forgotten_word_count == n_forgot
+    assert summary.weak_word_count == n_forgot + n_fuzzy
     assert summary.eligibility == expected
     if expected == ELIGIBILITY_SILENT:
         assert summary.targets == ()
@@ -314,12 +319,12 @@ def test_summary_eligibility_boundaries_with_logs(
 def test_summary_eligible_path_selects_five_targets(
     app, bypass_engine,
 ):
-    """Production eligibility floors: strong needs 6+ forgotten → 5 targets."""
+    """Production eligibility: 10 reviewed with 6 weak terms → 5 targets."""
     uid = _seed_user(app, bypass_engine, "targets-prod@t.com", tz="UTC")
     day = date(2026, 7, 22)
     ts = datetime(2026, 7, 22, 11, 0, 0)
-    # 6 forgotten + 2 easy → strong, min(5, 8) = 5
-    for i in range(8):
+    # 6 forgotten + 4 easy → strong, min(5, 10) = 5
+    for i in range(10):
         grade = 2 if i < 6 else 5
         wid = _add_word(bypass_engine, uid, f"p{i:02d}")
         _log(bypass_engine, uid, wid, grade, ts=ts + timedelta(seconds=i))
@@ -330,7 +335,7 @@ def test_summary_eligible_path_selects_five_targets(
         s2 = get_daily_review_story_summary(uid, local_date=day)
 
     assert s1.eligibility == ELIGIBILITY_STRONG
-    assert s1.reviewed_word_count == 8
+    assert s1.reviewed_word_count == 10
     assert len(s1.targets) == 5
     assert [t.snapshot.key for t in s1.targets] == [f"t{i}" for i in range(1, 6)]
     assert [t.word_id for t in s1.targets] == [t.word_id for t in s2.targets]
@@ -346,8 +351,8 @@ def test_summary_builds_exactly_n_target_snapshots(
 ):
     """Snapshot/hash path for 2–5 words (eligibility forced; product floor is unit-tested).
 
-    Real eligibility never emits targets with fewer than 6 reviewed words
-    (strong needs 6 forgotten; normal needs 10 reviewed). Force normal here so
+    Real eligibility never emits targets with fewer than 10 reviewed words.
+    Force normal here so
     integration still exercises snapshot keys, ordering, and provider-safe fields
     for each exact target count.
     """
@@ -397,9 +402,9 @@ def test_summary_main_definition_is_first_nonempty_meaning(
     day = date(2026, 7, 22)
     ts = datetime(2026, 7, 22, 10, 0, 0)
 
-    # 6 forgotten for strong eligibility with few words
+    # 6 forgotten + 4 easy for strong eligibility
     first_id = None
-    for i in range(6):
+    for i in range(10):
         if i == 0:
             wid = _add_word(
                 bypass_engine, uid, "poly",
@@ -434,7 +439,7 @@ def test_summary_hash_stable_and_busts_on_feedback_or_meaning(
     )
     day = date(2026, 7, 22)
     ts = datetime(2026, 7, 22, 10, 0, 0)
-    for i in range(6):
+    for i in range(10):
         wid = _add_word(bypass_engine, uid, f"h{i}", meanings=[("n", f"m{i}")])
         _log(bypass_engine, uid, wid, 2, ts=ts + timedelta(seconds=i))
 
@@ -482,7 +487,7 @@ def test_summary_ignores_invalid_source_and_empty_surface(
     ts = datetime(2026, 7, 22, 10, 0, 0)
 
     good = []
-    for i in range(6):
+    for i in range(10):
         wid = _add_word(bypass_engine, uid, f"good{i}")
         good.append(wid)
         _log(bypass_engine, uid, wid, 2, ts=ts + timedelta(seconds=i))
@@ -499,7 +504,7 @@ def test_summary_ignores_invalid_source_and_empty_surface(
         _set_rls_uid(uid)
         summary = get_daily_review_story_summary(uid, local_date=day)
 
-    assert summary.reviewed_word_count == 6
+    assert summary.reviewed_word_count == 10
     assert bad_src not in summary.term_word_ids.values()
     assert empty_id not in summary.term_word_ids.values()
 
@@ -848,7 +853,7 @@ def test_claim_first_eligible_summary_returns_generation_lease(
     uid = _seed_user(app, bypass_engine, "rs2b-first@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"lease-{i}")
         _log(
             bypass_engine,
@@ -881,7 +886,7 @@ def test_claim_active_pending_returns_same_run_without_new_attempt(
     uid = _seed_user(app, bypass_engine, "rs2b-pending@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"pending-{i}")
         _log(
             bypass_engine,
@@ -966,7 +971,7 @@ def test_complete_success_then_claim_returns_cached_story(
     uid = _seed_user(app, bypass_engine, "rs2b-cache@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"cache-{i}")
         _log(
             bypass_engine,
@@ -1028,7 +1033,7 @@ def test_failed_run_allows_only_one_explicit_retry(
     uid = _seed_user(app, bypass_engine, "rs2b-retry@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"retry-{i}")
         _log(
             bypass_engine,
@@ -1103,7 +1108,7 @@ def test_expired_lease_is_reclaimed_once_then_exhausted(
     uid = _seed_user(app, bypass_engine, "rs2b-expired@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"expired-{i}")
         _log(
             bypass_engine,
@@ -1167,7 +1172,7 @@ def test_stale_attempt_cannot_overwrite_reclaimed_attempt(
     uid = _seed_user(app, bypass_engine, "rs2b-stale@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"stale-{i}")
         _log(
             bypass_engine,
@@ -1230,7 +1235,7 @@ def test_concurrent_first_claim_returns_one_generate_and_one_pending(
     uid = _seed_user(app, bypass_engine, "rs2b-race@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"race-claim-{i}")
         _log(
             bypass_engine,
@@ -1288,7 +1293,7 @@ def test_cross_user_cannot_complete_review_story_run(
     peer = _seed_user(app, bypass_engine, "rs2b-peer@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, owner, f"owner-{i}")
         _log(
             bypass_engine,
@@ -1336,7 +1341,7 @@ def test_completion_after_lease_expiry_is_rejected_before_reclaim(
     uid = _seed_user(app, bypass_engine, "rs2b-late@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"late-{i}")
         _log(
             bypass_engine,
@@ -1474,7 +1479,7 @@ def test_orchestrate_first_generation_returns_ready_and_records_observation(
     uid = _seed_user(app, bypass_engine, "rs2c-ready@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"orchestrate-{i}")
         _log(
             bypass_engine,
@@ -1542,7 +1547,7 @@ def test_orchestrate_cached_story_does_not_repeat_provider_or_tokens(
     uid = _seed_user(app, bypass_engine, "rs2c-cache@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"cache-orchestrate-{i}")
         _log(
             bypass_engine,
@@ -1613,7 +1618,7 @@ def test_orchestrate_invalid_result_records_tokens_and_failed_event(
     uid = _seed_user(app, bypass_engine, "rs2c-invalid@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"invalid-{i}")
         _log(
             bypass_engine,
@@ -1667,7 +1672,7 @@ def test_orchestrate_provider_unavailable_fails_without_token_log(
     uid = _seed_user(app, bypass_engine, "rs2c-down@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"down-{i}")
         _log(
             bypass_engine,
@@ -1723,7 +1728,7 @@ def test_record_review_story_event_is_idempotent_and_run_owned(
     peer = _seed_user(app, bypass_engine, "rs2c-event-peer@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, owner, f"event-{i}")
         _log(
             bypass_engine,
@@ -1806,7 +1811,7 @@ def test_orchestrate_failed_attempt_requires_explicit_single_retry(
     uid = _seed_user(app, bypass_engine, "rs2c-retry@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"retry-orchestrate-{i}")
         _log(
             bypass_engine,
@@ -1889,7 +1894,7 @@ def test_concurrent_orchestration_calls_provider_once(
     uid = _seed_user(app, bypass_engine, "rs2c-concurrent@t.com", tz="UTC")
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(bypass_engine, uid, f"concurrent-{i}")
         _log(
             bypass_engine,
@@ -1995,7 +2000,7 @@ def test_orchestration_side_effect_failure_does_not_reopen_generation(
     )
     day = date(2026, 7, 25)
     reviewed_at = datetime(2026, 7, 25, 9, 0, 0)
-    for i in range(6):
+    for i in range(10):
         word_id = _add_word(
             bypass_engine,
             uid,

@@ -60,7 +60,7 @@ def index():
         word = due[0] if due else None
     review_story_summary = (
         review_stories_svc.get_daily_review_story_summary(current_user.id)
-        if lang is not None and word is None
+        if lang is not None
         else None
     )
     return render_template(
