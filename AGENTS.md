@@ -46,10 +46,12 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     public HTTPS, logs, and pre/post data counts passed; real-account partial-queue verification also passed.
     SessionPad context-bearing candidate v1 is now the next feature. Do not add story history, publishing, images,
     or a second editor.
-- SessionPad context-candidate SP1 is committed as `d2ec131`. SP2 now unifies AI/manual `term + context`,
-  source-text anchoring, packet/recap creation, same-source normalized reuse, and database concurrency fallback.
-  GCP passed 80 adjacent tests, migration downgrade/upgrade, packet HTTP concurrency 5/5, and the final
-  **644-test** full suite. SP2 is not merged or deployed; SP3 focused review UI has not started.
+- SessionPad context-candidate SP1 is committed as `d2ec131`; SP2 is committed as `d40e30a` and unifies
+  AI/manual `term + context`, source-text anchoring, packet/recap creation, same-source normalized reuse, and
+  database concurrency fallback. SP3 focused review is implemented in the current worktree: SessionPad alone
+  uses a one-candidate queue with lightweight source metadata, editable provenance-bearing context, explicit
+  context-to-example adoption, existing-word linking, AI degraded feedback, and no legacy/bulk endpoint bypass.
+  GCP browser validation passed at 1440px and 390px dark mode; the final suite is **658 passed, 16 warnings**. SP3 is committed as `4c84f46`, but remains unmerged and undeployed.
 - Feature-branch migration head is `b3c4d5e6f7a8`; production remains `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
@@ -65,9 +67,9 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
 - The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
   panel. Keep their migrations serial to avoid Alembic forks.
 - Review Story RS1 through RS4 and the partial-queue hard fix are merged and deployed.
-- SessionPad context-candidate SP1 is committed and SP2 is implemented and fully validated on
-  `feature/sessionpad-context-candidates-v1`; proceed next to SP3, then SP4. Do not mix in the observation dashboard
-  or unrelated closed-beta polish.
+- SessionPad context-candidate SP1, SP2, and SP3 are committed on
+  `feature/sessionpad-context-candidates-v1`; proceed next to SP4. Do not mix in the observation dashboard or
+  unrelated closed-beta polish.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 
 ## Closed Beta Rule

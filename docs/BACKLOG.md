@@ -10,9 +10,9 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：SP1 已提交；SP2 的 AI/人工 `term + context`、原文
-   定位、packet/recap 统一创建、同来源合并与并发兜底已完成，并通过 644 项最终全量验收。
-   下一张票才是 SP3 SessionPad 专属单候选聚焦审核，不要提前混入 observation dashboard。
+1. **SessionPad context-bearing candidate v1**：SP1、SP2 已提交；SP3 专属单候选聚焦审核已实现并
+   通过 GCP 定向、桌面与 390px 暗色浏览器验收，最终全量为 **658 passed, 16 warnings**，已提交为 `4c84f46`。下一张票是
+   SP4 收口：完整相邻回归、文档与发布检查；不要提前混入 observation dashboard。
 2. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
    Discord 自动发布。
 

@@ -1,5 +1,14 @@
 # RemeMate HANDOFF
 
+## 2026-07-30 SessionPad 带语境候选 v1 — SP3 聚焦审核
+
+- 功能分支仍为 `feature/sessionpad-context-candidates-v1`；SP1 为 `d2ec131`，SP2 为 `d40e30a`。SP3 已提交为 `4c84f46`、尚未合并或部署；生产仍为 `master@1be9ddc`。
+- SessionPad 候选审核改为专属单候选队列，保留待审核/已接受/已忽略导航；显示伙伴、交换日期、标题和复盘/反馈包链接，不默认展开反馈正文。
+- 候选 term 与 context 可编辑；原文语境保持 `source_quote`，改变后为 `user_edited`，清空显示缺语境。“将语境用作例句”只在浏览器内填入例句草稿，只有显式接受后才保存；commit 不会自动把 context 写成最终例句。
+- 已存在词条只关联 `word_id`，不重复建词、不覆盖既有释义；commit 前后出现既有词的竞态均能补链。同来源改名冲突返回友好错误，并由数据库 partial unique index 兜底。
+- AI 不可用只作为本次审核页的瞬时提示，不写入候选领域状态。SessionPad 不显示 bulk accept；对抗性复核进一步封闭旧通用 accept/ignore、bulk-accept、commit-all HTTP 入口，避免绕过逐张审核。CSV、文本抽词和阅读候选旧入口保持不变。
+- GCP 已通过 107 项扩大相邻回归和新增守卫的 19 项回归；1440px 桌面与 390px dark mode 真浏览器通过，来源条、单卡聚焦、显式语境转例句、接受后推进、缺语境、AI 降级和无横向溢出均验证。最终全量为 **658 passed, 16 warnings**。
+- migration 未增加，功能分支仍为单一 head `b3c4d5e6f7a8`。GCP strict doctor 非零仅因测试环境无管理员、LLM provider 和外置词典；数据库、dispatch、migrate、migration 与密钥均正常。下一票是 SP4 收口，不得混入 observation dashboard。
 ## 2026-07-30 SessionPad 带语境候选 v1 — SP2 候选产生
 
 - 功能分支仍为 `feature/sessionpad-context-candidates-v1`；SP1 已提交为 `d2ec131`，SP2 实现已完成、尚未合并或部署。生产仍为 `master@1be9ddc`，生产 migration head 仍为 `f1a2b3c4d5e6`。
@@ -7,7 +16,7 @@
 - AI context 只能是当前反馈原文的连续片段，仅允许 Unicode 空白折叠差异；无法定位时置空，不允许生成或改写例句。未改的 AI 片段为 `source_quote`，用户新建或编辑后为 `user_edited`。
 - packet 收到反馈与 recap「帮自己记」已接入同一创建服务。新 SessionPad 候选不再写 `source_example`；AI 建议只预填表单，不创建候选，AI 不可用时仍显示人工 term/context 表单。
 - 同一来源用行锁串行创建；迁移 `b3c4d5e6f7a8` 增加 active partial unique expression index：同 `source_id + lower(btrim(word))` 在 pending/accepted 中只能有一个，ignored 不阻止重新候选，不同来源可保留同词。迁移前发现历史重复会明确失败，不猜测合并。
-- GCP 已完成迁移 downgrade/upgrade 往返，当前单一 head `b3c4d5e6f7a8`；相邻回归 **80 passed**，packet 真实 HTTP 并发连续 **5/5 passed**，最终全量 **644 passed, 16 warnings**。SP3 聚焦候选审核 UI 尚未开始。
+- GCP 已完成迁移 downgrade/upgrade 往返，当前单一 head `b3c4d5e6f7a8`；相邻回归 **80 passed**，packet 真实 HTTP 并发连续 **5/5 passed**，最终全量 **644 passed, 16 warnings**。SP2 完成当时 SP3 尚未开始；当前状态见上方 SP3 段。
 - GCP `flask doctor --strict` 的非零仅因测试环境无管理员、LLM provider 和外置词典，数据库/dispatch/migrate/迁移/密钥均正常。`flask db check` 仍会报告本票之前已存在的 reading/recap 外键与索引 metadata 漂移；未报告 SP2 新索引缺失，本票不顺手修旧漂移。
 
 ## 2026-07-30 SessionPad 带语境候选 v1 — SP1 数据地基

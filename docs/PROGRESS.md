@@ -229,4 +229,11 @@
 - AI 语境必须定位回当前反馈原文；不可定位时留空。人工新建/修改语境标为 `user_edited`，未修改且可复核的 AI 原文标为 `source_quote`。
 - packet 表单支持可编辑 term + context 多行，AI 失败时保留人工输入；新 SessionPad 候选不再复制完整反馈到 `source_example`。
 - 新迁移 `b3c4d5e6f7a8` 为活跃候选增加同来源规范化唯一索引，并在升级前审计历史重复；GCP downgrade/upgrade 往返和并发路径已通过。
-- 相邻回归 80 passed，HTTP 并发连续 5/5，最终全量 **644 passed, 16 warnings**。SP2 尚未合并或部署，SP3 尚未开始。
+- 相邻回归 80 passed，HTTP 并发连续 5/5，最终全量 **644 passed, 16 warnings**。SP2 完成当时尚未合并或部署；SP3 当前状态见下节。
+### 2026-07-30：SessionPad 带语境候选 SP3
+
+- SessionPad 候选审核改为单候选聚焦队列，提供待审核/已接受/已忽略导航与轻量伙伴交换来源；其他 intake 来源继续使用原审核页。
+- 候选支持编辑 term/context、显示 `source_quote` / `user_edited` / 缺语境状态；显式“将语境用作例句”只填草稿，不自动污染最终例句。
+- 已有词只建立关联且不覆盖释义；补齐 commit 时已有词竞态链接与同来源重复编辑的数据库兜底。
+- AI 降级提示保持瞬时；旧通用 accept/ignore、bulk-accept 和 commit-all 路由不再允许 SessionPad 绕过逐张审核。
+- GCP 扩大相邻回归、1440px 桌面和 390px 暗色真浏览器已通过；最终全量为 **658 passed, 16 warnings**。SP3 已提交为 `4c84f46`，尚未合并或部署，下一票为 SP4 收口。

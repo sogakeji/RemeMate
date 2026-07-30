@@ -163,9 +163,11 @@ migration、定向测试、全量 pytest 和 strict doctor，再单独备份并�
 
 - Review Story RS1 至 RS4、整分支审查修复和部分队列可达性硬修复均已合并并部署；生产为
   `master@1be9ddc`，生产 migration head 为 `f1a2b3c4d5e6`。
-- `feature/sessionpad-context-candidates-v1` 已从该里程碑创建；SP1 schema 与服务契约已提交为
-  `d2ec131`。SP2 已完成 AI/人工 term + context、原文定位、packet/recap 统一创建、同来源合并和
-  partial unique index 并发兜底。
+- `feature/sessionpad-context-candidates-v1` 已从该里程碑创建；SP1 schema 与服务契约提交为
+  `d2ec131`，SP2 候选产生提交为 `d40e30a`。SP3 已实现 SessionPad 专属单候选聚焦审核、轻量来源、
+  可编辑语境与 provenance、显式语境转例句、已有词关联、瞬时 AI 降级提示，并封闭旧通用接受和
+  bulk/commit-all 入口对 SessionPad 的绕过。
 - GCP PostgreSQL 已验证两条迁移 downgrade/upgrade；功能分支 migration head 为单一
-  `b3c4d5e6f7a8`。SP2 相邻回归 80 passed，packet HTTP 并发连续 5/5，最终全量 **644 passed, 16 warnings**。
-- 本分支未部署。下一票才是 SP3 聚焦候选审核；closed-beta observation 尚未开始。
+  `b3c4d5e6f7a8`。SP3 定向与相邻回归已通过，1440px 与 390px dark mode 真浏览器无横向溢出；
+  最终全量为 **658 passed, 16 warnings**。
+- SP3 已提交为 `4c84f46`，本分支仍未部署。下一票为 SP4 收口；closed-beta observation 尚未开始。
