@@ -1,5 +1,14 @@
 # RemeMate HANDOFF
 
+## 2026-07-31 SessionPad 带语境候选 v1 — 整分支审查修复
+
+- 整分支只读审查发现并复现：同一 recap 的两个不同条目并发加入候选时，预先加载的 SQLAlchemy identity map 会让第二个请求在取得行锁后仍看到旧 `intake_source_id`，从而创建两个 SessionPad 来源。修复提交为 `b270d04`。
+- recap 行锁查询现在使用 `populate_existing()` 强制刷新锁后状态；两个真实 HTTP 请求即使都在锁前读到空来源，最终仍只创建一个 source、两个候选都归入该 source，recap 反向链接与 `total_candidates` 保持一致。
+- ignored 语义明确为“忽略本次审核”，不是永久忽略该 recap 条目。再次加入时先解除旧 ignored candidate 链接，再通过共享创建服务新建或复用 active pending candidate；旧 ignored 记录保留，不绕过同来源唯一约束。
+- 新增 recap 双条目确定性并发回归和 ignored 重加回归。GCP 完整相邻矩阵为 **118 passed, 15 warnings**；recap source、packet adoption、数据库 active-candidate 三条并发路径连续 **5/5**；最终全量为 **660 passed, 16 warnings**。
+- GCP migration current/heads 均为单一 `b3c4d5e6f7a8`，Python 编译与 `git diff --check` 通过。strict doctor 非零仍仅因验收机未配置 LLM provider 和 `zh/en/ja/fr` 外置词典；数据库、dispatch、migrate、迁移、密钥和管理员均正常。
+- 审查发现的两个正确性问题均已修复，未发现新的合并阻断项。分支仍未合并或部署；下一步仅为明确的 merge/deploy 决策，不得提前开发 observation dashboard。
+
 ## 2026-07-31 SessionPad 带语境候选 v1 — SP4 收口
 
 - SP4 已提交为 `18943e1`；功能分支 `feature/sessionpad-context-candidates-v1` 已完成 SP1–SP4，但尚未合并或部署。生产仍为 `master@1be9ddc`，migration head 仍为 `f1a2b3c4d5e6`。

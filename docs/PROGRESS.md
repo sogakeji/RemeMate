@@ -246,3 +246,11 @@
 - GCP 相邻回归 **116 passed, 15 warnings**，两条并发路径连续 **5/5**，全量 **658 passed, 16 warnings**；migration current/heads 均为单一 `b3c4d5e6f7a8`。
 - 1440px 与 390px dark mode 真浏览器通过，模块切换草稿保留且无横向溢出；中英文 603 个键对齐、53 个模板编译和 `git diff --check` 通过。strict doctor 非零仅因验收机缺 LLM provider 与四语外置词典。
 - SP4 提交为 `18943e1`。SessionPad context-bearing candidate v1 开发完成，仍未合并或部署；下一步为整分支审查和显式 merge/deploy 决策。
+
+### 2026-07-31：SessionPad 整分支审查修复
+
+- 只读审查用两个真实并发请求复现同一 recap 被拆成两个 SessionPad source：请求在加锁前都加载了空 `intake_source_id`，第二个请求取得锁后仍复用 SQLAlchemy identity map 中的旧值。
+- 锁定 recap 时改用 `populate_existing()` 强制刷新；新增确定性双条目 HTTP 并发回归，断言两个候选、recap 反向链接和 `total_candidates` 全部落到唯一 source。
+- 明确 ignored 只结束本次审核。原 recap 条目再次加入时解除旧 ignored 链接，再由共享服务创建或复用 active pending candidate；旧 ignored 记录保留。
+- 修复提交 `b270d04`。GCP 相邻回归 **118 passed, 15 warnings**，recap、packet、数据库唯一三条并发路径连续 **5/5**，最终全量 **660 passed, 16 warnings**。
+- migration current/heads 均为单一 `b3c4d5e6f7a8`，Python 编译和 `git diff --check` 通过；strict doctor 非零仅因验收机缺 provider/词典。审查未留合并阻断项，分支仍未合并或部署。

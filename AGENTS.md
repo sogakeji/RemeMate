@@ -47,10 +47,11 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
     SessionPad context-bearing candidate v1 followed on its own feature branch and is now complete. Do not add
     story history, publishing, images, or a second editor.
 - SessionPad context-candidate SP1 through SP3 are committed as `d2ec131`, `d40e30a`, and `4c84f46`.
-  SP4 closeout is committed as `18943e1`: the design and deployment contract are current, the recap editor explains
-  that category switching preserves its draft, 116 adjacent tests passed, both concurrency paths passed 5/5,
-  1440px and 390px dark-mode browser checks passed, and the final suite is **658 passed, 16 warnings**.
-  SessionPad context-bearing candidate v1 is complete on the feature branch but remains unmerged and undeployed.
+  SP4 closeout is committed as `18943e1`: the design and deployment contract are current and the recap editor
+  explains that category switching preserves its draft. Whole-branch review fix `b270d04` refreshes the locked recap
+  before source creation and lets an ignored recap item enter a fresh review attempt. GCP passed 118 adjacent tests,
+  all three concurrency paths 5/5, 1440px and 390px dark-mode browser checks, and the final
+  **660 passed, 16 warnings** suite. The feature remains unmerged and undeployed.
 - Feature-branch migration head is `b3c4d5e6f7a8`; production remains `f1a2b3c4d5e6`.
 - **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
   migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
@@ -66,8 +67,8 @@ Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historic
 - The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
   panel. Keep their migrations serial to avoid Alembic forks.
 - Review Story RS1 through RS4 and the partial-queue hard fix are merged and deployed.
-- SessionPad context-candidate SP1 through SP4 are committed on
-  `feature/sessionpad-context-candidates-v1`. Proceed next to a read-only whole-branch review and an explicit
+- SessionPad context-candidate SP1 through SP4 and whole-branch review fix `b270d04` are committed on
+  `feature/sessionpad-context-candidates-v1`. The review has no remaining merge blocker; proceed next to an explicit
   merge/deploy decision. Do not mix in the observation dashboard or unrelated closed-beta polish.
 - Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
 

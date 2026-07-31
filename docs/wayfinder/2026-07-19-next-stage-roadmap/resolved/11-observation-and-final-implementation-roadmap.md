@@ -168,8 +168,10 @@ migration、定向测试、全量 pytest 和 strict doctor，再单独备份并�
   可编辑语境与 provenance、显式语境转例句、已有词关联、瞬时 AI 降级提示，并封闭旧通用接受和
   bulk/commit-all 入口对 SessionPad 的绕过。
 - SP4 已更新设计与运维合同，并补入复盘模块切换保留草稿的中英文说明；重复发送策略仍按原决议留在
-  Backlog。GCP 完整相邻回归 **116 passed**，两条并发路径连续 **5/5**，1440px 与 390px dark mode
-  真浏览器无横向溢出，最终全量为 **658 passed, 16 warnings**。
-- GCP migration current/heads 均为单一 `b3c4d5e6f7a8`；strict doctor 仅因验收机缺 provider/词典非零。
-  SP4 提交为 `18943e1`，SessionPad context-bearing candidate v1 已完成但仍未合并或部署。下一步为
-  整分支审查与显式 merge/deploy 决策；closed-beta observation 尚未开始。
+  Backlog。整分支审查修复 `b270d04` 强制刷新锁定后的 recap，保证并发条目复用唯一 source，并明确
+  ignored recap candidate 可重新进入一次新的审核。
+- GCP 完整相邻回归 **118 passed**，recap、packet 与数据库唯一三条并发路径连续 **5/5**，1440px 与
+  390px dark mode 真浏览器无横向溢出，最终全量为 **660 passed, 16 warnings**。migration
+  current/heads 均为单一 `b3c4d5e6f7a8`；strict doctor 仅因验收机缺 provider/词典非零。
+- SessionPad context-bearing candidate v1 已完成且整分支审查无剩余合并阻断项，但仍未合并或部署。
+  下一步为显式 merge/deploy 决策；closed-beta observation 尚未开始。

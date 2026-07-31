@@ -10,9 +10,9 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：SP1–SP4 已完成并提交；SP4 为 `18943e1`。GCP 完整
-   相邻回归 116 passed、两条并发路径 5/5、桌面与 390px 暗色浏览器通过，最终全量为
-   **658 passed, 16 warnings**。当前只剩整分支审查与明确的 merge/deploy 决策，不再扩功能。
+1. **SessionPad context-bearing candidate v1**：SP1–SP4 与整分支审查修复均已提交；审查修复为
+   `b270d04`。GCP 完整相邻回归 118 passed、三条并发路径 5/5、桌面与 390px 暗色浏览器通过，
+   最终全量为 **660 passed, 16 warnings**。当前只剩明确的 merge/deploy 决策，不再扩功能。
 2. **Privacy-safe observation dashboard v1**：SessionPad 合并并部署后再开发；只聚合无正文信号，
    不做排行榜、个人钻取或 Discord 自动发布。
 
