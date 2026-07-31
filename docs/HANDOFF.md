@@ -1,5 +1,16 @@
 # RemeMate HANDOFF
 
+## 2026-07-31 SessionPad 带语境候选 v1 合并与闭测部署
+
+- 本地 `master` 已从 `1be9ddc` fast-forward 合并至 `9372e2d`（包含 `b270d04`），未带入主工作树的无关未跟踪文件；生产代码已同步至 `9372e2d`。
+- 生产迁移严格按 `f1a2b3c4d5e6 → a2b3c4d5e6f7 → b3c4d5e6f7a8` 完成；`flask db current/heads` 均为单一 `b3c4d5e6f7a8`。
+- 部署前备份：
+  - `/home/ubuntu/rememate-backups/rememate-code-before-sessionpad-20260731-225753.tgz`，SHA-256 `0760d7b0a6d40b3945a25c39eab288adca3f6295af7fc3e87f0c0315297d8635`；
+  - `/home/ubuntu/rememate-backups/rememate-db-before-sessionpad-20260731-225753.dump`，SHA-256 `514465aae48c1ca432ed1cbd61a4dee6d69225f937ce7a90f68fafbb1c7039e2`。
+- 生产 `flask doctor --strict` 全绿；`rememate.service` 重启后 active；内网与公网 HTTPS `/healthz`、公网首页均返回 200，重启后 journal 无异常。
+- 核心计数部署前后保持一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6、反馈包 6、候选来源 15、候选词 203、故事运行 1、漏斗事件 7。
+- 生产只读 SessionPad 冒烟通过：真实复盘页 200、候选入口标记可见，专属 accept/ignore 路由已注册；未创建或修改生产用户数据。GCP 分支全量验证为 **660 passed, 16 warnings**；本轮未开始 observation dashboard。
+
 ## 2026-07-31 SessionPad 带语境候选 v1 — 整分支审查修复
 
 - 整分支只读审查发现并复现：同一 recap 的两个不同条目并发加入候选时，预先加载的 SQLAlchemy identity map 会让第二个请求在取得行锁后仍看到旧 `intake_source_id`，从而创建两个 SessionPad 来源。修复提交为 `b270d04`。

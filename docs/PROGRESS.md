@@ -254,3 +254,11 @@
 - 明确 ignored 只结束本次审核。原 recap 条目再次加入时解除旧 ignored 链接，再由共享服务创建或复用 active pending candidate；旧 ignored 记录保留。
 - 修复提交 `b270d04`。GCP 相邻回归 **118 passed, 15 warnings**，recap、packet、数据库唯一三条并发路径连续 **5/5**，最终全量 **660 passed, 16 warnings**。
 - migration current/heads 均为单一 `b3c4d5e6f7a8`，Python 编译和 `git diff --check` 通过；strict doctor 非零仅因验收机缺 provider/词典。审查未留合并阻断项，分支仍未合并或部署。
+
+### 2026-07-31：SessionPad 合并与闭测部署
+
+- 本地 `master` 从 `1be9ddc` fast-forward 至 `9372e2d`（含 `b270d04`），生产同步至 `9372e2d`。
+- 生产迁移按 `f1a2b3c4d5e6 → a2b3c4d5e6f7 → b3c4d5e6f7a8` 完成，current/heads 为单一 `b3c4d5e6f7a8`。
+- 部署前代码备份 `/home/ubuntu/rememate-backups/rememate-code-before-sessionpad-20260731-225753.tgz`（SHA-256 `0760d7b0a6d40b3945a25c39eab288adca3f6295af7fc3e87f0c0315297d8635`），数据库备份 `/home/ubuntu/rememate-backups/rememate-db-before-sessionpad-20260731-225753.dump`（SHA-256 `514465aae48c1ca432ed1cbd61a4dee6d69225f937ce7a90f68fafbb1c7039e2`）。
+- strict doctor、服务重启、内外网健康、首页、journal 均通过；部署前后核心计数一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6、反馈包 6、候选来源 15、候选词 203、故事运行 1、漏斗事件 7。
+- 生产只读 SessionPad 冒烟通过（真实复盘页 200、候选入口和专属 accept/ignore 路由可见/注册）；未开始 observation dashboard。GCP 全量为 **660 passed, 16 warnings**。
