@@ -10,9 +10,9 @@ This directory is intentionally split into a small active layer and a historical
 4. Task-specific docs only when the current request names that area.
 
 The root `AGENTS.md` contains the shortest operating protocol.
-Current active work is `feature/sessionpad-context-candidates-v1`: SP1 schema and service contracts are complete
-and GCP-validated; the next ticket is SP2 candidate creation. Read `HANDOFF.md` before the Wayfinder documents
-because the latter preserve design decisions and are not the live Git status.
+Current active work is `feature/sessionpad-context-candidates-v1`: SP1 through SP4 are complete and GCP-validated;
+the next step is a read-only whole-branch review followed by an explicit merge/deploy decision. Read `HANDOFF.md`
+before the Wayfinder documents because the latter preserve design decisions and are not the live Git status.
 
 ## Active Docs
 

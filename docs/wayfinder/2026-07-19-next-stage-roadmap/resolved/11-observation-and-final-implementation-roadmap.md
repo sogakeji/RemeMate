@@ -157,7 +157,7 @@ migration、定向测试、全量 pytest 和 strict doctor，再单独备份并�
 - 完成 2–3 次真实双人 SessionPad 交换仍无 thank 或 adoption，不加聊天、群组或复杂互动。
 - 约 10 个周活跃用户前不自动向 Discord 发布小样本数据。
 
-## Current implementation status — 2026-07-30
+## Current implementation status — 2026-07-31
 
 本节只记录实施进度，不改写上方已决边界；实时 Git 与部署状态仍以 `docs/HANDOFF.md` 为准。
 
@@ -167,7 +167,9 @@ migration、定向测试、全量 pytest 和 strict doctor，再单独备份并�
   `d2ec131`，SP2 候选产生提交为 `d40e30a`。SP3 已实现 SessionPad 专属单候选聚焦审核、轻量来源、
   可编辑语境与 provenance、显式语境转例句、已有词关联、瞬时 AI 降级提示，并封闭旧通用接受和
   bulk/commit-all 入口对 SessionPad 的绕过。
-- GCP PostgreSQL 已验证两条迁移 downgrade/upgrade；功能分支 migration head 为单一
-  `b3c4d5e6f7a8`。SP3 定向与相邻回归已通过，1440px 与 390px dark mode 真浏览器无横向溢出；
-  最终全量为 **658 passed, 16 warnings**。
-- SP3 已提交为 `4c84f46`，本分支仍未部署。下一票为 SP4 收口；closed-beta observation 尚未开始。
+- SP4 已更新设计与运维合同，并补入复盘模块切换保留草稿的中英文说明；重复发送策略仍按原决议留在
+  Backlog。GCP 完整相邻回归 **116 passed**，两条并发路径连续 **5/5**，1440px 与 390px dark mode
+  真浏览器无横向溢出，最终全量为 **658 passed, 16 warnings**。
+- GCP migration current/heads 均为单一 `b3c4d5e6f7a8`；strict doctor 仅因验收机缺 provider/词典非零。
+  SP4 提交为 `18943e1`，SessionPad context-bearing candidate v1 已完成但仍未合并或部署。下一步为
+  整分支审查与显式 merge/deploy 决策；closed-beta observation 尚未开始。

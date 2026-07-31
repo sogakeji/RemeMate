@@ -1,5 +1,15 @@
 # RemeMate HANDOFF
 
+## 2026-07-31 SessionPad 带语境候选 v1 — SP4 收口
+
+- SP4 已提交为 `18943e1`；功能分支 `feature/sessionpad-context-candidates-v1` 已完成 SP1–SP4，但尚未合并或部署。生产仍为 `master@1be9ddc`，migration head 仍为 `f1a2b3c4d5e6`。
+- 收口没有扩张候选领域逻辑；补入复盘编辑器模块切换说明，明确切换分类不会清空草稿。中英文均有回归，重复发送策略继续留在 Backlog。
+- 设计文档已将 context-bearing candidate v1 标为实施完成；闭测运维文档补齐两条顺序迁移的重复数据停止条件、单一 head 检查、SessionPad 冒烟矩阵和带迁移回滚边界。
+- GCP 完整相邻回归覆盖 packet、recap、candidate、commit、已有词、RLS、并发、AI 降级及阅读候选兼容，结果为 **116 passed, 15 warnings**；两条候选并发路径连续 **5/5**；最终全量仍为 **658 passed, 16 warnings**。
+- 1440px 桌面与 390px dark mode 真浏览器复验通过：模块切换草稿保留、说明可见、无横向溢出。SP3 已验证的聚焦候选审核 UI 未改动。
+- GCP migration current/heads 均为单一 `b3c4d5e6f7a8`。strict doctor 非零仅因验收机未配置 LLM provider 和 `zh/en/ja/fr` 外置词典；数据库、dispatch、migrate、迁移、密钥和管理员均正常。中英文 **603** 个键对齐、**53** 个模板编译通过，`git diff --check` 通过。
+- SessionPad context-bearing candidate v1 已完成开发与分支验收。下一步是整分支只读审查及明确的 merge/deploy 决策；不得直接部署，也不得提前混入 observation dashboard。
+
 ## 2026-07-30 SessionPad 带语境候选 v1 — SP3 聚焦审核
 
 - 功能分支仍为 `feature/sessionpad-context-candidates-v1`；SP1 为 `d2ec131`，SP2 为 `d40e30a`。SP3 已提交为 `4c84f46`、尚未合并或部署；生产仍为 `master@1be9ddc`。

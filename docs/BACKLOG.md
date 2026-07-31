@@ -10,11 +10,11 @@
 权威路线：`docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md` 和
 `resolved/11-observation-and-final-implementation-roadmap.md`。以下不是松散想法，不应再次从零设计：
 
-1. **SessionPad context-bearing candidate v1**：SP1、SP2 已提交；SP3 专属单候选聚焦审核已实现并
-   通过 GCP 定向、桌面与 390px 暗色浏览器验收，最终全量为 **658 passed, 16 warnings**，已提交为 `4c84f46`。下一张票是
-   SP4 收口：完整相邻回归、文档与发布检查；不要提前混入 observation dashboard。
-2. **Privacy-safe observation dashboard v1**：最后开发；只聚合无正文信号，不做排行榜、个人钻取或
-   Discord 自动发布。
+1. **SessionPad context-bearing candidate v1**：SP1–SP4 已完成并提交；SP4 为 `18943e1`。GCP 完整
+   相邻回归 116 passed、两条并发路径 5/5、桌面与 390px 暗色浏览器通过，最终全量为
+   **658 passed, 16 warnings**。当前只剩整分支审查与明确的 merge/deploy 决策，不再扩功能。
+2. **Privacy-safe observation dashboard v1**：SessionPad 合并并部署后再开发；只聚合无正文信号，
+   不做排行榜、个人钻取或 Discord 自动发布。
 
 恢复 master 的六项安全/数据可信度修复与 Review Story 已于 2026-07-30 部署；后续部署仍须显式
 决策并先过目标环境 migration、全量测试和 strict doctor。
@@ -77,13 +77,6 @@
   「表。」挤到第二行。本轮仅通过收短文案缓解，不调整 landing 布局；后续真正重做 landing
   时，需在中文桌面与移动端逐条检查标题断行、行高和 CTA 宽度。当前 landing 文案改动保持本地
   未提交，不同步云端。
-
-- **SessionPad 编辑器补充模块切换说明**（用户反馈 2026-07-10）
-  来源：B2 真机测试。当前切换「词语 / 表达」「错误修正」等模块时，会保留输入框内
-  已写正文，只改变条目分类、模块高亮、标签和占位提示；这是为避免现场误点造成草稿丢失。
-  用户可能把“正文没有变化”误解为切换未生效。下次集中修改 SessionPad UI 时，在编辑卡中
-  增加一条极短说明，明确“切换模块不会清空已输入内容，可先写再分类”。本项只改说明文字，
-  不改草稿状态模型，不为每个模块维护独立草稿。
 
 - **SessionPad：同一反馈内容的重复发送策略待定**（闭测反馈 2026-07-11，P1）
   当前整包快照幂等只能阻止完全相同的整包重复提交；同一条内容仍可能通过不同子集或新反馈包反复发送。

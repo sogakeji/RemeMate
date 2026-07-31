@@ -237,3 +237,12 @@
 - 已有词只建立关联且不覆盖释义；补齐 commit 时已有词竞态链接与同来源重复编辑的数据库兜底。
 - AI 降级提示保持瞬时；旧通用 accept/ignore、bulk-accept 和 commit-all 路由不再允许 SessionPad 绕过逐张审核。
 - GCP 扩大相邻回归、1440px 桌面和 390px 暗色真浏览器已通过；最终全量为 **658 passed, 16 warnings**。SP3 已提交为 `4c84f46`，尚未合并或部署，下一票为 SP4 收口。
+
+### 2026-07-31：SessionPad 带语境候选 SP4
+
+- 完成整条 SessionPad 候选相邻矩阵：packet、recap、candidate、commit、已有词、跨用户 RLS、并发、AI 降级及非 SessionPad 阅读候选兼容均纳入验收。
+- 复盘编辑器增加中英文短说明，明确切换记录模块保留已输入草稿；未改变草稿状态模型。重复发送策略继续留在 Backlog。
+- 更新 SessionPad 设计状态与闭测发布手册，记录迁移重复审计停止条件、单一 head、浏览器冒烟和带迁移回滚边界。
+- GCP 相邻回归 **116 passed, 15 warnings**，两条并发路径连续 **5/5**，全量 **658 passed, 16 warnings**；migration current/heads 均为单一 `b3c4d5e6f7a8`。
+- 1440px 与 390px dark mode 真浏览器通过，模块切换草稿保留且无横向溢出；中英文 603 个键对齐、53 个模板编译和 `git diff --check` 通过。strict doctor 非零仅因验收机缺 LLM provider 与四语外置词典。
+- SP4 提交为 `18943e1`。SessionPad context-bearing candidate v1 开发完成，仍未合并或部署；下一步为整分支审查和显式 merge/deploy 决策。
