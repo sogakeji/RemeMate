@@ -40,6 +40,8 @@
       <h2>{{ side_title }}</h2>
     </div>
 
+    <p class="form-help">{{ _('recap.kind_switch_help') }}</p>
+
     <div class="recap-editor-grid">
       <div class="recap-kind-tabs" role="tablist" aria-label="{{ side_title }}">
         {% for value, label in item_choices[side] %}

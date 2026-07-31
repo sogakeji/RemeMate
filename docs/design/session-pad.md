@@ -13,6 +13,13 @@
 > `docs/wayfinder/2026-07-19-next-stage-roadmap/resolved/09-sessionpad-context-model.md` 和
 > `10-sessionpad-candidate-review-prototype.md` 为准：新 SessionPad 候选改用可空的短语境字段，完整来源、
 > 候选语境和最终例句分离，语境不得自动成为例句。
+>
+> **实施状态（2026-07-30）**：上述后续设计已由 SessionPad context-bearing candidate v1 的 SP1–SP3
+> 实现。新候选统一为最多 80 字符的 term 与最多 300 字符的可空 context；AI context 必须定位回
+> 当前反馈原文，人工新增或编辑后标记为 `user_edited`。审核页仅对 SessionPad 使用单候选聚焦队列，
+> “将语境用作例句”只填浏览器草稿，显式接受后才保存。已有词仅关联、不覆盖既有释义或例句；旧通用
+> 接受、批量接受与全部入库入口不能绕过逐张审核。历史 B7/B11/B12 段落保留用于解释旧版本，不再是
+> 新候选的数据写入契约。
 
 ## 一句话定义
 

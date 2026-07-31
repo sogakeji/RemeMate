@@ -443,6 +443,7 @@
     "recap.summary_unavailable": "AI 总结暂时不可用，不影响已记录内容",
     "recap.summary_generated": "AI 复盘总结已生成",
     "recap.summary_latest": "当前总结已是最新",
+    "recap.kind_switch_help": "切换模块不会清空已输入内容，可以先写再分类。",
     "recap.kind.expression": "词语 / 表达",
     "recap.kind.natural_phrase": "自然说法",
     "recap.kind.correction": "错误修正",

@@ -69,6 +69,7 @@ def test_recap_workflow_renders_english(app, client):
     assert "Word / expression" in page
     assert "Correction" in page
     assert "AI recap summary" in page
+    assert "Switching the note type keeps what you have typed" in page
     assert "帮自己记" not in page
 
     invalid = client.post(f"{recap_url}/items", data={
@@ -305,6 +306,7 @@ def test_recap_editor_uses_side_and_kind_buttons_without_dropdown(app, client):
     assert 'data-recap-kind-tab="private_note"' in body
     assert 'data-recap-kind-tab="correction"' in body
     assert 'rows="8"' in body
+    assert "切换模块不会清空已输入内容，可以先写再分类。" in body
     assert "<select" not in body
 
 
