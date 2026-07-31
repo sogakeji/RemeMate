@@ -257,6 +257,7 @@ def add_item_to_candidates(
     recap = (
         PartnerRecap.query
         .filter_by(id=recap_id, user_id=user_id, partner_id=partner_id)
+        .populate_existing()
         .with_for_update()
         .first()
     )
@@ -276,12 +277,17 @@ def add_item_to_candidates(
             id=item.candidate_id,
             user_id=user_id,
         ).first()
-        if candidate is not None:
+        if candidate is not None and candidate.status != "ignored":
             return {
                 "state": "already-candidate",
                 "candidate_id": candidate.id,
                 "source_id": candidate.source_id,
             }
+        if candidate is not None:
+            # Ignoring applies to one review attempt, not permanently to the
+            # recap item. Detach it so the shared active-candidate contract can
+            # create or reuse a fresh pending candidate for this source.
+            item.candidate_id = None
 
     drafts = candidate_svc.normalize_manual_candidates([{
         "term": item.content,

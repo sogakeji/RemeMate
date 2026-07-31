@@ -1,10 +1,13 @@
 """SessionPad B2: private recap papers and their two columns."""
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 import re
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from app.services import recaps as recaps_svc
 from tests.helpers import login, make_user, provision_user, set_uid
 
 
@@ -390,6 +393,140 @@ def test_adding_same_recap_item_to_candidates_is_idempotent(
             "WHERE i.id = :item_id"
         ), {"item_id": item_id}).scalar()
     assert count == 1
+
+
+def test_concurrent_recap_items_reuse_one_sessionpad_source(
+    app,
+    bypass_engine,
+    monkeypatch,
+):
+    user_id = _provision_learning_user(app, "recap-candidate-race@t.com")
+    setup_client = app.test_client()
+    login(setup_client, "recap-candidate-race@t.com", PW)
+    partner_id = _create_partner(setup_client)
+    recap_id = _create_recap(setup_client, partner_id)
+    recap_url = f"/partners/{partner_id}/recaps/{recap_id}"
+    for content in ("avoir hâte", "prendre des cours"):
+        setup_client.post(f"{recap_url}/items", data={
+            "side": "for_me",
+            "kind": "expression",
+            "content": content,
+            "csrf_token": _csrf(setup_client, recap_url),
+        })
+
+    with bypass_engine.connect() as conn:
+        item_ids = conn.execute(text(
+            "SELECT id FROM partner_recap_items "
+            "WHERE recap_id=:recap AND user_id=:user ORDER BY id"
+        ), {"recap": recap_id, "user": user_id}).scalars().all()
+
+    thread_clients = [app.test_client(), app.test_client()]
+    csrf_tokens = []
+    for thread_client in thread_clients:
+        login(thread_client, "recap-candidate-race@t.com", PW)
+        csrf_tokens.append(_csrf(thread_client, recap_url))
+
+    original_get_recap = recaps_svc.get_recap
+    load_barrier = Barrier(2)
+
+    def synchronized_get_recap(*args, **kwargs):
+        recap = original_get_recap(*args, **kwargs)
+        load_barrier.wait()
+        return recap
+
+    monkeypatch.setattr(recaps_svc, "get_recap", synchronized_get_recap)
+
+    def adopt(index):
+        response = thread_clients[index].post(
+            f"{recap_url}/items/{item_ids[index]}/add-candidate",
+            data={"csrf_token": csrf_tokens[index]},
+        )
+        return response.status_code, response.headers.get("Location")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(adopt, range(2)))
+
+    assert [status for status, _location in results] == [302, 302]
+    assert len({location for _status, location in results}) == 1
+    with bypass_engine.connect() as conn:
+        source_rows = conn.execute(text(
+            "SELECT id,total_candidates FROM intake_sources "
+            "WHERE user_id=:user AND source_type='sessionpad'"
+        ), {"user": user_id}).mappings().all()
+        candidate_sources = conn.execute(text(
+            "SELECT DISTINCT source_id FROM word_candidates "
+            "WHERE user_id=:user"
+        ), {"user": user_id}).scalars().all()
+        recap_source_id = conn.execute(text(
+            "SELECT intake_source_id FROM partner_recaps WHERE id=:recap"
+        ), {"recap": recap_id}).scalar_one()
+
+    assert source_rows == [{
+        "id": recap_source_id,
+        "total_candidates": 2,
+    }]
+    assert candidate_sources == [recap_source_id]
+
+
+def test_ignored_recap_candidate_can_be_added_again(
+    app,
+    client,
+    bypass_engine,
+):
+    user_id = _provision_learning_user(app, "recap-candidate-retry@t.com")
+    login(client, "recap-candidate-retry@t.com", PW)
+    partner_id = _create_partner(client)
+    recap_id = _create_recap(client, partner_id)
+    recap_url = f"/partners/{partner_id}/recaps/{recap_id}"
+    added = client.post(f"{recap_url}/items", data={
+        "side": "for_me",
+        "kind": "expression",
+        "content": "avoir hâte",
+        "csrf_token": _csrf(client, recap_url),
+    }, follow_redirects=True)
+    item_id = int(re.search(
+        r'data-recap-item-id="(\d+)"', added.get_data(as_text=True),
+    ).group(1))
+    action = f"{recap_url}/items/{item_id}/add-candidate"
+    first = client.post(action, data={"csrf_token": _csrf(client, recap_url)})
+    source_id = int(
+        first.headers["Location"].split("/intake/", 1)[1].split("/", 1)[0]
+    )
+
+    with bypass_engine.connect() as conn:
+        ignored_id = conn.execute(text(
+            "SELECT candidate_id FROM partner_recap_items WHERE id=:item"
+        ), {"item": item_id}).scalar_one()
+
+    candidate_url = f"/intake/{source_id}/candidates"
+    ignored = client.post(
+        f"/intake/sessionpad/candidates/{ignored_id}/ignore",
+        data={"csrf_token": _csrf(client, candidate_url)},
+    )
+    assert ignored.status_code == 302
+
+    retried = client.post(
+        action,
+        data={"csrf_token": _csrf(client, recap_url)},
+    )
+    assert retried.status_code == 302
+    assert retried.headers["Location"].endswith(
+        f"/intake/{source_id}/candidates"
+    )
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT id,status,source_id FROM word_candidates "
+            "WHERE user_id=:user ORDER BY id"
+        ), {"user": user_id}).mappings().all()
+        linked_id = conn.execute(text(
+            "SELECT candidate_id FROM partner_recap_items WHERE id=:item"
+        ), {"item": item_id}).scalar_one()
+
+    assert rows == [
+        {"id": ignored_id, "status": "ignored", "source_id": source_id},
+        {"id": linked_id, "status": "pending", "source_id": source_id},
+    ]
+    assert linked_id != ignored_id
 
 
 def test_recap_candidate_uses_shared_eighty_character_term_limit(
