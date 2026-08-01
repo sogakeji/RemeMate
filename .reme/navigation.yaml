@@ -1,0 +1,24 @@
+documents:
+  - path: AGENTS.md
+    read_when: 需要确认 Git、安全边界、闭测范围与测试规模时
+    role: specification
+    lifecycle: decision
+
+  - path: docs/HANDOFF.md
+    read_when: 需要恢复当前分支、部署状态、架构约束与已知陷阱时
+    role: progress
+    authority: approved
+
+  - path: docs/BACKLOG.md
+    read_when: 需要选择下一项工作或判断某项反馈是否应推迟时
+    role: plan
+    status: stale
+
+  - path: docs/PROGRESS.md
+    read_when: 需要追溯里程碑、历史验证结果或旧上下文归档位置时
+    role: progress
+
+  - path: docs/deploy-closed-beta.md
+    read_when: 获得明确发布批准后，需要执行闭测部署、检查或回滚时
+    role: plan
+    lifecycle: decision

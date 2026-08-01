@@ -1,0 +1,23 @@
+REME deterministic checkpoint check
+$ git rev-parse --show-toplevel
+D:/home/RemeMate
+exit_code=0
+$ git branch --show-current
+master
+exit_code=0
+$ git rev-parse --short HEAD
+c6be3ef
+exit_code=0
+$ git status --porcelain -- . :(exclude).reme
+(no output)
+exit_code=0
+exists .reme\handoff.md: True
+exists .reme\navigation.yaml: True
+exists .reme\evidence.yaml: True
+exists .reme\state.yaml: True
+$ git diff --name-only c6be3ef..HEAD -- . :(exclude).reme
+(no output)
+exit_code=0
+errors: []
+warnings: []
+RESULT: PASS

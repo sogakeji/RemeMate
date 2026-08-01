@@ -1,0 +1,11 @@
+workspace:
+  git_root: .
+checkpoint:
+  recorded_at_head: c6be3ef
+  recorded_at_branch: master
+  worktree_fingerprint: e3b0c44298fc
+  phase: post-deploy closeout
+maintenance:
+  status: current
+  reasons: []
+  changed_paths: []
