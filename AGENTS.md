@@ -1,115 +1,40 @@
 # RemeMate Agent Guide
+## Context Recovery
 
-This file is the fastest safe entry point for future agents. Keep it short.
+1. Start with `.reme/handoff.md`; it is the sole recovery entry point.
+2. Compare its anchor with the current Git HEAD before trusting routed state.
+3. Read `.reme/state.yaml` only when you need to locate checkpoint drift.
+4. Follow `.reme/navigation.yaml` and `.reme/evidence.yaml` progressively; open only documents relevant to the task.
+5. Do not preload `HANDOFF`, `BACKLOG`, `PROGRESS`, archives, or task-specific plans unless REME routes you there.
 
-## Start Here
+## Git And Safety Boundaries
 
-Read these files in order before changing code:
-
-1. `docs/HANDOFF.md` - current branch state, deployment state, architecture rules, pitfalls.
-2. `docs/BACKLOG.md` - deferred bugs, soft feedback, and accepted future work.
-3. `docs/PROGRESS.md` - milestone history and where older context was archived.
-4. Task-specific docs only when relevant, such as `docs/daily-task-card.md` or files under `docs/plans/`.
-
-Do not read `docs/archive/HANDOFF.full-2026-07-08.md` by default. It is historical context for archaeology, not the working handoff.
-
-## Current Authority And Development State
-
-- The WSL2 virtual disk was lost on 2026-07-22. The recovered authoritative local repository is now
-  `D:\home\RemeMate`.
-- Production was upgraded from `1b72128` on 2026-07-30. The six replayed safety/data-trust fixes and
-  Review Story v1 are now deployed from local `master`.
-- Review Story was merged by `a7fcf91`; the pre-deploy local documentation state was `ce79a74`.
-- The active branch is `feature/sessionpad-context-candidates-v1`, based on deployed `master@1be9ddc`.
-  Production remains at `1be9ddc` with migration head `f1a2b3c4d5e6`; this feature branch is not deployed.
-- Review story progress:
-  - RS1 data/RLS/daily-summary foundation: `222d7c0`, with PostgreSQL validation follow-ups `f0d90e8` and
-    `c761902`.
-  - RS2-A multilingual provider contract: `c07ff42`.
-  - RS2-B transactional run state machine: `e6f926e`; GCP revalidation is green, including the corrected
-    request-context concurrency path.
-  - RS2-C provider orchestration, token accounting, and privacy-safe funnel events: `e800ef0`; GCP validation
-    passed 52 targeted tests, both concurrency paths 5/5, and the 607-test full suite.
-  - RS3 review receipt and explicit writing handoff: `4937253` and `132fca2`; GCP browser, RLS, idempotency,
-    and full-suite validation passed.
-  - RS4 retention cleanup and operations closeout: `bf1ee9b`; dry-run is the default, `--apply` is explicit,
-    two-user dispatch/BYPASSRLS cleanup passed, and the final full suite is **620 passed, 16 warnings**.
-  - Post-branch review fix: `4825336` keeps Review Story writing handoff language request-scoped instead of
-    mutating `current_language` or `learning_languages`; GCP passed 63 targeted tests and the final
-    **621-test** full suite. The review's summary-query and global-cleanup observations are deferred
-    scalability notes, not merge-blocking correctness bugs.
-  - Review Story v1 is merged and deployed to closed beta. Real use then exposed a hard reachability bug: the
-    receipt incorrectly required the entire due queue to be empty. `fix/review-story-partial-queue` removes that
-    dependency. Eligibility is now at least 10 distinct words reviewed today; more than 5 distinct fuzzy-or-forgotten
-    words changes the receipt to strong, but never bypasses the 10-word floor. GCP full suite: **621 passed**.
-  - Hotfix `2f09304` is merged into local `master` and deployed to closed beta. Production strict doctor, service,
-    public HTTPS, logs, and pre/post data counts passed; real-account partial-queue verification also passed.
-    SessionPad context-bearing candidate v1 followed on its own feature branch and is now complete. Do not add
-    story history, publishing, images, or a second editor.
-- SessionPad context-candidate SP1 through SP3 are committed as `d2ec131`, `d40e30a`, and `4c84f46`.
-  SP4 closeout is committed as `18943e1`: the design and deployment contract are current and the recap editor
-  explains that category switching preserves its draft. Whole-branch review fix `b270d04` refreshes the locked recap
-  before source creation and lets an ignored recap item enter a fresh review attempt. GCP passed 118 adjacent tests,
-  all three concurrency paths 5/5, 1440px and 390px dark-mode browser checks, and the final
-  **660 passed, 16 warnings** suite. The feature remains unmerged and undeployed.
-- Feature-branch migration head is `b3c4d5e6f7a8`; production remains `f1a2b3c4d5e6`.
-- **GCP Ubuntu recovery validation (2026-07-22) is done**: PostgreSQL 16 + tri-role `rememate_test`,
-  migration head `e0f1a2b3c4d5`, Gate4 full suite **`486 passed`**, targeted six-fix set **122 passed**.
-  One test-only SQL fix: `tests/integration/test_words.py` (`w.word, w.id`). No business code changes for
-  that fix. `flask doctor --strict` on the test box: DB/migration/admin OK; LLM/dictionary WARN only.
-  Full write-up: `docs/recovery-validation-2026-07-22.md`.
-- `origin` points directly at the production working repository. Never push as part of ordinary local recovery work.
-
-## Recovered Next-Stage Plan
-
-- The completed Wayfinder map was recovered to
-  `docs/wayfinder/2026-07-19-next-stage-roadmap/MAP.md`; recovery provenance is in the adjacent `RECOVERY.md`.
-- The serial order remains review story, SessionPad context candidates, then the private closed-beta observation
-  panel. Keep their migrations serial to avoid Alembic forks.
-- Review Story RS1 through RS4 and the partial-queue hard fix are merged and deployed.
-- SessionPad context-candidate SP1 through SP4 and whole-branch review fix `b270d04` are committed on
-  `feature/sessionpad-context-candidates-v1`. The review has no remaining merge blocker; proceed next to an explicit
-  merge/deploy decision. Do not mix in the observation dashboard or unrelated closed-beta polish.
-- Historical UI artifacts under the Wayfinder `artifacts/` directory are audit evidence, not production templates.
-
-## Closed Beta Rule
-
-During closed beta, do not immediately implement every small request.
-
-- Fix hard bugs now: crashes, data loss, auth/RLS/security problems, core workflow failures, deployment failures.
-- Record soft bugs in `docs/BACKLOG.md`: wording, minor layout polish, low-risk UX preference, future product ideas.
-- For new features, write or update a short plan first, then wait for scope agreement before coding.
-
-## Before Work
-
-- Run `git status --short --branch`.
-- Stay on `master` for closed-beta hotfixes unless the user asks for a feature branch.
+- Run `git status --short --branch` before changing project files.
+- Stay on `master` for closed-beta hotfixes unless the user requests another branch.
 - Create a new branch before feature work or broad refactors.
-- Never touch `.env`, `.venv`, production data, or `/srv/rememate-data` unless the user explicitly asks.
-- Do not commit secrets or API keys.
+- Never merge, deploy, push, rewrite history, or alter production without explicit user approval.
+- Never stash, discard, overwrite, or absorb existing user changes without approval.
+- Never touch `.env`, `.venv`, production data, or `/srv/rememate-data` unless explicitly requested.
+- Production work must preserve users, databases, secrets, virtual environments, and dictionary data.
+- Do not commit credentials, API keys, private exports, or sensitive logs.
+
+## Closed-Beta Scope
+
+- Fix hard bugs promptly: crashes, data loss, auth/RLS/security failures, core workflow failures, and deployment failures.
+- Record soft bugs and low-risk UX requests instead of implementing each one immediately.
+- For new features, create or update a short plan and wait for scope agreement before coding.
+- Do not broaden a focused fix into a redesign or mix unrelated feature slices.
 
 ## Testing Scale
 
-Match tests to risk:
+- Docs-only or tiny CSS/copy changes: run `git diff --check`; report that tests were not run.
+- Single templates or routes: run targeted integration tests.
+- Service, RLS, database, AI, quota, or migration logic: run targeted tests plus `pytest -q`.
+- Deployment work: run `flask doctor --strict` in the target environment and verify service, HTTPS, logs, and data preservation.
+- Match test cost to risk; batch low-risk UI checks rather than repeating the full suite.
 
-- Docs-only or tiny CSS copy: `git diff --check`; say that tests were not run.
-- Single template or route: targeted integration tests.
-- Service, RLS, database, AI, or quota logic: targeted tests plus `pytest -q`.
-- Deployment: run `flask doctor --strict` on the target environment.
+## Architecture Guards
 
-Do not run expensive full-test loops after every soft UI note. Batch work when possible.
-
-## Production Pointers
-
-- Server: `ubuntu@43.156.210.229`
-- App path: `/srv/rememate`
-- Service: `rememate.service`
-- Dictionary data: `/srv/rememate-data/dictionaries`
-- Production deploys must preserve existing users, database data, `.env`, `.venv`, and dictionary data.
-
-## Avoid
-
-- Do not merge old branches or branch from stale history without checking `docs/HANDOFF.md`.
 - Do not re-enable the disabled online dictionary API unless explicitly scoped.
-- Do not introduce heavy frontend frameworks for small UI changes.
-- Do not broaden a hard-bug fix into a product redesign during closed beta.
+- Do not introduce a heavy frontend framework for small UI work.
+- Prefer the current routed architecture and task contract over historical documents or recovered artifacts.
