@@ -1,0 +1,35 @@
+REME reconcile deterministic check ¡ª final
+$ git rev-parse --show-toplevel
+D:/home/RemeMate
+exit_code=0
+$ git branch --show-current
+master
+exit_code=0
+$ git rev-parse HEAD
+f296cca2b298842f36191a9326366667ecff6dc6
+exit_code=0
+$ git status --porcelain -- . :(exclude).reme
+(no output)
+exit_code=0
+worktree_fingerprint=e3b0c44298fc
+required_file .reme/handoff.md=True
+required_file .reme/navigation.yaml=True
+required_file .reme/evidence.yaml=True
+required_file .reme/state.yaml=True
+yaml_parse=PASS
+$ git cat-file -e f296cca^{commit}
+(no output)
+exit_code=0
+$ git diff --name-only f296cca..HEAD -- . :(exclude).reme
+(no output)
+exit_code=0
+drift_tier=current
+changed_paths=[]
+$ git diff --check -- .reme
+(no output)
+exit_code=0
+duplicate_navigation_paths=PASS
+approved_current_conflicts=NONE
+failures=[]
+warnings=[]
+RESULT=PASS

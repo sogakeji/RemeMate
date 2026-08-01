@@ -1,8 +1,12 @@
 evidence:
   - claim: REME checkpoint deterministic checks passed
-    status: verified
-    verified_at_head: c6be3ef
-    verified_on_branch: master
+    status: claim
     source: .reme/evidence/checkpoint-c6be3ef.txt
     command: python inline REME checkpoint checker
+    result: exit_code_0
+
+  - claim: REME reconcile deterministic checks passed
+    status: claim
+    source: .reme/evidence/reconcile-f296cca.txt
+    command: python inline REME reconcile checker
     result: exit_code_0
