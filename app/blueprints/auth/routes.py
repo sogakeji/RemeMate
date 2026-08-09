@@ -17,12 +17,20 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db
 from app.i18n import translate as _
 from app.models.user import User
-from app.blueprints.auth.forms import LoginForm, PasswordSetupForm, RegisterForm
+from app.blueprints.auth.forms import (
+    ForgotPasswordForm,
+    LoginForm,
+    PasswordResetForm,
+    PasswordSetupForm,
+    RegisterForm,
+)
 from app.services.account_access import (
     InitialPasswordUnavailableError,
     InvalidChallengeError,
     PasswordPolicyError,
+    request_password_reset,
     request_registration,
+    reset_password,
     set_initial_password,
     verify_registration,
 )
@@ -101,6 +109,41 @@ def register():
         return redirect(url_for("auth.login"), code=303)
 
     return render_template("auth/register.html", form=form)
+
+
+@bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        request_password_reset(form.email.data, request.remote_addr or "")
+        flash(_("auth.password_reset.request_received"))
+        return redirect(url_for("auth.login"), code=303)
+    return render_template("auth/forgot_password.html", form=form)
+
+
+@bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password_route(token):
+    form = PasswordResetForm()
+    if form.validate_on_submit():
+        try:
+            user_id = reset_password(token, form.password.data)
+        except PasswordPolicyError:
+            form.password.errors.append(_("auth.password_reset.too_short"))
+            return render_template("auth/reset_password.html", form=form)
+        except InvalidChallengeError:
+            flash(_("auth.password_reset.invalid_token"))
+            return redirect(url_for("auth.login"), code=303)
+
+        user = db.session.get(User, user_id)
+        if user is None:
+            flash(_("auth.password_reset.invalid_token"))
+            return redirect(url_for("auth.login"), code=303)
+        if not current_user.is_authenticated or current_user.id == user_id:
+            login_user(user)
+        flash(_("auth.password_reset.saved"))
+        return redirect(url_for("main.index"), code=303)
+
+    return render_template("auth/reset_password.html", form=form)
 
 
 @bp.get("/verify-email/<token>")

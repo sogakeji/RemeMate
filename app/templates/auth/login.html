@@ -18,6 +18,9 @@
       </div>
       <button type="submit" class="btn primary" style="width:100%;">{{ _('login.submit') }}</button>
     </form>
+    <p class="auth-secondary-link">
+      <a href="{{ url_for('auth.forgot_password') }}">{{ _('auth.password_reset.forgot_link') }}</a>
+    </p>
     {% if config.OPEN_REGISTRATION_ENABLED %}
     <p class="auth-secondary-link">
       <a href="{{ url_for('auth.register') }}">{{ _('auth.registration.link') }}</a>
