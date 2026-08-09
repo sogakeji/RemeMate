@@ -13,6 +13,7 @@ load_dotenv()
 
 INSECURE_SECRET_DEFAULT = "dev-insecure-change-me"
 PLACEHOLDER_VALUES = {"", "CHANGE_ME", "changeme", "your-api-key", "your-secret-key"}
+TRUE_VALUES = {"1", "true", "yes", "on"}
 
 
 def is_configured(value: str | None) -> bool:
@@ -29,6 +30,13 @@ def require_configured(name: str) -> str:
 def optional_configured(name: str) -> str | None:
     value = os.environ.get(name)
     return value.strip() if is_configured(value) else None
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in TRUE_VALUES
 
 
 def validate_fernet_key(value: str | None) -> bool:
@@ -53,6 +61,7 @@ class BaseConfig:
     MIGRATE_DATABASE_URL = os.environ.get("MIGRATE_DATABASE_URL")
     DISPATCH_DATABASE_URL = os.environ.get("DISPATCH_DATABASE_URL")
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL")
+    OPEN_REGISTRATION_ENABLED = env_bool("OPEN_REGISTRATION_ENABLED")
     REGISTRATION_TOKEN_TTL_SECONDS = int(
         os.environ.get("REGISTRATION_TOKEN_TTL_SECONDS", 86_400)
     )

@@ -18,6 +18,11 @@
       </div>
       <button type="submit" class="btn primary" style="width:100%;">{{ _('login.submit') }}</button>
     </form>
+    {% if config.OPEN_REGISTRATION_ENABLED %}
+    <p class="auth-secondary-link">
+      <a href="{{ url_for('auth.register') }}">{{ _('auth.registration.link') }}</a>
+    </p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

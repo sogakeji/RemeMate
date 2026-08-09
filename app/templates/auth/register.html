@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ _('auth.registration.title') }} · RemeMate{% endblock %}
+{% block content %}
+<div class="container" style="max-width:420px;">
+  <div class="auth-header-row"><h1>{{ _('auth.registration.title') }}</h1></div>
+  <div class="form-card">
+    <form method="post" action="{{ url_for('auth.register') }}">
+      {{ form.csrf_token }}
+      <div class="form-group">
+        <label class="form-label" for="{{ form.email.id }}">{{ _('auth.registration.email') }}</label><br>
+        {{ form.email(autofocus=true, autocomplete="email", class="form-control",
+                      placeholder=_('auth.registration.email_placeholder')) }}
+        {% for error in form.email.errors %}
+        <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn primary" style="width:100%;">
+        {{ _('auth.registration.submit') }}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

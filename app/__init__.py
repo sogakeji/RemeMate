@@ -19,6 +19,13 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
 
+    from app.services.resend_auth_mail import ResendAuthMailer
+    app.extensions["auth_mailer"] = ResendAuthMailer(
+        api_key=app.config.get("RESEND_API_KEY"),
+        from_address=app.config.get("AUTH_EMAIL_FROM"),
+        timeout=app.config.get("AUTH_MAIL_TIMEOUT_SECONDS", 5),
+    )
+
     # 导入全部 models，确保 metadata 完整（Flask-Migrate autogenerate 依赖）
     from app import models  # noqa: F401
 

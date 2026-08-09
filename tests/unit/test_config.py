@@ -2,7 +2,27 @@
 import pytest
 from cryptography.fernet import Fernet
 
-from config import get_config
+from config import env_bool, get_config
+
+
+@pytest.mark.parametrize(("raw", "expected"), [
+    (None, False),
+    ("1", True),
+    ("true", True),
+    ("yes", True),
+    ("on", True),
+    ("false", False),
+    ("0", False),
+    ("off", False),
+    ("not-a-bool", False),
+])
+def test_env_bool_is_fail_safe(monkeypatch, raw, expected):
+    if raw is None:
+        monkeypatch.delenv("OPEN_REGISTRATION_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("OPEN_REGISTRATION_ENABLED", raw)
+
+    assert env_bool("OPEN_REGISTRATION_ENABLED") is expected
 
 
 def _set_production_env(monkeypatch):

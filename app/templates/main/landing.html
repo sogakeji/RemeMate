@@ -116,6 +116,9 @@
       <div class="brand">Reme<span class="mate">Mate</span></div>
       <div class="nav-right">
         <a class="nav-demo" href="{{ url_for('auth.login') }}" data-en="Log in" data-zh="登录">Log in</a>
+        {% if config.OPEN_REGISTRATION_ENABLED %}
+        <a class="nav-demo" href="{{ url_for('auth.register') }}" data-en="Create an account" data-zh="注册">Create an account</a>
+        {% endif %}
         <button class="langbtn" id="langBtn">中</button>
       </div>
     </div>
@@ -131,6 +134,9 @@
           Collect the words, expressions, and sentences you actually meet. Review them when they are due, then use them in your own writing.</p>
         <div class="cta">
           <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in to closed beta →" data-zh="登录闭测版 →">Log in to closed beta →</a>
+          {% if config.OPEN_REGISTRATION_ENABLED %}
+          <a class="btn btn-ghost" href="{{ url_for('auth.register') }}" data-en="Create an account →" data-zh="注册 →">Create an account →</a>
+          {% endif %}
           <a class="btn btn-ghost" href="https://discord.gg/U8Uqh5tsX" target="_blank" rel="noopener noreferrer"
              data-en="Join the RemeMate community" data-zh="加入 RemeMate 社群">Join the RemeMate community</a>
         </div>

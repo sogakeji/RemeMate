@@ -9,14 +9,16 @@
 from datetime import timedelta
 from urllib.parse import urlsplit
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import (Blueprint, abort, current_app, render_template, redirect,
+                   url_for, request, flash)
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 from app.i18n import translate as _
 from app.models.user import User
-from app.blueprints.auth.forms import LoginForm
+from app.blueprints.auth.forms import LoginForm, RegisterForm
+from app.services.account_access import request_registration
 from app.services.timeutil import utc_now
 
 bp = Blueprint("auth", __name__)
@@ -78,6 +80,20 @@ def login():
         flash(_("login.error"))
 
     return render_template("auth/login.html", form=form)
+
+
+@bp.route("/register", methods=["GET", "POST"])
+def register():
+    if not current_app.config["OPEN_REGISTRATION_ENABLED"]:
+        abort(404)
+
+    form = RegisterForm()
+    if form.validate_on_submit():
+        request_registration(form.email.data, request.remote_addr or "")
+        flash(_("auth.registration.request_received"))
+        return redirect(url_for("auth.login"), code=303)
+
+    return render_template("auth/register.html", form=form)
 
 
 @bp.route("/logout")
