@@ -1,11 +1,24 @@
 """OR2 Slice 1：注册 challenge 发放与邮件 seam。"""
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from hashlib import sha256
+from threading import Barrier
 from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import text
+from werkzeug.security import check_password_hash
 
-from app.services.account_access import RequestReceipt, request_registration
+from app import create_app
+from app.services.account_access import (
+    ActivatedAccount,
+    InitialPasswordUnavailableError,
+    InvalidChallengeError,
+    PasswordPolicyError,
+    RequestReceipt,
+    request_registration,
+    set_initial_password,
+    verify_registration,
+)
 
 
 class RecordingMailer:
@@ -94,3 +107,134 @@ def test_request_registration_records_digest_and_sends_verification(
     assert event["delivery_status"] == "sent"
     assert event["provider_message_id"] == "fake-provider-id"
     assert call["idempotency_key"] == f"registration:{event['id']}"
+
+
+def test_same_registration_token_concurrent_verification_creates_one_complete_account(
+        app, bypass_engine):
+    app.config["PUBLIC_BASE_URL"] = "https://example.test"
+    mailer = RecordingMailer(bypass_engine)
+    app.extensions["auth_mailer"] = mailer
+
+    with app.app_context():
+        request_registration("  Alice@Example.COM ", "client-key-1")
+    raw_token = unquote(
+        urlsplit(mailer.calls[0]["verification_url"]).path.rsplit("/", 1)[-1]
+    )
+    barrier = Barrier(2)
+
+    def verify_once():
+        thread_app = create_app("testing")
+        with thread_app.app_context():
+            barrier.wait()
+            try:
+                return ("account", verify_registration(raw_token))
+            except InvalidChallengeError:
+                return ("invalid",)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(verify_once) for _ in range(2)]
+        results = [future.result() for future in futures]
+
+    accounts = [result[1] for result in results if result[0] == "account"]
+    invalids = [result for result in results if result[0] == "invalid"]
+    assert len(accounts) == 1
+    assert len(invalids) == 1
+    assert isinstance(accounts[0], ActivatedAccount)
+    assert accounts[0].user_id > 0
+
+    with bypass_engine.connect() as conn:
+        challenge = conn.execute(text("""
+            SELECT purpose, consumed_at
+            FROM auth_challenges
+        """)).mappings().one()
+        user = conn.execute(text("""
+            SELECT id, public_id, password_setup_required, display_name
+            FROM users
+        """)).mappings().one()
+        settings = conn.execute(text(
+            "SELECT count(*) AS count FROM user_settings"
+        )).scalar_one()
+        quota = conn.execute(text("""
+            SELECT count(*) AS count, max(quota_reset_at) AS quota_reset_at
+            FROM user_quota
+        """)).mappings().one()
+
+    assert challenge["purpose"] == "registration"
+    assert challenge["consumed_at"] is not None
+    assert user["id"] == accounts[0].user_id
+    assert user["public_id"] is not None
+    assert user["password_setup_required"] is True
+    assert user["display_name"] == "alice"
+    assert settings == 1
+    assert quota["count"] == 1
+    assert quota["quota_reset_at"] is not None
+
+
+def test_set_initial_password_enforces_policy_and_is_one_time(
+        app, bypass_engine):
+    app.config["PUBLIC_BASE_URL"] = "https://example.test"
+    mailer = RecordingMailer(bypass_engine)
+    app.extensions["auth_mailer"] = mailer
+
+    with app.app_context():
+        request_registration("  Alice@Example.COM ", "client-key-1")
+        raw_token = unquote(
+            urlsplit(mailer.calls[0]["verification_url"])
+            .path.rsplit("/", 1)[-1]
+        )
+        account = verify_registration(raw_token)
+
+    assert isinstance(account, ActivatedAccount)
+    with bypass_engine.connect() as conn:
+        before = conn.execute(text("""
+            SELECT password_setup_required, password_hash
+            FROM users
+            WHERE id = :user_id
+        """), {"user_id": account.user_id}).mappings().one()
+
+    with app.app_context():
+        try:
+            set_initial_password(account.user_id, "short")
+        except PasswordPolicyError:
+            pass
+        else:
+            raise AssertionError("short password was accepted")
+
+    with bypass_engine.connect() as conn:
+        after_short = conn.execute(text("""
+            SELECT password_setup_required, password_hash
+            FROM users
+            WHERE id = :user_id
+        """), {"user_id": account.user_id}).mappings().one()
+
+    assert after_short == before
+
+    with app.app_context():
+        set_initial_password(account.user_id, "password")
+
+    with bypass_engine.connect() as conn:
+        after_valid = conn.execute(text("""
+            SELECT password_setup_required, password_hash
+            FROM users
+            WHERE id = :user_id
+        """), {"user_id": account.user_id}).mappings().one()
+
+    assert after_valid["password_setup_required"] is False
+    assert check_password_hash(after_valid["password_hash"], "password")
+
+    with app.app_context():
+        try:
+            set_initial_password(account.user_id, "different")
+        except InitialPasswordUnavailableError:
+            pass
+        else:
+            raise AssertionError("initial password was reset")
+
+    with bypass_engine.connect() as conn:
+        after_second = conn.execute(text("""
+            SELECT password_setup_required, password_hash
+            FROM users
+            WHERE id = :user_id
+        """), {"user_id": account.user_id}).mappings().one()
+
+    assert after_second == after_valid
