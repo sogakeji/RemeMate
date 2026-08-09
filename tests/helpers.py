@@ -1,14 +1,17 @@
 """测试数据构造 helper（均走 BYPASSRLS 连接）。"""
+from uuid import uuid4
+
 from sqlalchemy import text
 
 
 def make_user(bypass_engine, email):
     with bypass_engine.begin() as c:
         return c.execute(text(
-            "INSERT INTO users(email,password_hash,display_name,role,is_active,"
-            "login_attempts,timezone,created_at) "
-            "VALUES (:e,'x','n','user',true,0,'UTC',now()) RETURNING id"
-        ), {"e": email}).scalar()
+            "INSERT INTO users(public_id,email,password_hash,display_name,role,"
+            "is_active,password_setup_required,login_attempts,timezone,created_at) "
+            "VALUES (:public_id,:e,'x','n','user',true,false,0,'UTC',now()) "
+            "RETURNING id"
+        ), {"public_id": str(uuid4()), "e": email}).scalar()
 
 
 def make_word(bypass_engine, user_id, word="décollage"):

@@ -1,6 +1,9 @@
 """用户、设置、额度、token 用量。"""
+import uuid
+
 from flask_login import UserMixin
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import event, inspect, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.extensions import db
 from app.services.timeutil import utc_now
@@ -10,11 +13,16 @@ class User(db.Model, UserMixin):
     __tablename__ = "users"
 
     id             = db.Column(db.Integer, primary_key=True)
+    public_id      = db.Column(UUID(as_uuid=True), default=uuid.uuid4,
+                               unique=True, nullable=False)
     email          = db.Column(db.String(255), unique=True, nullable=False)
     password_hash  = db.Column(db.String(255), nullable=False)
     display_name   = db.Column(db.String(100), nullable=False)
     role           = db.Column(db.String(20), default="user", nullable=False)  # user / admin
     is_active      = db.Column(db.Boolean, default=True, nullable=False)
+    password_setup_required = db.Column(
+        db.Boolean, default=False, server_default=text("false"), nullable=False,
+    )
     locked_until   = db.Column(db.DateTime, nullable=True)
     login_attempts = db.Column(db.Integer, default=0, nullable=False)
     timezone       = db.Column(db.String(50), default="Asia/Shanghai", nullable=False)
@@ -27,6 +35,12 @@ class User(db.Model, UserMixin):
 
     settings = db.relationship("UserSettings", backref="user", uselist=False)
     quota    = db.relationship("UserQuota", backref="user", uselist=False)
+
+
+@event.listens_for(User, "before_update")
+def _reject_public_id_mutation(mapper, connection, target):
+    if inspect(target).attrs.public_id.history.has_changes():
+        raise ValueError("public_id is immutable")
 
 
 class UserSettings(db.Model):

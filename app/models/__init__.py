@@ -3,6 +3,7 @@
 新增 model 文件后必须在此 import，否则 Flask-Migrate autogenerate 抓不到。
 """
 from app.models.user import User, UserSettings, UserQuota, TokenUsageLog
+from app.models.account_access import AuthChallenge, AuthMailEvent
 from app.models.word import WordList, Word, Definition, ReviewLog
 from app.models.output import OutputEntry
 from app.models.intake import IntakeSource, SourceSegment, WordCandidate
@@ -20,6 +21,7 @@ from app.models.review_story import LearningFunnelEvent, ReviewStoryRun
 
 __all__ = [
     "User", "UserSettings", "UserQuota", "TokenUsageLog",
+    "AuthChallenge", "AuthMailEvent",
     "WordList", "Word", "Definition", "ReviewLog",
     "OutputEntry",
     "IntakeSource", "SourceSegment", "WordCandidate",

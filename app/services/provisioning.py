@@ -57,11 +57,11 @@ def _clean_language_codes(codes):
     return cleaned
 
 
-def create_user_with_defaults(email, display_name, *, admin=False,
-                              timezone="Asia/Shanghai", password=None,
-                              learning_languages=None,
-                              feedback_language="zh"):
-    """一事务建 User + UserSettings + UserQuota，返回 (user_id, 明文初始密码)。"""
+def _create_user_with_defaults_in_session(
+        session, email, display_name, *, admin=False,
+        timezone="Asia/Shanghai", password=None, learning_languages=None,
+        feedback_language="zh", password_setup_required=False):
+    """在调用方 Session/事务内完整建号，返回 User，不提交或关闭 Session。"""
     email = normalize_email(email)        # 邮箱大小写无关（M5）
     if not _EMAIL_RE.match(email):
         raise ValueError("邮箱格式不正确")
@@ -69,53 +69,74 @@ def create_user_with_defaults(email, display_name, *, admin=False,
     learning = _clean_language_codes(learning_languages)
     if feedback_language not in words_svc._FEEDBACK_LANGUAGE_NAMES:
         raise ValueError(f"未知反馈语言 code：{feedback_language!r}")
+    if session.query(User).filter_by(email=email).first():
+        raise UserExistsError(email)
+
+    user = User(
+        email=email,
+        display_name=display_name,
+        password_hash=generate_password_hash(password),
+        role="admin" if admin else "user",
+        is_active=True,
+        password_setup_required=password_setup_required,
+        login_attempts=0,
+        timezone=timezone,
+        current_language=learning[0] if learning else None,
+        learning_languages=",".join(learning) if learning else None,
+    )
+    session.add(user)
+    session.flush()  # 拿 user.id
+
+    session.add(UserSettings(
+        user_id=user.id,
+        feedback_language=feedback_language,
+        notify_review_reminder=True,
+        notify_daily_summary=True,
+        notify_intake_done=True,
+        notify_partner_activity=False,
+    ))
+    for code in learning:
+        session.add(WordList(
+            user_id=user.id,
+            name=words_svc._language_name(code),
+            language_code=code,
+        ))
+    session.add(UserQuota(
+        user_id=user.id,
+        daily_base_limit=DEFAULT_DAILY_LIMIT,
+        tokens_used_today=0,
+        bonus_tokens_today=0,
+        quota_reset_at=next_midnight_utc(timezone),  # 必须初始化，禁留 None
+    ))
+    session.flush()
+    return user
+
+
+def create_user_with_defaults(email, display_name, *, admin=False,
+                              timezone="Asia/Shanghai", password=None,
+                              learning_languages=None,
+                              feedback_language="zh"):
+    """一事务建 User + UserSettings + UserQuota，返回 (user_id, 明文初始密码)。"""
+    email = normalize_email(email)
+    if not _EMAIL_RE.match(email):
+        raise ValueError("邮箱格式不正确")
+    password = password or secrets.token_urlsafe(12)
     session = _bypass_session()
     engine = session.bind
     try:
-        if session.query(User).filter_by(email=email).first():
-            raise UserExistsError(email)
-
-        user = User(
-            email=email,
-            display_name=display_name,
-            password_hash=generate_password_hash(password),
-            role="admin" if admin else "user",
-            is_active=True,
-            login_attempts=0,
-            timezone=timezone,
-            current_language=learning[0] if learning else None,
-            learning_languages=",".join(learning) if learning else None,
-        )
-        session.add(user)
-        session.flush()  # 拿 user.id
-
-        session.add(UserSettings(
-            user_id=user.id,
-            feedback_language=feedback_language,
-            notify_review_reminder=True,
-            notify_daily_summary=True,
-            notify_intake_done=True,
-            notify_partner_activity=False,
-        ))
-        for code in learning:
-            session.add(WordList(
-                user_id=user.id,
-                name=words_svc._language_name(code),
-                language_code=code,
-            ))
-        session.add(UserQuota(
-            user_id=user.id,
-            daily_base_limit=DEFAULT_DAILY_LIMIT,
-            tokens_used_today=0,
-            bonus_tokens_today=0,
-            quota_reset_at=next_midnight_utc(timezone),  # 必须初始化，禁留 None
-        ))
         try:
+            user = _create_user_with_defaults_in_session(
+                session, email, display_name, admin=admin, timezone=timezone,
+                password=password, learning_languages=learning_languages,
+                feedback_language=feedback_language,
+            )
             session.commit()
         except IntegrityError:
-            # 并发下两个请求都过了上面的预检，唯一约束在此兜底（以 DB 为准）
+            # 只把回滚后确认已存在的规范化邮箱视为并发重名。
             session.rollback()
-            raise UserExistsError(email) from None
+            if session.query(User).filter_by(email=email).first() is not None:
+                raise UserExistsError(email) from None
+            raise
         return user.id, password
     finally:
         session.close()
