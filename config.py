@@ -53,6 +53,9 @@ class BaseConfig:
     MIGRATE_DATABASE_URL = os.environ.get("MIGRATE_DATABASE_URL")
     DISPATCH_DATABASE_URL = os.environ.get("DISPATCH_DATABASE_URL")
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL")
+    REGISTRATION_TOKEN_TTL_SECONDS = int(
+        os.environ.get("REGISTRATION_TOKEN_TTL_SECONDS", 86_400)
+    )
 
     # PDF 上传文件大小上限（MB），需大于 parser 内部限制（25MB）以让 parser 给出明确提示，
     # 而不是直接报 413 原始错误给用户。
