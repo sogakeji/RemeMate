@@ -56,6 +56,14 @@ class BaseConfig:
     REGISTRATION_TOKEN_TTL_SECONDS = int(
         os.environ.get("REGISTRATION_TOKEN_TTL_SECONDS", 86_400)
     )
+    PASSWORD_RESET_TOKEN_TTL_SECONDS = int(
+        os.environ.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 3_600)
+    )
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+    AUTH_EMAIL_FROM = os.environ.get("AUTH_EMAIL_FROM")
+    AUTH_MAIL_TIMEOUT_SECONDS = int(
+        os.environ.get("AUTH_MAIL_TIMEOUT_SECONDS", 5)
+    )
 
     # PDF 上传文件大小上限（MB），需大于 parser 内部限制（25MB）以让 parser 给出明确提示，
     # 而不是直接报 413 原始错误给用户。
