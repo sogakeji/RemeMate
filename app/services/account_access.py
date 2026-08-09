@@ -1,11 +1,12 @@
 """OR2 账号访问深模块：注册、验证、首次设密、密码重置与认证邮件 seam。"""
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from secrets import token_urlsafe
 from urllib.parse import quote
 
 from flask import current_app
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
@@ -56,6 +57,100 @@ class AuthMailDeliveryError(Exception):
 
 def _digest(value: str) -> str:
     return sha256(value.encode("utf-8")).hexdigest()
+
+
+def _reserve_rate_limits(
+        session, email: str, client_key: str, *, increment_global: bool) -> bool:
+    """Reserve all applicable UTC rate-limit buckets in a fixed lock order."""
+    now = datetime.now(timezone.utc)
+    windows = {
+        "global_day": now.replace(hour=0, minute=0, second=0, microsecond=0),
+        "email_hour": now.replace(minute=0, second=0, microsecond=0),
+        "email_minute": now.replace(second=0, microsecond=0),
+        "client_hour": now.replace(minute=0, second=0, microsecond=0),
+    }
+    limits = {
+        "global_day": int(current_app.config[
+            "AUTH_GLOBAL_EMAIL_PER_DAY_LIMIT"
+        ]),
+        "email_hour": int(current_app.config[
+            "AUTH_EMAIL_PER_HOUR_LIMIT"
+        ]),
+        "email_minute": int(current_app.config[
+            "AUTH_EMAIL_PER_MINUTE_LIMIT"
+        ]),
+        "client_hour": int(current_app.config[
+            "AUTH_CLIENT_PER_HOUR_LIMIT"
+        ]),
+    }
+    keys = {
+        "global_day": _digest("auth-rate-limit:global"),
+        "email_hour": _digest(email),
+        "email_minute": _digest(email),
+        "client_hour": _digest(client_key),
+    }
+    increments = {
+        "global_day": increment_global,
+        "email_hour": True,
+        "email_minute": True,
+        "client_hour": True,
+    }
+    specs = [
+        (scope, keys[scope], windows[scope], limits[scope])
+        for scope in (
+            "global_day",
+            "email_hour",
+            "email_minute",
+            "client_hour",
+        )
+    ]
+
+    for scope, key_digest, window_start, _limit in specs:
+        session.execute(text("""
+            INSERT INTO auth_rate_limit_buckets
+                (scope, key_digest, window_start)
+            VALUES (:scope, :key_digest, :window_start)
+            ON CONFLICT (scope, key_digest, window_start) DO NOTHING
+        """), {
+            "scope": scope,
+            "key_digest": key_digest,
+            "window_start": window_start,
+        })
+
+    locked = []
+    for scope, key_digest, window_start, limit in specs:
+        row = session.execute(text("""
+            SELECT used_count
+            FROM auth_rate_limit_buckets
+            WHERE scope = :scope
+              AND key_digest = :key_digest
+              AND window_start = :window_start
+            FOR UPDATE
+        """), {
+            "scope": scope,
+            "key_digest": key_digest,
+            "window_start": window_start,
+        }).mappings().one()
+        locked.append((scope, key_digest, window_start, limit, row["used_count"]))
+
+    if any(used_count >= limit for _, _, _, limit, used_count in locked):
+        return False
+
+    for scope, key_digest, window_start, _limit, _used_count in locked:
+        if not increments[scope]:
+            continue
+        session.execute(text("""
+            UPDATE auth_rate_limit_buckets
+            SET used_count = used_count + 1, updated_at = now()
+            WHERE scope = :scope
+              AND key_digest = :key_digest
+              AND window_start = :window_start
+        """), {
+            "scope": scope,
+            "key_digest": key_digest,
+            "window_start": window_start,
+        })
+    return True
 
 
 def _mark_mail_delivery_failed(event_id: int) -> None:
@@ -120,6 +215,11 @@ def request_registration(email: str, client_key: str) -> RequestReceipt:
         existing_user = session.query(User).filter_by(
             email=normalized_email
         ).first()
+        if not _reserve_rate_limits(
+            session, normalized_email, client_key, increment_global=True
+        ):
+            session.rollback()
+            return RequestReceipt(outcome="retry_later")
         if existing_user is not None:
             event = AuthMailEvent(
                 challenge_id=None,
@@ -163,6 +263,9 @@ def request_registration(email: str, client_key: str) -> RequestReceipt:
             delivery_kind = "verification"
         event_id = event.id
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
         engine.dispose()
@@ -217,7 +320,16 @@ def request_password_reset(email: str, client_key: str) -> RequestReceipt:
     engine = session.bind
     try:
         user = session.query(User).filter_by(email=normalized_email).first()
+        if not _reserve_rate_limits(
+            session,
+            normalized_email,
+            client_key,
+            increment_global=user is not None,
+        ):
+            session.rollback()
+            return RequestReceipt(outcome="retry_later")
         if user is None:
+            session.commit()
             return RequestReceipt(outcome="accepted")
 
         raw_token = token_urlsafe(32)
@@ -246,6 +358,9 @@ def request_password_reset(email: str, client_key: str) -> RequestReceipt:
         session.flush()
         event_id = event.id
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
         engine.dispose()
@@ -255,14 +370,14 @@ def request_password_reset(email: str, client_key: str) -> RequestReceipt:
     try:
         provider_message_id = current_app.extensions[
             "auth_mailer"
-        ].send_password_reset(
-            normalized_email,
-            reset_url,
-            idempotency_key,
-        )
+            ].send_password_reset(
+                normalized_email,
+                reset_url,
+                idempotency_key,
+            )
     except AuthMailDeliveryError:
         _mark_mail_delivery_failed(event_id)
-        return RequestReceipt(outcome="retry_later")
+        return RequestReceipt(outcome="accepted")
 
     session = _bypass_session()
     engine = session.bind

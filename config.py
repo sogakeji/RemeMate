@@ -64,6 +64,18 @@ class BaseConfig:
     AUTH_MAIL_TIMEOUT_SECONDS = int(
         os.environ.get("AUTH_MAIL_TIMEOUT_SECONDS", 5)
     )
+    AUTH_EMAIL_PER_MINUTE_LIMIT = int(
+        os.environ.get("AUTH_EMAIL_PER_MINUTE_LIMIT", 3)
+    )
+    AUTH_EMAIL_PER_HOUR_LIMIT = int(
+        os.environ.get("AUTH_EMAIL_PER_HOUR_LIMIT", 5)
+    )
+    AUTH_CLIENT_PER_HOUR_LIMIT = int(
+        os.environ.get("AUTH_CLIENT_PER_HOUR_LIMIT", 20)
+    )
+    AUTH_GLOBAL_EMAIL_PER_DAY_LIMIT = int(
+        os.environ.get("AUTH_GLOBAL_EMAIL_PER_DAY_LIMIT", 200)
+    )
 
     # PDF 上传文件大小上限（MB），需大于 parser 内部限制（25MB）以让 parser 给出明确提示，
     # 而不是直接报 413 原始错误给用户。

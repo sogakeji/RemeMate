@@ -734,72 +734,59 @@ def test_expired_and_missing_challenges_use_one_invalid_error_without_mutation(
     assert user_count == 1
 
 
-def test_password_reset_mail_failure_is_retryable_and_compensated(
+def test_password_reset_mail_failure_is_non_enumerating_and_accepted(
         app, bypass_engine):
     app.config["PUBLIC_BASE_URL"] = "https://example.test"
 
     with app.app_context():
-        existing_user_id, _ = create_user_with_defaults(
+        create_user_with_defaults(
             "Alice@Example.COM",
             "Alice",
         )
         app.extensions["auth_mailer"] = FailingMailer()
-        failed_receipt = request_password_reset(
+        known_receipt = request_password_reset(
             " alice@example.com ",
             "client-key-reset",
         )
+        unknown_receipt = request_password_reset(
+            "unknown@example.com",
+            "client-key-unknown",
+        )
 
-    assert failed_receipt == RequestReceipt(outcome="retry_later")
+    # The outer layer can show its generic retry guidance for accepted requests.
+    assert known_receipt == unknown_receipt == RequestReceipt(
+        outcome="accepted"
+    )
     with bypass_engine.connect() as conn:
         failed_event = conn.execute(text("""
-            SELECT challenge_id, delivery_status, provider_message_id
+            SELECT email, challenge_id, delivery_status, provider_message_id
             FROM auth_mail_events
             WHERE purpose = 'password_reset'
         """)).mappings().one()
-        challenge_count = conn.execute(text("""
+        known_challenge_count = conn.execute(text("""
             SELECT count(*)
             FROM auth_challenges
             WHERE purpose = 'password_reset'
+              AND email = 'alice@example.com'
+        """)).scalar_one()
+        unknown_event_count = conn.execute(text("""
+            SELECT count(*)
+            FROM auth_mail_events
+            WHERE email = 'unknown@example.com'
+        """)).scalar_one()
+        unknown_challenge_count = conn.execute(text("""
+            SELECT count(*)
+            FROM auth_challenges
+            WHERE email = 'unknown@example.com'
         """)).scalar_one()
 
+    assert failed_event["email"] == "alice@example.com"
     assert failed_event["challenge_id"] is None
     assert failed_event["delivery_status"] == "failed"
     assert failed_event["provider_message_id"] is None
-    assert challenge_count == 0
-
-    retry_mailer = RecordingMailer(bypass_engine)
-    with app.app_context():
-        app.extensions["auth_mailer"] = retry_mailer
-        retry_receipt = request_password_reset(
-            "alice@example.com",
-            "client-key-reset-retry",
-        )
-
-    assert retry_receipt == RequestReceipt(outcome="accepted")
-    assert len(retry_mailer.calls) == 1
-    assert retry_mailer.calls[0]["kind"] == "password_reset"
-    with bypass_engine.connect() as conn:
-        sent_event = conn.execute(text("""
-            SELECT challenge_id, delivery_status, provider_message_id
-            FROM auth_mail_events
-            WHERE purpose = 'password_reset'
-              AND delivery_status = 'sent'
-        """)).mappings().one()
-        final_challenge_count = conn.execute(text("""
-            SELECT count(*)
-            FROM auth_challenges
-            WHERE purpose = 'password_reset'
-        """)).scalar_one()
-        user_count = conn.execute(text(
-            "SELECT count(*) FROM users"
-        )).scalar_one()
-
-    assert sent_event["challenge_id"] is not None
-    assert sent_event["delivery_status"] == "sent"
-    assert sent_event["provider_message_id"] == "fake-reset-provider-id"
-    assert final_challenge_count == 1
-    assert user_count == 1
-    assert existing_user_id > 0
+    assert known_challenge_count == 0
+    assert unknown_event_count == 0
+    assert unknown_challenge_count == 0
 
 
 def test_same_password_reset_token_concurrent_consumption_is_one_time(

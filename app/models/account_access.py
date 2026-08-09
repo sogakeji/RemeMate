@@ -1,5 +1,5 @@
 """匿名账号访问控制面模型。"""
-from sqlalchemy import CheckConstraint, Index, text
+from sqlalchemy import CHAR, CheckConstraint, Index, text
 
 from app.extensions import db
 from app.services.timeutil import utc_now
@@ -83,4 +83,42 @@ class AuthMailEvent(db.Model):
             "client_key_digest", "created_at",
         ),
         Index("ix_auth_mail_events_created_at", "created_at"),
+    )
+
+
+class AuthRateLimitBucket(db.Model):
+    __tablename__ = "auth_rate_limit_buckets"
+
+    scope = db.Column(db.String(20), primary_key=True)
+    key_digest = db.Column(CHAR(64), primary_key=True)
+    window_start = db.Column(
+        db.DateTime(timezone=True),
+        primary_key=True,
+    )
+    used_count = db.Column(
+        db.Integer,
+        nullable=False,
+        server_default=text("0"),
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "scope IN ('global_day', 'email_hour', "
+            "'email_minute', 'client_hour')",
+            name="ck_auth_rate_limit_buckets_scope",
+        ),
+        CheckConstraint(
+            "used_count >= 0",
+            name="ck_auth_rate_limit_buckets_used_count",
+        ),
     )
