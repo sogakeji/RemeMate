@@ -3,7 +3,8 @@
 阶段一只装地基：扩展、RLS 钩子、models 注册（供 Flask-Migrate 发现）。
 蓝图在后续阶段逐个接入。
 """
-from flask import Flask
+from flask import Flask, redirect, request, url_for
+from flask_login import current_user
 
 from config import get_config
 from app.extensions import db, login_manager, migrate, csrf
@@ -36,6 +37,17 @@ def create_app(config_name=None):
 
     app.before_request(set_request_rls_user)
     app.before_request(bind_ui_locale)
+
+    @app.before_request
+    def enforce_initial_password():
+        if not current_user.is_authenticated or not current_user.password_setup_required:
+            return None
+        endpoint = request.endpoint or ""
+        if endpoint in {"auth.set_password", "auth.logout", "healthz"}:
+            return None
+        if endpoint.startswith("static"):
+            return None
+        return redirect(url_for("auth.set_password"))
 
     @login_manager.user_loader
     def load_user(user_id):

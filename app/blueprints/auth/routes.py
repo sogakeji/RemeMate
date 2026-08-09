@@ -17,8 +17,15 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db
 from app.i18n import translate as _
 from app.models.user import User
-from app.blueprints.auth.forms import LoginForm, RegisterForm
-from app.services.account_access import request_registration
+from app.blueprints.auth.forms import LoginForm, PasswordSetupForm, RegisterForm
+from app.services.account_access import (
+    InitialPasswordUnavailableError,
+    InvalidChallengeError,
+    PasswordPolicyError,
+    request_registration,
+    set_initial_password,
+    verify_registration,
+)
 from app.services.timeutil import utc_now
 
 bp = Blueprint("auth", __name__)
@@ -94,6 +101,46 @@ def register():
         return redirect(url_for("auth.login"), code=303)
 
     return render_template("auth/register.html", form=form)
+
+
+@bp.get("/verify-email/<token>")
+def verify_email(token):
+    if current_user.is_authenticated:
+        flash(_("auth.registration.logout_first"))
+        return redirect(url_for("main.index"), code=303)
+
+    try:
+        account = verify_registration(token)
+    except InvalidChallengeError:
+        flash(_("auth.registration.invalid_token"))
+        return redirect(url_for("auth.login"), code=303)
+
+    user = db.session.get(User, account.user_id)
+    if user is None:
+        flash(_("auth.registration.invalid_token"))
+        return redirect(url_for("auth.login"), code=303)
+    login_user(user)
+    flash(_("auth.registration.verified"))
+    return redirect(url_for("auth.set_password"), code=303)
+
+
+@bp.route("/set-password", methods=["GET", "POST"])
+@login_required
+def set_password():
+    form = PasswordSetupForm()
+    if form.validate_on_submit():
+        try:
+            set_initial_password(current_user.id, form.password.data)
+        except PasswordPolicyError:
+            form.password.errors.append(_("auth.password_setup.too_short"))
+            return render_template("auth/set_password.html", form=form)
+        except InitialPasswordUnavailableError:
+            flash(_("auth.password_setup.unavailable"))
+            return redirect(url_for("auth.set_password"), code=303)
+        flash(_("auth.password_setup.saved"))
+        return redirect(url_for("main.index"), code=303)
+
+    return render_template("auth/set_password.html", form=form)
 
 
 @bp.route("/logout")

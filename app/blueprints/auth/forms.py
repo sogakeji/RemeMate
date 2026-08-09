@@ -27,3 +27,16 @@ class RegisterForm(FlaskForm):
         ):
             raise ValidationError(_("auth.registration.invalid_email"))
         field.data = value
+
+
+class PasswordSetupForm(FlaskForm):
+    password = PasswordField("密码", validators=[DataRequired()])
+    confirm_password = PasswordField("确认密码", validators=[DataRequired()])
+
+    def validate_password(self, field):
+        if field.data and len(field.data) < 8:
+            raise ValidationError(_("auth.password_setup.too_short"))
+
+    def validate_confirm_password(self, field):
+        if field.data != self.password.data:
+            raise ValidationError(_("auth.password_setup.mismatch"))
