@@ -1,5 +1,8 @@
 """CLI create-user 后用户能登录（端到端）。"""
 import re
+
+import pytest
+from cryptography.fernet import Fernet
 from sqlalchemy import text
 
 
@@ -110,3 +113,85 @@ def test_doctor_strict_fails_on_warn(app, runner):
     app.config["DICTIONARY_DATA_DIR"] = None
     result = runner.invoke(args=["doctor", "--strict"])
     assert result.exit_code != 0
+
+
+def test_doctor_registration_email_disabled_is_not_a_warning(app, runner):
+    app.config.update(
+        OPEN_REGISTRATION_ENABLED=False,
+        RESEND_API_KEY=None,
+        AUTH_EMAIL_FROM=None,
+        PUBLIC_BASE_URL=None,
+    )
+
+    result = runner.invoke(args=["doctor"])
+
+    assert result.exit_code == 0
+    assert "[OK] registration email: disabled" in result.output
+    assert "[WARN] registration email" not in result.output
+
+    strict_result = runner.invoke(args=["doctor", "--strict"])
+    assert "[OK] registration email: disabled" in strict_result.output
+    assert "[WARN] registration email" not in strict_result.output
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("RESEND_API_KEY", None),
+        ("RESEND_API_KEY", "CHANGE_ME"),
+        ("AUTH_EMAIL_FROM", None),
+        ("AUTH_EMAIL_FROM", "CHANGE_ME"),
+        ("AUTH_EMAIL_FROM", "not-an-email"),
+        ("PUBLIC_BASE_URL", None),
+        ("PUBLIC_BASE_URL", "CHANGE_ME"),
+        ("PUBLIC_BASE_URL", "http://example.test"),
+        ("PUBLIC_BASE_URL", "https://user:pass@example.test"),
+        ("PUBLIC_BASE_URL", "https://example.test:notaport"),
+        ("PUBLIC_BASE_URL", "https://example.test/path"),
+    ],
+)
+def test_doctor_strict_warns_invalid_registration_email_config(
+        app, runner, field, value):
+    app.config.update(
+        OPEN_REGISTRATION_ENABLED=True,
+        RESEND_API_KEY="re_test_key",
+        AUTH_EMAIL_FROM="RemeMate <no-reply@example.test>",
+        PUBLIC_BASE_URL="https://example.test",
+    )
+    app.config[field] = value
+
+    result = runner.invoke(args=["doctor", "--strict"])
+
+    assert result.exit_code != 0
+    assert "[WARN] registration email" in result.output
+    if isinstance(value, str):
+        assert value not in result.output
+
+
+def test_doctor_strict_accepts_valid_registration_email_config(
+        app, runner, tmp_path, monkeypatch):
+    app.config.update(
+        OPEN_REGISTRATION_ENABLED=True,
+        RESEND_API_KEY="re_test_key",
+        AUTH_EMAIL_FROM="RemeMate <no-reply@example.test>",
+        PUBLIC_BASE_URL="https://example.test",
+        SECRET_KEY="s" * 32,
+        DATA_ENCRYPTION_KEY=Fernet.generate_key().decode(),
+        DICTIONARY_DATA_DIR=str(tmp_path),
+    )
+    for language in ("zh", "en", "ja", "fr"):
+        (tmp_path / language).mkdir()
+    monkeypatch.setattr("cli.commands.llm.get_chain", lambda _name: object())
+
+    created = runner.invoke(args=[
+        "create-user", "--email", "doctor-admin@t.com", "--name", "Doctor",
+        "--admin", "--password", "pw12345678",
+    ])
+    assert created.exit_code == 0
+
+    result = runner.invoke(args=["doctor", "--strict"])
+
+    assert result.exit_code == 0
+    assert "[OK] registration email RESEND_API_KEY: configured" in result.output
+    assert "[OK] registration email AUTH_EMAIL_FROM: configured" in result.output
+    assert "[OK] registration email PUBLIC_BASE_URL: configured" in result.output

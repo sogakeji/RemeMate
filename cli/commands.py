@@ -2,6 +2,9 @@
 
 全部走 provisioning 的 BYPASSRLS 连接，不依赖请求上下文。
 """
+from email.utils import parseaddr
+from urllib.parse import urlsplit
+
 import click
 from alembic.config import Config as AlembicConfig
 from alembic.script import ScriptDirectory
@@ -231,6 +234,60 @@ def register_commands(app):
             ok("LLM nsfw", "provider configured")
         else:
             warn("LLM nsfw", "no provider configured")
+
+        if not current_app.config.get("OPEN_REGISTRATION_ENABLED"):
+            ok("registration email", "disabled")
+        else:
+            resend_key = current_app.config.get("RESEND_API_KEY")
+            if is_configured(resend_key):
+                ok("registration email RESEND_API_KEY", "configured")
+            else:
+                warn(
+                    "registration email RESEND_API_KEY",
+                    "missing or placeholder",
+                )
+
+            sender = current_app.config.get("AUTH_EMAIL_FROM")
+            _, sender_address = parseaddr(sender or "")
+            sender_valid = (
+                is_configured(sender)
+                and sender_address.count("@") == 1
+                and not any(char.isspace() for char in sender_address)
+                and not sender_address.startswith("@")
+                and not sender_address.endswith("@")
+            )
+            if sender_valid:
+                ok("registration email AUTH_EMAIL_FROM", "configured")
+            else:
+                warn(
+                    "registration email AUTH_EMAIL_FROM",
+                    "missing, placeholder, or invalid sender",
+                )
+
+            public_base_url = current_app.config.get("PUBLIC_BASE_URL")
+            try:
+                public_parts = urlsplit(public_base_url or "")
+                public_port = public_parts.port
+                public_url_valid = (
+                    is_configured(public_base_url)
+                    and public_parts.scheme == "https"
+                    and bool(public_parts.hostname)
+                    and (public_port is None or 1 <= public_port <= 65535)
+                    and public_parts.username is None
+                    and public_parts.password is None
+                    and public_parts.path in ("", "/")
+                    and not public_parts.query
+                    and not public_parts.fragment
+                )
+            except ValueError:
+                public_url_valid = False
+            if public_url_valid:
+                ok("registration email PUBLIC_BASE_URL", "configured")
+            else:
+                warn(
+                    "registration email PUBLIC_BASE_URL",
+                    "missing, placeholder, or not a valid HTTPS origin",
+                )
 
         # 阅读词典数据目录检查
         from pathlib import Path
