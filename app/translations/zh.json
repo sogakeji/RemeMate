@@ -24,6 +24,8 @@
     "auth.registration.email_placeholder": "请输入邮箱",
     "auth.registration.invalid_email": "请输入有效邮箱",
     "auth.registration.link": "创建账号",
+    "auth.registration.login_prompt": "第一次使用 RemeMate？",
+    "auth.registration.login_microcopy": "邮箱验证后即可开始。",
     "auth.registration.request_received": "如果该邮箱可用，我们会发送相关邮件；若未收到邮件，可稍后重试。",
     "auth.registration.submit": "注册",
     "auth.registration.title": "创建账号",

@@ -12,19 +12,31 @@
                       placeholder="you@example.com") }}
       </div>
       <div class="form-group">
-        <label class="form-label" for="{{ form.password.id }}">{{ _('login.password') }}</label><br>
+        <div class="auth-password-label-row">
+          <label class="form-label" for="{{ form.password.id }}">{{ _('login.password') }}</label>
+          <a class="auth-quiet-link" href="{{ url_for('auth.forgot_password') }}">
+            <svg class="auth-inline-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="8.5" cy="15.5" r="3.5"></circle>
+              <path d="m11 13 8-8m-2 2 2 2m-5-1 2 2" stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+            </svg>
+            <span>{{ _('auth.password_reset.forgot_link') }}</span>
+          </a>
+        </div>
         {{ form.password(autocomplete="current-password", class="form-control",
                          placeholder=_('login.password_placeholder')) }}
       </div>
       <button type="submit" class="btn primary" style="width:100%;">{{ _('login.submit') }}</button>
     </form>
-    <p class="auth-secondary-link">
-      <a href="{{ url_for('auth.forgot_password') }}">{{ _('auth.password_reset.forgot_link') }}</a>
-    </p>
     {% if config.OPEN_REGISTRATION_ENABLED %}
-    <p class="auth-secondary-link">
-      <a href="{{ url_for('auth.register') }}">{{ _('auth.registration.link') }}</a>
-    </p>
+    <section class="auth-register-cta" aria-labelledby="auth-register-title">
+      <p class="auth-register-title" id="auth-register-title">{{ _('auth.registration.login_prompt') }}</p>
+      <p class="auth-register-microcopy">{{ _('auth.registration.login_microcopy') }}</p>
+      <a class="btn outlined auth-register-button" href="{{ url_for('auth.register') }}">
+        {{ _('auth.registration.link') }}
+      </a>
+    </section>
     {% endif %}
   </div>
 </div>

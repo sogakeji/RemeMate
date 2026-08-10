@@ -1266,6 +1266,104 @@ h1 {
     color: #2c3e50;
 }
 
+/* 登录页：把辅助入口放在密码标签行，保持主登录动作优先。 */
+.auth-password-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 5px;
+}
+
+.auth-password-label-row .form-label {
+    margin-bottom: 0;
+}
+
+.auth-quiet-link {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 4px 0;
+    gap: 5px;
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.auth-quiet-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.auth-quiet-link:focus-visible,
+.auth-register-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+}
+
+.auth-inline-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.auth-register-cta {
+    margin-top: 22px;
+    padding: 17px 16px 16px;
+    background: var(--table-header-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.auth-register-title {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 14px;
+    font-weight: 650;
+}
+
+.auth-register-microcopy {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.auth-register-button {
+    width: 100%;
+    margin-top: 13px;
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px solid var(--primary-color);
+}
+
+.auth-register-button:hover {
+    background: rgba(74, 108, 247, 0.08);
+}
+
+.dark-mode .form-label {
+    color: var(--text-color);
+}
+
+@media (max-width: 520px) {
+    .auth-password-label-row {
+        gap: 8px;
+    }
+
+    .auth-quiet-link {
+        min-height: 40px;
+    }
+
+    .auth-register-cta {
+        padding: 15px 13px 14px;
+    }
+}
+
 .form-control {
     width: 100%;
     padding: 10px;

@@ -24,6 +24,8 @@
     "auth.registration.email_placeholder": "Enter your email",
     "auth.registration.invalid_email": "Enter a valid email address",
     "auth.registration.link": "Create an account",
+    "auth.registration.login_prompt": "New to RemeMate?",
+    "auth.registration.login_microcopy": "Verify your email and get started.",
     "auth.registration.request_received": "If this address is eligible, we will send instructions; if you do not receive an email, try again later.",
     "auth.registration.submit": "Create account",
     "auth.registration.title": "Create an account",

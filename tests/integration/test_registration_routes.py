@@ -141,3 +141,27 @@ def test_registration_enabled_handles_unknown_known_and_client_ip(
     assert {row["client_key_digest"] for row in rows} == {
         expected_client_digest,
     }
+
+
+def test_login_uses_gated_a_variant_for_recovery_and_registration(app, client):
+    app.config["OPEN_REGISTRATION_ENABLED"] = False
+    closed_page = client.get("/login").get_data(as_text=True)
+    quiet_link = closed_page.split(
+        '<a class="auth-quiet-link"', 1
+    )[1].split("</a>", 1)[0]
+
+    assert 'href="/forgot-password"' in quiet_link
+    assert "<svg" in quiet_link
+    assert 'aria-hidden="true"' in quiet_link
+    assert "/register" not in closed_page
+    assert "auth-register-cta" not in closed_page
+
+    app.config["OPEN_REGISTRATION_ENABLED"] = True
+    enabled_page = client.get("/login").get_data(as_text=True)
+    register_cta = enabled_page.split(
+        '<section class="auth-register-cta"', 1
+    )[1].split("</section>", 1)[0]
+
+    assert 'href="/register"' in register_cta
+    assert "auth-register-microcopy" in register_cta
+    assert "auth-register-button" in register_cta
