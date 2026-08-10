@@ -1,10 +1,10 @@
 workspace:
   git_root: .
 checkpoint:
-  recorded_at_head: f296cca
-  recorded_at_branch: master
+  recorded_at_head: c0499db
+  recorded_at_branch: feature/open-registration
   worktree_fingerprint: e3b0c44298fc
-  phase: post-deploy closeout
+  phase: production registration active, landing refresh queued
 maintenance:
   status: current
   reasons: []

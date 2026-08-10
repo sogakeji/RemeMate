@@ -1,14 +1,14 @@
 # Current handoff
 
-> handoff@f296cca · phase: post-deploy closeout · checked: 2026-08-01
+> handoff@c0499db · phase: production registration active, landing refresh queued · checked: 2026-08-10
 
-- 当前目标：保持 SessionPad v1 闭测部署稳定，并为下一功能切片保留明确审批边界。
-- 当前阶段：SessionPad 带语境候选 v1 已合并并部署，当前处于部署后收口。
-- 下一动作：观察真实闭测反馈；仅在获得明确范围批准后启动独立的 observation dashboard 功能分支。
-- 阻塞项：无。
-- 权威规格：[docs/HANDOFF.md](../docs/HANDOFF.md)
-- 当前计划：尚无已批准的新功能实施计划；待选事项见 [docs/BACKLOG.md](../docs/BACKLOG.md)。
-- 详细进度：[docs/PROGRESS.md](../docs/PROGRESS.md)
+- 当前目标：刷新生产 Landing 的过时闭测与邀请制表述，使其匹配已开放的自助注册。
+- 当前阶段：生产真实邮箱注册、验证、自动登录和设密人测成功；聚合检查为 7 个完整账号、1 个已消费 registration challenge、1 封 registration sent、0 个待设密账号。
+- 下一动作：按 [Backlog](../docs/BACKLOG.md) 的 Landing 下一项先确认中英文与开关两态范围，再修改 `app/templates/main/landing.html` 并做桌面/移动端检查。
+- 阻塞项：无；生产注册持续开放，异常关闭条件仍以 [开放注册计划](../docs/plans/2026-08-09-open-registration.md) 为准。
+- 权威规格：[开放注册短计划](../docs/plans/2026-08-09-open-registration.md)。
+- 当前计划：[docs/plans/2026-08-09-open-registration.md](../docs/plans/2026-08-09-open-registration.md)（Approved）。
+- 详细进度：用户确认真实生产注册成功；服务 active、settings/quota 均为 7、认证邮件 sent 且服务 error 为 0，均为会话 claim。
 - 文档导航：[navigation.yaml](./navigation.yaml)
 - 证据账本：[evidence.yaml](./evidence.yaml)
 - 状态快照：[state.yaml](./state.yaml)
