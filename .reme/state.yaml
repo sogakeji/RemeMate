@@ -1,10 +1,10 @@
 workspace:
   git_root: .
 checkpoint:
-  recorded_at_head: c0499db
-  recorded_at_branch: feature/open-registration
+  recorded_at_head: aab641d
+  recorded_at_branch: master
   worktree_fingerprint: e3b0c44298fc
-  phase: production registration active, landing refresh queued
+  phase: landing video deployed, registration active
 maintenance:
   status: current
   reasons: []
