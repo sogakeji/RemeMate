@@ -12,6 +12,8 @@ gevent worker 在 fork 后才 monkey.patch_all()，所以 app 必须在 worker �
 """
 import multiprocessing
 
+from app.safe_access_logging import RedactingAccessLogger
+
 bind = "127.0.0.1:8891"
 worker_class = "gevent"
 workers = 2                      # 见 v0.1 §6：P1 即 -k gevent -w 2
@@ -19,6 +21,8 @@ preload_app = False              # 必须 False（见上）
 timeout = 60                     # SSE 长连接交给协程，worker 超时放宽
 graceful_timeout = 30
 keepalive = 5
+logger_class = RedactingAccessLogger
+accesslog = "-"
 
 
 def post_fork(server, worker):

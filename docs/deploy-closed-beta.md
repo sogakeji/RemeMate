@@ -112,6 +112,38 @@ flask doctor --strict
 
 `doctor --strict` 有 WARN 也会失败，适合每次部署后作为放行条件。
 
+## Gunicorn 与 Nginx 安全访问日志
+
+生产必须使用仓库配置启动 Gunicorn：
+
+```bash
+cd /srv/rememate
+. .venv/bin/activate
+.venv/bin/gunicorn -c gunicorn.conf.py wsgi:app
+```
+
+不要在命令行用 `--logger-class` 或其他 logger 参数覆盖 `gunicorn.conf.py`。配置文件固定使用 token 脱敏 logger，并将 Gunicorn access log 安全输出到 stdout；现有 gevent worker、`preload_app=false` 和 psycogreen 设置保持不变。
+
+Nginx 不能用默认 `$request` 记录包含认证 token 的两类路径。下面的 `map` 必须放在 Nginx 的 `http` 上下文中；它使用已规范化的 `$uri`，安全日志只保留 method、脱敏 path 和 protocol，不记录 `$request_uri`、`$args` 或 Referer：
+
+```nginx
+http {
+    map $uri $safe_auth_path {
+        default $uri;
+        ~^/verify-email/ /verify-email/<redacted>;
+        ~^/reset-password/ /reset-password/<redacted>;
+    }
+
+    log_format rememate_safe
+        '"$request_method $safe_auth_path $server_protocol" "-"';
+
+    server {
+        # 其他 server 配置...
+        access_log /var/log/nginx/rememate.access.log rememate_safe;
+    }
+}
+```
+
 ## 创建闭测账号
 
 管理员可以登录网页后进入顶部“管理”页创建账号。适合日常闭测运营。
