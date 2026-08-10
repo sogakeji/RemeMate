@@ -143,6 +143,38 @@ def test_registration_enabled_handles_unknown_known_and_client_ip(
     }
 
 
+def test_landing_matches_registration_gate_and_uses_hero_video(app, client):
+    stale_copy = ("closed beta", "invitation-only", "already invited")
+
+    app.config["OPEN_REGISTRATION_ENABLED"] = False
+    closed_page = client.get("/").get_data(as_text=True)
+
+    assert "/register" not in closed_page
+    assert 'href="/login"' in closed_page
+    assert all(copy not in closed_page.lower() for copy in stale_copy)
+    assert 'src="/static/landing/rememate-release-launch.mp4"' in closed_page
+    assert "autoplay muted loop playsinline" in closed_page
+    assert 'preload="metadata"' in closed_page
+    assert 'poster="/static/landing/shot-wordlist.png"' in closed_page
+    assert "prefers-reduced-motion:reduce" in closed_page
+
+    app.config["OPEN_REGISTRATION_ENABLED"] = True
+    enabled_page = client.get("/").get_data(as_text=True)
+    hero = enabled_page.split(
+        '<header class="hero">', 1
+    )[1].split("</header>", 1)[0]
+    signup = enabled_page.split(
+        '<section class="signup"', 1
+    )[1].split("</section>", 1)[0]
+
+    assert 'class="btn btn-primary" href="/register"' in hero
+    assert 'class="btn btn-ghost" href="/login"' in hero
+    assert 'class="btn btn-primary" href="/register"' in signup
+    assert 'href="/login"' in signup
+    assert 'data-zh="免费创建账号 →"' in hero
+    assert all(copy not in enabled_page.lower() for copy in stale_copy)
+
+
 def test_login_uses_gated_a_variant_for_recovery_and_registration(app, client):
     app.config["OPEN_REGISTRATION_ENABLED"] = False
     closed_page = client.get("/login").get_data(as_text=True)

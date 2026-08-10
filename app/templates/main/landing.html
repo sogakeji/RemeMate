@@ -50,7 +50,7 @@
     .hero .sub{font-size:18px;color:var(--muted);margin:20px 0 30px;max-width:500px}
     .cta{display:flex;gap:14px;flex-wrap:wrap}
 
-    /* 浏览器框截图 */
+    /* 浏览器框产品演示 */
     .shot{perspective:1400px}
     .browser{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);
       box-shadow:var(--shadow-lg);transform:rotateY(-7deg) rotateX(3deg);transition:transform .4s ease}
@@ -60,7 +60,9 @@
     .browser .r{background:#ff5f57}.browser .y{background:#febc2e}.browser .g{background:#28c840}
     .browser .addr{margin-left:10px;font-size:12px;color:var(--muted);background:var(--bg);
       border:1px solid var(--line);border-radius:7px;padding:4px 12px}
-    .browser img{display:block;width:100%;height:auto}
+    .browser-media{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--soft)}
+    .browser-media video,.video-poster{display:block;width:100%;height:100%;object-fit:cover}
+    .video-poster{display:none}
 
     section{padding:84px 0}
     .alt{background:var(--soft)}
@@ -88,6 +90,7 @@
       border-radius:22px;padding:40px 30px;box-shadow:var(--shadow-lg)}
     .signup h2{font-size:clamp(26px,3.6vw,36px)}
     .signup p{color:var(--muted);font-size:16px;margin:12px auto 24px;max-width:460px}
+    .signup-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
     .form{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
     .form input{flex:1;min-width:230px;border:1px solid var(--line);background:var(--bg);color:var(--ink);
       border-radius:10px;padding:13px 15px;font-size:15px;font-family:var(--sans)}
@@ -102,7 +105,10 @@
 
     .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
     .reveal.in{opacity:1;transform:none}
-    @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.browser{transform:none}}
+    @media (prefers-reduced-motion:reduce){
+      .reveal{opacity:1;transform:none}.browser{transform:none}
+      .browser-media video{display:none}.video-poster{display:block}
+    }
     @media (max-width:860px){
       .hero .wrap{grid-template-columns:1fr;gap:34px;padding:52px 26px 60px}
       .browser{transform:none}
@@ -117,7 +123,7 @@
       <div class="nav-right">
         <a class="nav-demo" href="{{ url_for('auth.login') }}" data-en="Log in" data-zh="登录">Log in</a>
         {% if config.OPEN_REGISTRATION_ENABLED %}
-        <a class="nav-demo" href="{{ url_for('auth.register') }}" data-en="Create an account" data-zh="注册">Create an account</a>
+        <a class="nav-demo" href="{{ url_for('auth.register') }}" data-en="Create a free account" data-zh="免费注册">Create a free account</a>
         {% endif %}
         <button class="langbtn" id="langBtn">中</button>
       </div>
@@ -133,9 +139,11 @@
            data-zh="收下你真实遇到的词、表达和句子；在合适的时候复习，再把它们用进自己的表达。">
           Collect the words, expressions, and sentences you actually meet. Review them when they are due, then use them in your own writing.</p>
         <div class="cta">
-          <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in to closed beta →" data-zh="登录闭测版 →">Log in to closed beta →</a>
           {% if config.OPEN_REGISTRATION_ENABLED %}
-          <a class="btn btn-ghost" href="{{ url_for('auth.register') }}" data-en="Create an account →" data-zh="注册 →">Create an account →</a>
+          <a class="btn btn-primary" href="{{ url_for('auth.register') }}" data-en="Create your free account →" data-zh="免费创建账号 →">Create your free account →</a>
+          <a class="btn btn-ghost" href="{{ url_for('auth.login') }}" data-en="Already have an account? Log in" data-zh="已有账号？登录">Already have an account? Log in</a>
+          {% else %}
+          <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in →" data-zh="登录 →">Log in →</a>
           {% endif %}
           <a class="btn btn-ghost" href="https://discord.gg/U8Uqh5tsX" target="_blank" rel="noopener noreferrer"
              data-en="Join the RemeMate community" data-zh="加入 RemeMate 社群">Join the RemeMate community</a>
@@ -147,7 +155,15 @@
             <span class="d r"></span><span class="d y"></span><span class="d g"></span>
             <span class="addr">rememate.com</span>
           </div>
-          <img src="{{ url_for('static', filename='landing/shot-wordlist.png') }}" alt="RemeMate vocabulary page">
+          <div class="browser-media">
+            <video autoplay muted loop playsinline preload="metadata"
+                   poster="{{ url_for('static', filename='landing/shot-wordlist.png') }}"
+                   aria-hidden="true">
+              <source src="{{ url_for('static', filename='landing/rememate-release-launch.mp4') }}" type="video/mp4">
+            </video>
+            <img class="video-poster" src="{{ url_for('static', filename='landing/shot-wordlist.png') }}"
+                 alt="RemeMate vocabulary page">
+          </div>
         </div>
       </div>
     </div>
@@ -214,18 +230,28 @@
   <section class="signup" id="signup">
     <div class="wrap">
       <div class="box reveal">
-        <h2 data-en="RemeMate is currently invitation-only." data-zh="RemeMate 当前仅向受邀用户开放。">RemeMate is currently invitation-only.</h2>
-        <p data-en="Already invited? Log in to continue with your vocabulary, reviews, and writing."
-           data-zh="已经收到邀请？登录后继续你的词库、复习与写作。">Already invited? Log in to continue with your vocabulary, reviews, and writing.</p>
+        {% if config.OPEN_REGISTRATION_ENABLED %}
+        <h2 data-en="Make the language you meet yours." data-zh="把真实遇见的语言，变成自己的。">Make the language you meet yours.</h2>
+        <p data-en="Create a free account with your email, then start collecting, reviewing, and using the words that matter to you."
+           data-zh="用邮箱免费创建账号，开始收词、复习，再把重要的词用进自己的表达。">Create a free account with your email, then start collecting, reviewing, and using the words that matter to you.</p>
+        <div class="signup-actions">
+          <a class="btn btn-primary" href="{{ url_for('auth.register') }}" data-en="Create a free account" data-zh="免费创建账号">Create a free account</a>
+          <a class="btn btn-ghost" href="{{ url_for('auth.login') }}" data-en="Already have an account? Log in" data-zh="已有账号？登录">Already have an account? Log in</a>
+        </div>
+        {% else %}
+        <h2 data-en="Keep building on what you have learned." data-zh="继续积累你真正学过的内容。">Keep building on what you have learned.</h2>
+        <p data-en="Existing users can log in to continue with their vocabulary, reviews, and writing."
+           data-zh="已有账号可以登录，继续你的词库、复习与写作。">Existing users can log in to continue with their vocabulary, reviews, and writing.</p>
         <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-en="Log in" data-zh="登录">Log in</a>
+        {% endif %}
       </div>
     </div>
   </section>
 
   <footer class="foot">
     <div class="wrap">
-      <span data-en="A closed beta for language learners who want real encounters to become lasting, usable memory."
-            data-zh="为想把真实遇见，变成长期可用记忆的语言学习者而做。">A closed beta for language learners who want real encounters to become lasting, usable memory.</span>
+      <span data-en="Turn real language encounters into lasting, usable memory."
+            data-zh="把真实遇见的语言，变成长期可用的记忆。">Turn real language encounters into lasting, usable memory.</span>
     </div>
   </footer>
 
@@ -242,6 +268,17 @@
       }
       apply(lang);
       btn.addEventListener('click', function(){ lang=(lang==='zh'?'en':'zh'); localStorage.setItem('landingLang',lang); apply(lang); });
+
+      var demoVideo = document.querySelector('.browser-media video');
+      var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      function syncDemoMotion(){
+        if(reducedMotion.matches){ demoVideo.pause(); return; }
+        var playback = demoVideo.play();
+        if(playback && playback.catch){ playback.catch(function(){}); }
+      }
+      syncDemoMotion();
+      if(reducedMotion.addEventListener){ reducedMotion.addEventListener('change', syncDemoMotion); }
+      else if(reducedMotion.addListener){ reducedMotion.addListener(syncDemoMotion); }
 
       var io = new IntersectionObserver(function(es){
         es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
