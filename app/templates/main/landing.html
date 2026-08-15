@@ -32,6 +32,8 @@
     .langbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
       padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.4px}
     .nav-demo{font-weight:600;font-size:14px;color:var(--blue)}
+    .foot-links{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+    .foot-links a{color:var(--blue);font-weight:600}
 
     .btn{border:none;cursor:pointer;border-radius:12px;padding:14px 24px;font-size:15px;font-weight:600;
       display:inline-block;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
@@ -121,6 +123,10 @@
     <div class="wrap">
       <div class="brand">Reme<span class="mate">Mate</span></div>
       <div class="nav-right">
+        <a class="nav-demo" href="{{ url_for('public.qa_en') }}" data-en="FAQ" data-zh="常见问题"
+           data-href-en="{{ url_for('public.qa_en') }}" data-href-zh="{{ url_for('public.qa_zh') }}">FAQ</a>
+        <a class="nav-demo" href="{{ url_for('public.blog_en') }}" data-en="Blog" data-zh="博客"
+           data-href-en="{{ url_for('public.blog_en') }}" data-href-zh="{{ url_for('public.blog_zh') }}">Blog</a>
         <a class="nav-demo" href="{{ url_for('auth.login') }}" data-en="Log in" data-zh="登录">Log in</a>
         {% if config.OPEN_REGISTRATION_ENABLED %}
         <a class="nav-demo" href="{{ url_for('auth.register') }}" data-en="Create a free account" data-zh="免费注册">Create a free account</a>
@@ -252,6 +258,12 @@
     <div class="wrap">
       <span data-en="Turn real language encounters into lasting, usable memory."
             data-zh="把真实遇见的语言，变成长期可用的记忆。">Turn real language encounters into lasting, usable memory.</span>
+      <div class="foot-links">
+        <a href="{{ url_for('public.qa_en') }}" data-en="FAQ" data-zh="常见问题"
+           data-href-en="{{ url_for('public.qa_en') }}" data-href-zh="{{ url_for('public.qa_zh') }}">FAQ</a>
+        <a href="{{ url_for('public.blog_en') }}" data-en="Blog" data-zh="博客"
+           data-href-en="{{ url_for('public.blog_en') }}" data-href-zh="{{ url_for('public.blog_zh') }}">Blog</a>
+      </div>
     </div>
   </footer>
 
@@ -263,6 +275,10 @@
         document.documentElement.lang = (l==='zh'?'zh':'en');
         document.querySelectorAll('[data-en]').forEach(function(el){
           var v = el.getAttribute('data-'+l); if (v!=null) el.textContent = v;
+        });
+        document.querySelectorAll('[data-href-en]').forEach(function(el){
+          var href = el.getAttribute(l==='zh' ? 'data-href-zh' : 'data-href-en');
+          if (href) el.setAttribute('href', href);
         });
         btn.textContent = (l==='zh'?'EN':'中');
       }

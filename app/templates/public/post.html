@@ -1,0 +1,20 @@
+{% extends "public/base.html" %}
+{% block content %}
+<article>
+  <time class="muted" datetime="{{ post.date.isoformat() }}">{{ post.date.isoformat() }}</time>
+  <h1>{{ post.title }}</h1>
+  <p class="muted">{{ post.description }}</p>
+  {{ post.body_html|safe }}
+</article>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": {{ post.title|tojson }},
+  "description": {{ post.description|tojson }},
+  "datePublished": {{ post.date.isoformat()|tojson }},
+  "inLanguage": {{ nav.html_lang|tojson }},
+  "mainEntityOfPage": {{ canonical|tojson }}
+}
+</script>
+{% endblock %}

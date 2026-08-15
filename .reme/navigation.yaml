@@ -10,7 +10,7 @@ documents:
     authority: approved
 
   - path: docs/BACKLOG.md
-    read_when: 需要选择下一项工作或判断某项反馈是否应推迟时
+    read_when: 需要选择下一项工作、判断反馈是否推迟，或确认 SessionPad 探索边界时
     role: plan
     status: stale
 
@@ -27,6 +27,10 @@ documents:
     read_when: 需要实施、审核或发布低流量邮箱开放注册时
     role: plan
     authority: approved
+
+  - path: docs/plans/2026-08-14-public-seo-content.md
+    read_when: 需要实施、审核或批准公开 Q&A/Blog 与 SEO 内容页时
+    role: plan
 
   - path: docs/research/2026-08-09-resend-email-contract.md
     read_when: 需要审核 Resend adapter、邮件错误处理或 OR4 投递保障时

@@ -69,9 +69,11 @@ def create_app(config_name=None):
     from app.blueprints.admin import bp as admin_bp
     from app.blueprints.reading import bp as reading_bp
     from app.blueprints.partners import bp as partners_bp
+    from app.blueprints.public import bp as public_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(public_bp)
     app.register_blueprint(words_bp)
     app.register_blueprint(write_bp)
     app.register_blueprint(intake_bp)

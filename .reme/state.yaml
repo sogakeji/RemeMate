@@ -1,10 +1,10 @@
 workspace:
   git_root: .
 checkpoint:
-  recorded_at_head: aab641d
+  recorded_at_head: 49c18ec
   recorded_at_branch: master
   worktree_fingerprint: e3b0c44298fc
-  phase: landing video deployed, registration active
+  phase: open registration observation, SessionPad exploration bounded
 maintenance:
   status: current
   reasons: []

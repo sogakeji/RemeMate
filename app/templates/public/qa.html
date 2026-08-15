@@ -1,0 +1,29 @@
+{% extends "public/base.html" %}
+{% block content %}
+<h1>{{ page.title }}</h1>
+<p class="muted">{{ page.description }}</p>
+{% for item in page.items %}
+<section class="item">
+  <h2>{{ item.question }}</h2>
+  <p>{{ item.answer }}</p>
+</section>
+{% endfor %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {% for item in page.items %}
+    {
+      "@type": "Question",
+      "name": {{ item.question|tojson }},
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": {{ item.answer|tojson }}
+      }
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}

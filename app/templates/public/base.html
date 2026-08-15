@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="{{ nav.html_lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} · RemeMate</title>
+  <meta name="description" content="{{ description }}">
+  <link rel="canonical" href="{{ canonical }}">
+  <link rel="alternate" hreflang="en" href="{{ hreflang_en }}">
+  <link rel="alternate" hreflang="zh-Hans" href="{{ hreflang_zh }}">
+  <link rel="alternate" hreflang="x-default" href="{{ hreflang_en }}">
+  {% if not indexable %}
+  <meta name="robots" content="noindex,follow">
+  {% endif %}
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:type" content="{{ og_type|default('website') }}">
+  <meta property="og:url" content="{{ canonical }}">
+  <style>
+    :root{
+      --blue:#4a6cf7; --blue-d:#3951c6; --ink:#1d2230; --text:#414751; --muted:#727a86;
+      --bg:#ffffff; --soft:#f5f7fb; --card:#ffffff; --line:#e9edf3;
+      --sans:Inter,'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;
+    }
+    @media (prefers-color-scheme:dark){
+      :root{ --ink:#f3f5f8; --text:#cfd4dc; --muted:#9aa3af; --bg:#121212; --soft:#181a1f;
+        --card:#1e1e1e; --line:#2a2f3a; --blue:#6d8fff; --blue-d:#5273ff; }
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65}
+    a{color:var(--blue);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:760px;margin:0 auto;padding:0 26px}
+    .nav{border-bottom:1px solid var(--line);background:var(--bg)}
+    .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+    .brand{font-weight:800;font-size:21px;letter-spacing:-.4px;color:var(--ink);text-decoration:none}
+    .brand .mate{color:var(--blue)}
+    .nav-links{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .nav-links a{color:var(--ink);font-weight:600;font-size:14px}
+    h1,h2,h3{color:var(--ink);letter-spacing:-.4px;line-height:1.2}
+    main{padding:48px 0 72px}
+    .muted{color:var(--muted)}
+    .item{margin:28px 0}
+    .post-list{list-style:none;padding:0;margin:32px 0 0}
+    .post-list li{margin:0 0 22px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+    .post-list time{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+    article :first-child{margin-top:0}
+    .foot{border-top:1px solid var(--line);padding:24px 0 36px;color:var(--muted);font-size:13px}
+    .foot-links{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="{{ nav.home_path }}">Reme<span class="mate">Mate</span></a>
+      <div class="nav-links">
+        <a href="{{ nav.qa_path }}">{% if nav.locale == 'zh' %}常见问题{% else %}FAQ{% endif %}</a>
+        <a href="{{ nav.blog_path }}">{% if nav.locale == 'zh' %}博客{% else %}Blog{% endif %}</a>
+        <a href="{{ nav.login_path }}">{% if nav.locale == 'zh' %}登录{% else %}Log in{% endif %}</a>
+        {% if nav.register_path %}
+        <a href="{{ nav.register_path }}">{% if nav.locale == 'zh' %}免费注册{% else %}Create a free account{% endif %}</a>
+        {% endif %}
+        <a href="{{ alternate_path }}">{% if nav.locale == 'zh' %}English{% else %}中文{% endif %}</a>
+      </div>
+    </div>
+  </nav>
+  <main>
+    <div class="wrap">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  <footer class="foot">
+    <div class="wrap">
+      <div>{% if nav.locale == 'zh' %}把真实遇见的语言，变成长期可用的记忆。{% else %}Turn real language encounters into lasting, usable memory.{% endif %}</div>
+      <div class="foot-links">
+        <a href="{{ nav.home_path }}">RemeMate</a>
+        <a href="{{ nav.qa_path }}">{% if nav.locale == 'zh' %}常见问题{% else %}FAQ{% endif %}</a>
+        <a href="{{ nav.blog_path }}">{% if nav.locale == 'zh' %}博客{% else %}Blog{% endif %}</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
