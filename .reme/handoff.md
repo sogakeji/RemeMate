@@ -1,14 +1,14 @@
 # Current handoff
 
-> handoff@49c18ec · phase: open registration observation, SessionPad exploration bounded · checked: 2026-08-13
+> handoff@b87c709 · phase: SEO1 merged to master, staging verified and stopped · checked: 2026-08-15
 
-- 当前目标：观察开放注册的真实低流量表现，并从真实用户反馈中选择现有功能增强方向。
-- 当前阶段：生产开放注册持续运行；SessionPad 易用性方向已记入 [Backlog](../docs/BACKLOG.md)，本轮 grilling 仅属探索且不授权开发。
-- 下一动作：继续观察注册、邮件、5xx 与真实使用反馈；硬故障按 [部署清单](../docs/deploy-closed-beta.md) 关闸，软反馈继续入池。
-- 阻塞项：任何 Landing 或 SessionPad 新开发均缺少单独范围批准 → 裁定依据：[Backlog](../docs/BACKLOG.md)。
-- 权威规格：[开放注册短计划](../docs/plans/2026-08-09-open-registration.md)。
-- 当前计划：[docs/plans/2026-08-09-open-registration.md](../docs/plans/2026-08-09-open-registration.md)（Approved）。
-- 详细进度：`docs/BACKLOG.md` 已在 `49c18ec` 记录 SessionPad 探索方向及禁止派生开发任务的边界。
+- 当前目标：等待用户提供中英文 FAQ / Blog 正文，并准备 SEO1 正式部署前的审核与验证。
+- 当前阶段：SEO1 已合并入 `master`；新云机 staging 已完成公开页验证后关闭；正式环境未部署。
+- 下一动作：用户提供定稿后更新 `content/` 并打开 `indexable`；正式部署前按清单运行目标环境测试与 doctor。
+- 阻塞项：正式环境部署和占位内容收录仍需单独明确批准 → 裁定依据：[SEO1 计划](../docs/plans/2026-08-14-public-seo-content.md)。
+- 权威规格：[SEO1 计划](../docs/plans/2026-08-14-public-seo-content.md)。
+- 当前计划：[docs/plans/2026-08-14-public-seo-content.md](../docs/plans/2026-08-14-public-seo-content.md)（SEO1 已批准并完成开发）。
+- 详细进度：SEO1 代码在 `b87c709` 合入 `master`；staging 验证记录见 [.reme/evidence/seo1-staging-20260815.txt](./evidence/seo1-staging-20260815.txt)。
 - 文档导航：[navigation.yaml](./navigation.yaml)
 - 证据账本：[evidence.yaml](./evidence.yaml)
 - 状态快照：[state.yaml](./state.yaml)

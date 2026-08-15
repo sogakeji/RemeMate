@@ -1,0 +1,26 @@
+SEO1 staging verification transcript
+
+Project commit under test: b87c709
+Environment: tencent-new staging.rememate.com, isolated staging service
+
+Command/result:
+- python -m pytest --noconftest -q tests/unit/test_public_content.py
+  exit_code_0; 6 passed
+- staging HTTP smoke against 127.0.0.1:8892:
+  / 200
+  /qa 200
+  /zh/qa 200
+  /blog 200
+  /zh/blog 200
+  /blog/why-word-lists-fail 200
+  /zh/blog/why-word-lists-fail 200
+  /robots.txt 200
+  /sitemap.xml 200
+  /blog/missing 404
+- content assertions:
+  landing contains data-href-en=/qa and data-href-zh=/zh/qa
+  FAQ page contains noindex and FAQPage JSON-LD
+  Chinese blog page renders the Chinese title
+  placeholder slug is absent from sitemap
+
+The isolated staging service and preview entry were stopped after verification; production was not changed.

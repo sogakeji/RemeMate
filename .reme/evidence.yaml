@@ -10,3 +10,25 @@ evidence:
     source: .reme/evidence/reconcile-f296cca.txt
     command: python inline REME reconcile checker
     result: exit_code_0
+
+  - claim: SEO1 public pages passed targeted unit and staging smoke verification
+    status: verified
+    verified_at_head: b87c7094af806387bafdbb82c9bc523abae3ae51
+    verified_on_branch: master
+    covers:
+      - app/blueprints/public/routes.py
+      - app/services/public_content.py
+      - app/templates/main/landing.html
+      - app/templates/public/base.html
+      - app/templates/public/qa.html
+      - app/templates/public/blog_index.html
+      - app/templates/public/post.html
+      - content/en/qa.yaml
+      - content/zh/qa.yaml
+      - content/en/blog/why-word-lists-fail.md
+      - content/zh/blog/why-word-lists-fail.md
+      - tests/unit/test_public_content.py
+    source: .reme/evidence/seo1-staging-20260815.txt
+    command: python -m pytest --noconftest -q tests/unit/test_public_content.py; staging HTTP smoke
+    result: exit_code_0
+    supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
