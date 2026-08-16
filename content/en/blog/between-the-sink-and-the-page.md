@@ -2,6 +2,8 @@
 title: Between the Sink and the Page
 slug: between-the-sink-and-the-page
 description: How Zoe keeps several languages alive in the leftover minutes of work, study, cooking, and walking.
+series: multi-lingual and their ways of learning
+keywords: language learning, multilingual learning, polyglot, language study habits, learning languages with a full-time job
 date: 2026-08-16
 published: true
 indexable: false
@@ -32,3 +34,16 @@ A reader looking for a secret will be disappointed in the honest way. There is n
 The first video is dated November 2021. She calls it her first on the channel. By then she had already been living inside several languages long enough to tell the story in them. The vlog comes a month later. The tiny-habits video arrives the following June. The dates matter because they keep her in the life she was actually in: a sociology PhD student, working by day, recording how a busy person keeps more than one language from going quiet. Later the channel would grow a founder line and a free guide. That later layer is not this story. This story is the earlier one, when the sink and the page were still the whole method.
 
 What remains, after the hours are named and the books are cited, is a kind of aftertaste rather than a lesson. A language does not need a throne in the day. It needs a place to sit down, even if the chair is the walk home, even if the table is still wet from the dishes. Zoe’s public account is not that anyone can do this easily. It is that she did it unevenly, on purpose, and that she will keep calling herself a learner while she does.
+
+## Story details
+
+- **Series:** *multi-lingual and their ways of learning*
+- **Article date:** 2026-08-16
+- **Keywords:** language learning; multilingual learning; polyglot; language study habits; learning languages with a full-time job
+
+## Sources
+
+- [Chinese polyglot speaking in 7 languages (subtitles)](https://www.youtube.com/watch?v=MWj8pxhxrv0) — Zoe.languages, 2021-11-01.
+- [How do I study languages on a busy day?](https://www.youtube.com/watch?v=y4VrWc0PM3M) — Zoe.languages, 2021-12-07.
+- [How to study languages consistently with a full-time job: the tiny habits method](https://www.youtube.com/watch?v=AF21PyR9ohU) — Zoe.languages, 2022-06-15.
+- [Zoe.languages channel](https://www.youtube.com/@zoe.languages) — channel background and language-learning profile.

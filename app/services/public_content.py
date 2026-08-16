@@ -60,6 +60,8 @@ class Post:
     slug: str
     title: str
     description: str
+    series: str | None
+    keywords: tuple[str, ...]
     date: date
     updated: date | None
     published: bool
@@ -75,6 +77,7 @@ class PostSummary:
     slug: str
     title: str
     description: str
+    series: str | None
     date: date
     indexable: bool
 
@@ -139,6 +142,7 @@ def list_published_posts(locale: str) -> list[PostSummary]:
             slug=post.slug,
             title=post.title,
             description=post.description,
+            series=post.series,
             date=post.date,
             indexable=post.indexable,
         )
@@ -349,6 +353,8 @@ def _load_post(locale: str, path: Path) -> Post:
         slug=slug,
         title=_required_text(meta, "title", path),
         description=_required_text(meta, "description", path),
+        series=_optional_text(meta, "series"),
+        keywords=_optional_keywords(meta, path),
         date=_required_date(meta, "date", path),
         updated=_optional_date(meta, "updated", path),
         published=published,
@@ -494,6 +500,27 @@ def _optional_bool(data: dict, key: str, default: bool) -> bool:
     if isinstance(value, bool):
         return value
     raise PublicContentError(f"{key} must be a boolean")
+
+
+def _optional_text(data: dict, key: str) -> str | None:
+    value = data.get(key)
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise PublicContentError(f"{key} must be text")
+    return value.strip()
+
+
+def _optional_keywords(data: dict, path: Path) -> tuple[str, ...]:
+    value = data.get("keywords")
+    if value in (None, ""):
+        return ()
+    if not isinstance(value, str):
+        raise PublicContentError(f"{path} keywords must be comma-separated text")
+    keywords = tuple(item.strip() for item in value.split(",") if item.strip())
+    if not keywords:
+        raise PublicContentError(f"{path} keywords must not be empty")
+    return keywords
 
 
 def _required_date(data: dict, key: str, path: Path) -> date:

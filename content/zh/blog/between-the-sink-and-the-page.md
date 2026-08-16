@@ -2,6 +2,8 @@
 title: 水槽与书页之间
 slug: between-the-sink-and-the-page
 description: Zoe 如何把语言学习放进工作、读博、做饭和走路之间那些零碎却真实的时间里。
+series: multi-lingual and their ways of learning
+keywords: 语言学习, 多语言学习, 多语者, 语言学习习惯, 全职工作中的语言学习
 date: 2026-08-16
 published: true
 indexable: false
@@ -32,3 +34,16 @@ Zoe 不等一个万事俱备的清晨。后来她发布的那些视频里，一�
 她的第一支视频标注为 2021 年 11 月。她称那是自己在这个频道上的第一支视频。那时，她已经在多种语言里生活了足够久，能够用它们讲述这段经历。一个月后，是那支 vlog；再到第二年六月，才出现谈微习惯的视频。日期把她留在她真正生活的那一段时间里：一位白天工作的社会学博士生，记录一个忙碌的人如何不让不止一种语言彻底安静下来。后来，这个频道有了创始人身份和免费指南。那是后来的层次，不属于这个故事。这个故事发生在更早的时候，那时水槽和书页之间，已经是完整的方法。
 
 当小时数被说清，书名也被提起，最后留下的不是一堂课，而更像一种回味。一门语言不需要在一天里登上王座。它只需要一个可以坐下来的位置——哪怕那把椅子是回家的路，哪怕桌面还留着洗碗溅出的水。Zoe 的公开记录并不是说任何人都能轻松做到。它只是说明，她有意让学习不均匀地发生；而在这件事里，她会一直称自己为学习者。
+
+## 故事资料
+
+- **专栏：**《multi-lingual and their ways of learning》
+- **文章日期：**2026-08-16
+- **关键词：**语言学习；多语言学习；多语者；语言学习习惯；全职工作中的语言学习
+
+## 来源
+
+- [Chinese polyglot speaking in 7 languages (subtitles)](https://www.youtube.com/watch?v=MWj8pxhxrv0) —— Zoe.languages，2021-11-01。
+- [How do I study languages on a busy day?](https://www.youtube.com/watch?v=y4VrWc0PM3M) —— Zoe.languages，2021-12-07。
+- [How to study languages consistently with a full-time job: the tiny habits method](https://www.youtube.com/watch?v=AF21PyR9ohU) —— Zoe.languages，2022-06-15。
+- [Zoe.languages 频道](https://www.youtube.com/@zoe.languages) —— 频道背景与语言学习者资料。

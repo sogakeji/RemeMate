@@ -1,5 +1,6 @@
 {% extends "public/base.html" %}
 {% block extra_head %}
+  {% if post.keywords %}<meta name="keywords" content="{{ post.keywords|join(', ') }}">{% endif %}
   {% if image_url %}
   <meta property="og:image" content="{{ image_url }}">
   <meta name="twitter:card" content="summary_large_image">
@@ -7,6 +8,7 @@
 {% endblock %}
 {% block content %}
 <article>
+  {% if post.series %}<span class="series-badge">{% if nav.locale == 'zh' %}专栏{% else %}Column{% endif %}</span>{% endif %}
   <time class="muted" datetime="{{ post.date.isoformat() }}">{{ post.date.isoformat() }}</time>
   <h1>{{ post.title }}</h1>
   <p class="muted">{{ post.description }}</p>
@@ -24,7 +26,8 @@
   "datePublished": {{ post.date.isoformat()|tojson }},
   "inLanguage": {{ nav.html_lang|tojson }},
   "mainEntityOfPage": {{ canonical|tojson }}{% if image_url %},
-  "image": [{{ image_url|tojson }}]{% endif %}
+  "image": [{{ image_url|tojson }}]{% endif %}{% if post.keywords %},
+  "keywords": {{ post.keywords|join(', ')|tojson }}{% endif %}
 }
 </script>
 {% endblock %}

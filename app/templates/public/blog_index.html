@@ -5,6 +5,7 @@
 <ul class="post-list">
   {% for post in posts %}
   <li>
+    {% if post.series %}<span class="series-badge">{% if locale == 'zh' %}专栏{% else %}Column{% endif %}</span>{% endif %}
     <time datetime="{{ post.date.isoformat() }}">{{ post.date.isoformat() }}</time>
     <a href="{{ url_for('public.post_zh' if locale == 'zh' else 'public.post_en', slug=post.slug) }}">{{ post.title }}</a>
     <p class="muted">{{ post.description }}</p>
