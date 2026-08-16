@@ -14,14 +14,15 @@
 
 - 本地 `master` 与生产 `/srv/rememate` 已对齐 `4a579315`；生产原有代码工作树改动已先备份，
   再按本地版本更新。未触碰 `.env`、`.venv`、数据库或 `/srv/rememate-data`。
+- 生产对外公测已获得批准；现有 `OPEN_REGISTRATION_ENABLED="true"` 为已授权状态，公开注册入口
+  HTTPS 冒烟返回 200。
 - 产品界面只支持简体中文、英语；AI 支持中文、英文、法语、日语、韩语、西班牙语；德语、
   俄语仅保留历史兼容并从新入口隐藏；阅读器只支持中文、英语、法语、日语。
 - 生产数据库已应用迁移至 `e8f9a0b1c2d3`。`flask doctor --strict`、服务 active、内网
   `/healthz` 200、公网 HTTPS `/healthz` 200 和部署后错误日志检查通过。
 - 迁移前 PostgreSQL 备份及生产工作树备份位于生产机
   `/home/ubuntu/rememate-deploy-backups/20260816-225055-pre-4a57931`；迁移前后业务表行数记录一致。
-- 生产现有 `.env` 中 `OPEN_REGISTRATION_ENABLED="true"`，本次未修改；闭测默认关闭规则仍需单独处理，
-  不应将该配置变化归因于本次代码部署。
+- 生产现有 `.env` 中 `OPEN_REGISTRATION_ENABLED="true"`，本次未修改；该配置已获对外公测批准。
 
 ## 最近验证
 
@@ -36,7 +37,7 @@
 
 - 下一项是 [`docs/BACKLOG.md`](./BACKLOG.md) 中的“Review Story 多语言稳定性二次优化”；
   先补失败回归和脱敏观测，再重跑六语种 staging smoke。
-- 任何生产配置（尤其开放注册开关）需单独确认；生产部署必须保留数据库备份、迁移检查、
-  `flask doctor --strict`、服务/HTTPS/日志和数据保留检查。
+- 生产部署必须保留数据库备份、迁移检查、`flask doctor --strict`、服务/HTTPS/日志和数据保留检查；
+  对外公测期间继续关注注册邮件投递和异常流量。
 - 架构与部署规则分别见 [`docs/arch/`](./arch/)、[`docs/deploy-closed-beta.md`](./deploy-closed-beta.md)
   和根目录 [`AGENTS.md`](../AGENTS.md)；不要把这些参考文档中的旧状态当作当前状态。
