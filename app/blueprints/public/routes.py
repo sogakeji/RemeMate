@@ -85,6 +85,9 @@ def _blog_post(locale: str, slug: str):
     if post is None:
         abort(404)
     urls = _page_urls("post", locale, slug)
+    image_url = None
+    if post.image is not None:
+        image_url = _base_url() + url_for("static", filename=post.image.src)
     return render_template(
         "public/post.html",
         post=post,
@@ -92,6 +95,7 @@ def _blog_post(locale: str, slug: str):
         description=post.description,
         indexable=post.indexable,
         og_type="article",
+        image_url=image_url,
         nav=_nav(locale),
         **urls,
     )

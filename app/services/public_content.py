@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from html import escape
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 
 LOCALES = ("en", "zh")
@@ -16,8 +16,11 @@ DEFAULT_LOCALE = "en"
 HTML_LANG = {"en": "en", "zh": "zh-Hans"}
 
 _REPO_CONTENT_ROOT = Path(__file__).resolve().parents[2] / "content"
+_REPO_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+_ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 _cache = None
 _cache_root = None
+_static_root = None
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -29,9 +32,17 @@ class PublicContentError(ValueError):
 
 
 @dataclass(frozen=True)
+class ImageAsset:
+    src: str
+    alt: str
+    caption: str | None = None
+
+
+@dataclass(frozen=True)
 class QaItem:
     question: str
     answer: str
+    images: tuple[ImageAsset, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,6 +66,7 @@ class Post:
     indexable: bool
     body_markdown: str
     body_html: str
+    image: ImageAsset | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +97,13 @@ def configure_content_root(root: Path | str | None) -> None:
     global _cache, _cache_root
     _cache = None
     _cache_root = None if root is None else Path(root)
+
+
+def configure_static_root(root: Path | str | None) -> None:
+    """Tests inject a temporary static tree; None restores app/static."""
+    global _cache, _static_root
+    _cache = None
+    _static_root = None if root is None else Path(root)
 
 
 def reset_content_cache() -> None:
@@ -195,7 +214,7 @@ def absolute_url(base_url: str | None, path: str) -> str:
     return f"{origin}{path}"
 
 
-def render_limited_markdown(source: str) -> str:
+def render_limited_markdown(source: str, *, image_scope: str | None = None) -> str:
     if "<" in source or ">" in source:
         raise PublicContentError("raw HTML is not allowed in public markdown")
 
@@ -207,12 +226,15 @@ def render_limited_markdown(source: str) -> str:
         if paragraph:
             text = " ".join(part.strip() for part in paragraph if part.strip())
             if text:
-                blocks.append(f"<p>{_inline(text)}</p>")
+                blocks.append(f"<p>{_inline(text, image_scope=image_scope)}</p>")
             paragraph.clear()
 
     def flush_list() -> None:
         if list_items:
-            items = "".join(f"<li>{_inline(item)}</li>" for item in list_items)
+            items = "".join(
+                f"<li>{_inline(item, image_scope=image_scope)}</li>"
+                for item in list_items
+            )
             blocks.append(f"<ul>{items}</ul>")
             list_items.clear()
 
@@ -227,7 +249,9 @@ def render_limited_markdown(source: str) -> str:
             flush_paragraph()
             flush_list()
             level = len(heading.group(1))
-            blocks.append(f"<h{level}>{_inline(heading.group(2).strip())}</h{level}>")
+            blocks.append(
+                f"<h{level}>{_inline(heading.group(2).strip(), image_scope=image_scope)}</h{level}>"
+            )
             continue
         if line.startswith("- "):
             flush_paragraph()
@@ -285,7 +309,12 @@ def _load_qa(locale: str, path: Path) -> QaPage:
             raise PublicContentError(f"{path} items must be mappings")
         question = _required_text(item, "question", path)
         answer = _required_text(item, "answer", path)
-        items.append(QaItem(question=question, answer=answer))
+        images = _parse_images(
+            item.get("images", []),
+            f"public/qa/{locale}",
+            path,
+        )
+        items.append(QaItem(question=question, answer=answer, images=images))
     return QaPage(
         locale=locale,
         title=_required_text(data, "title", path),
@@ -307,7 +336,14 @@ def _load_post(locale: str, path: Path) -> Post:
     indexable = _optional_bool(meta, "indexable", False)
     if indexable and not published:
         raise PublicContentError(f"{path} cannot be indexable unless published")
-    body_html = render_limited_markdown(body) if body.strip() else ""
+    body_html = (
+        render_limited_markdown(
+            body,
+            image_scope=f"public/blog/{slug}",
+        )
+        if body.strip()
+        else ""
+    )
     return Post(
         locale=locale,
         slug=slug,
@@ -319,6 +355,13 @@ def _load_post(locale: str, path: Path) -> Post:
         indexable=indexable,
         body_markdown=body,
         body_html=body_html,
+        image=_optional_image(
+            meta,
+            "image",
+            "image_alt",
+            f"public/blog/{slug}",
+            path,
+        ),
     )
 
 
@@ -381,6 +424,10 @@ def _parse_item_list(lines: list[str], start: int) -> tuple[list[dict], int]:
                 raise PublicContentError(f"invalid YAML list item: {raw}")
             key, value = rest.split(":", 1)
             current[key.strip()] = _parse_scalar(value.strip())
+        elif current is not None and stripped == "images:":
+            images, index = _parse_nested_image_list(lines, index + 1)
+            current["images"] = images
+            continue
         elif current is not None and stripped and ":" in stripped:
             key, value = stripped.split(":", 1)
             current[key.strip()] = _parse_scalar(value.strip())
@@ -390,6 +437,35 @@ def _parse_item_list(lines: list[str], start: int) -> tuple[list[dict], int]:
     if not items:
         raise PublicContentError("items list is empty")
     return items, index
+
+
+def _parse_nested_image_list(lines: list[str], start: int) -> tuple[list[dict], int]:
+    images: list[dict] = []
+    current: dict | None = None
+    index = start
+    while index < len(lines):
+        raw = lines[index]
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            index += 1
+            continue
+        if len(raw) - len(raw.lstrip()) < 4:
+            break
+        stripped = raw.strip()
+        if stripped.startswith("- "):
+            current = {}
+            images.append(current)
+            rest = stripped[2:]
+            if ":" not in rest:
+                raise PublicContentError(f"invalid image list item: {raw}")
+            key, value = rest.split(":", 1)
+            current[key.strip()] = _parse_scalar(value.strip())
+        elif current is not None and ":" in stripped:
+            key, value = stripped.split(":", 1)
+            current[key.strip()] = _parse_scalar(value.strip())
+        else:
+            raise PublicContentError(f"invalid image list continuation: {raw}")
+        index += 1
+    return images, index
 
 
 def _parse_scalar(value: str):
@@ -436,13 +512,84 @@ def _optional_date(data: dict, key: str, path: Path) -> date | None:
     return date.fromisoformat(value)
 
 
+def _parse_images(value, scope: str, path: Path) -> tuple[ImageAsset, ...]:
+    if value in (None, ""):
+        return ()
+    if not isinstance(value, list):
+        raise PublicContentError(f"{path} images must be a list")
+    assets = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise PublicContentError(f"{path} image entries must be mappings")
+        src = _required_text(item, "src", path)
+        alt = _required_text(item, "alt", path)
+        caption = item.get("caption")
+        if caption not in (None, "") and not isinstance(caption, str):
+            raise PublicContentError(f"{path} image caption must be text")
+        assets.append(
+            ImageAsset(
+                src=_validate_asset_path(src, scope, path),
+                alt=alt,
+                caption=caption.strip() if isinstance(caption, str) else None,
+            )
+        )
+    return tuple(assets)
+
+
+def _optional_image(
+    data: dict,
+    image_key: str,
+    alt_key: str,
+    scope: str,
+    path: Path,
+) -> ImageAsset | None:
+    src = data.get(image_key)
+    alt = data.get(alt_key)
+    if src in (None, "") and alt in (None, ""):
+        return None
+    if not isinstance(src, str) or not src.strip():
+        raise PublicContentError(f"{path} missing {image_key}")
+    if not isinstance(alt, str) or not alt.strip():
+        raise PublicContentError(f"{path} missing {alt_key}")
+    return ImageAsset(
+        src=_validate_asset_path(src.strip(), scope, path),
+        alt=alt.strip(),
+    )
+
+
+def _validate_asset_path(src: str, scope: str, path: Path) -> str:
+    if "\\" in src or src.startswith(("/", "http:", "https:", "data:", "javascript:")):
+        raise PublicContentError(f"{path} has unsafe image path")
+    candidate = PurePosixPath(src)
+    required_scope = PurePosixPath(scope)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise PublicContentError(f"{path} has unsafe image path")
+    if candidate.parent != required_scope and not str(candidate).startswith(f"{scope}/"):
+        raise PublicContentError(f"{path} image must stay under {scope}")
+    if candidate.suffix.lower() not in _ALLOWED_IMAGE_SUFFIXES:
+        raise PublicContentError(f"{path} has unsupported image type")
+    root = (_static_root or _REPO_STATIC_ROOT).resolve()
+    asset = (root / Path(*candidate.parts)).resolve()
+    try:
+        asset.relative_to(root)
+    except ValueError as exc:
+        raise PublicContentError(f"{path} has unsafe image path") from exc
+    if not asset.is_file():
+        raise PublicContentError(f"{path} image does not exist: {src}")
+    return str(candidate)
+
+
+def _static_image_url(src: str) -> str:
+    return "/static/" + "/".join(PurePosixPath(src).parts)
+
+
 def _require_locale(locale: str) -> str:
     if locale not in LOCALES:
         raise PublicContentError(f"unsupported locale: {locale}")
     return locale
 
 
-def _inline(text: str) -> str:
+def _inline(text: str, *, image_scope: str | None = None) -> str:
     placeholders: list[str] = []
 
     def hold(html: str) -> str:
@@ -454,6 +601,18 @@ def _inline(text: str) -> str:
 
     def strong(match: re.Match[str]) -> str:
         return hold(f"<strong>{escape(match.group(1))}</strong>")
+
+    def image(match: re.Match[str]) -> str:
+        if image_scope is None:
+            raise PublicContentError("markdown image requires an image scope")
+        alt, src = match.group(1), match.group(2).strip()
+        if not alt.strip():
+            raise PublicContentError("markdown image requires alt text")
+        asset = _validate_asset_path(src, image_scope, Path("markdown"))
+        return hold(
+            f'<img src="{escape(_static_image_url(asset), quote=True)}" '
+            f'alt="{escape(alt.strip(), quote=True)}" loading="lazy">'
+        )
 
     def link(match: re.Match[str]) -> str:
         label, href = match.group(1), match.group(2).strip()
@@ -472,6 +631,7 @@ def _inline(text: str) -> str:
 
     marked = re.sub(r"`([^`]+)`", code, text)
     marked = re.sub(r"\*\*([^*]+)\*\*", strong, marked)
+    marked = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", image, marked)
     marked = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, marked)
     parts = re.split(r"(\x00\d+\x00)", marked)
     rendered: list[str] = []

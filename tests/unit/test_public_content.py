@@ -128,6 +128,54 @@ def test_render_limited_markdown_and_reject_html():
         content.render_limited_markdown("[x](javascript:alert(1))")
 
 
+def test_markdown_images_are_scoped_and_escaped(tmp_path):
+    static = tmp_path / "static"
+    asset = static / "public" / "blog" / "demo"
+    asset.mkdir(parents=True)
+    (asset / "figure.webp").write_bytes(b"image")
+    content.configure_static_root(static)
+    try:
+        html = content.render_limited_markdown(
+            "![A & B](public/blog/demo/figure.webp)",
+            image_scope="public/blog/demo",
+        )
+        assert '/static/public/blog/demo/figure.webp' in html
+        assert 'alt="A &amp; B"' in html
+        with pytest.raises(content.PublicContentError):
+            content.render_limited_markdown(
+                "![x](https://example.com/x.webp)",
+                image_scope="public/blog/demo",
+            )
+    finally:
+        content.configure_static_root(None)
+
+
+def test_qa_images_load_from_nested_items(tmp_path):
+    for locale in ("en", "zh"):
+        (tmp_path / locale / "blog").mkdir(parents=True)
+        (tmp_path / locale / "qa.yaml").write_text(
+            "title: FAQ\ndescription: Description\nindexable: false\n"
+            "items:\n  - question: Import?\n    answer: Use the import action.\n"
+            "    images:\n      - src: public/qa/{0}/step.webp\n"
+            "        alt: Import screen\n        caption: Step one.\n".format(locale),
+            encoding="utf-8",
+        )
+    static = tmp_path / "static"
+    for locale in ("en", "zh"):
+        image = static / "public" / "qa" / locale
+        image.mkdir(parents=True)
+        (image / "step.webp").write_bytes(b"image")
+    content.configure_content_root(tmp_path)
+    content.configure_static_root(static)
+    try:
+        item = content.get_qa_page("en").items[0]
+        assert item.images[0].src == "public/qa/en/step.webp"
+        assert item.images[0].caption == "Step one."
+    finally:
+        content.configure_content_root(None)
+        content.configure_static_root(None)
+
+
 def test_repo_placeholders_load():
     content.configure_content_root(None)
     content.reset_content_cache()

@@ -6,6 +6,12 @@
 <section class="item">
   <h2>{{ item.question }}</h2>
   <p>{{ item.answer }}</p>
+  {% for image in item.images %}
+  <figure class="content-figure">
+    <img src="{{ url_for('static', filename=image.src) }}" alt="{{ image.alt }}" loading="lazy">
+    {% if image.caption %}<figcaption>{{ image.caption }}</figcaption>{% endif %}
+  </figure>
+  {% endfor %}
 </section>
 {% endfor %}
 <script type="application/ld+json">

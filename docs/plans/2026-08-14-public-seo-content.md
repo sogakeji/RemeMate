@@ -124,6 +124,14 @@ Q&A 与文章必须是对产品事实的陈述，不承诺未做功能，不重�
 - 挂上中英占位 Q&A 与中英配对的 1 篇占位文章。
 - 定向集成测试：未登录 200、未知 slug 404、草稿 404、占位 `noindex` 且不在 sitemap、产品页含 `noindex`、注册开关仍控制公开页上的注册入口、Landing 既有断言不回退、中英页互指 `hreflang`、Landing 中英切换后入口指向对应语言 URL。
 
+### SEO1.1：公开内容多图支持
+
+- 在独立 feature 分支实现 Blog 正文多图和 FAQ 条目多图；图片随代码发布，不做用户上传或 CMS。
+- 图片使用受控本地路径、必填 `alt`，并校验路径越界、外链、格式和文件存在性。
+- Blog 支持 cover、正文 Markdown 图片、Open Graph 与 Article JSON-LD 图片字段；FAQ 支持每个问题的多张说明图和可选 caption。
+- 增加渲染、安全、路由与 noindex 行为测试；完成 staging 验证后，才进入 SEO2 正文替换。
+- 详细规格见 `docs/plans/2026-08-15-public-content-images-spec.md`。
+
 ### SEO2：替换正文
 
 - 用户提供定稿后，只改 `content/` 中的 Q&A 与那篇文章，并把 `indexable` 打开。

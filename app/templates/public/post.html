@@ -1,9 +1,18 @@
 {% extends "public/base.html" %}
+{% block extra_head %}
+  {% if image_url %}
+  <meta property="og:image" content="{{ image_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  {% endif %}
+{% endblock %}
 {% block content %}
 <article>
   <time class="muted" datetime="{{ post.date.isoformat() }}">{{ post.date.isoformat() }}</time>
   <h1>{{ post.title }}</h1>
   <p class="muted">{{ post.description }}</p>
+  {% if post.image %}
+  <img class="post-cover" src="{{ url_for('static', filename=post.image.src) }}" alt="{{ post.image.alt }}" loading="eager">
+  {% endif %}
   {{ post.body_html|safe }}
 </article>
 <script type="application/ld+json">
@@ -14,7 +23,8 @@
   "description": {{ post.description|tojson }},
   "datePublished": {{ post.date.isoformat()|tojson }},
   "inLanguage": {{ nav.html_lang|tojson }},
-  "mainEntityOfPage": {{ canonical|tojson }}
+  "mainEntityOfPage": {{ canonical|tojson }}{% if image_url %},
+  "image": [{{ image_url|tojson }}]{% endif %}
 }
 </script>
 {% endblock %}
