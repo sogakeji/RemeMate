@@ -1,6 +1,6 @@
 # RemeMate HANDOFF
 
-> 当前快照：2026-08-16 · `master` · HEAD `e837205`
+> 当前快照：2026-08-16 · `master` · HEAD `4a579315`
 
 ## 读取规则
 
@@ -12,28 +12,31 @@
 
 ## 当前状态
 
-- 工作树有本轮语言收敛、AI 短故事修复、测试和文档的未提交改动。保留用户改动，不执行
-  reset、stash、覆盖、merge、push 或生产部署。
+- 本地 `master` 与生产 `/srv/rememate` 已对齐 `4a579315`；生产原有代码工作树改动已先备份，
+  再按本地版本更新。未触碰 `.env`、`.venv`、数据库或 `/srv/rememate-data`。
 - 产品界面只支持简体中文、英语；AI 支持中文、英文、法语、日语、韩语、西班牙语；德语、
   俄语仅保留历史兼容并从新入口隐藏；阅读器只支持中文、英语、法语、日语。
-- 新云机 staging 已应用迁移至 `e8f9a0b1c2d3`。`flask doctor --strict`、服务 active、内网
-  `/healthz` 200 和错误日志检查通过；未触碰生产环境、生产数据、环境文件或词典目录。
-- 公网 `staging.rememate.com` 尚未在该云机配置 DNS/vhost，内网 staging 结果不能表述为公网验证。
+- 生产数据库已应用迁移至 `e8f9a0b1c2d3`。`flask doctor --strict`、服务 active、内网
+  `/healthz` 200、公网 HTTPS `/healthz` 200 和部署后错误日志检查通过。
+- 迁移前 PostgreSQL 备份及生产工作树备份位于生产机
+  `/home/ubuntu/rememate-deploy-backups/20260816-225055-pre-4a57931`；迁移前后业务表行数记录一致。
+- 生产现有 `.env` 中 `OPEN_REGISTRATION_ENABLED="true"`，本次未修改；闭测默认关闭规则仍需单独处理，
+  不应将该配置变化归因于本次代码部署。
 
 ## 最近验证
 
 - 六种 AI 语言的一键填充、例句、学习笔记均真实调用 provider 并通过。
 - 六种 AI 语言的造句批改均通过；临时测试词条已清理。
 - 复习小故事的真实 provider 复测中，英文、日文、韩文、西班牙文通过；中文、法文在有界
-  重试后仍出现 `invalid_schema`，韩文观察到首次失败后重试成功的波动。短故事暂不能宣称
-  六语种稳定可用。
+  重试后仍出现 `invalid_schema`，韩文观察到首次失败后重试成功的波动。生产已按明确批准部署，
+  但短故事暂不能宣称六语种稳定可用。
 - 新云机相关定向测试：**101 passed, 2 deselected**。
 
 ## 下一步与边界
 
 - 下一项是 [`docs/BACKLOG.md`](./BACKLOG.md) 中的“Review Story 多语言稳定性二次优化”；
   先补失败回归和脱敏观测，再重跑六语种 staging smoke。
-- 修复验收前不部署生产。生产部署必须另行获得明确批准，并执行目标环境迁移、全量测试、
+- 任何生产配置（尤其开放注册开关）需单独确认；生产部署必须保留数据库备份、迁移检查、
   `flask doctor --strict`、服务/HTTPS/日志和数据保留检查。
 - 架构与部署规则分别见 [`docs/arch/`](./arch/)、[`docs/deploy-closed-beta.md`](./deploy-closed-beta.md)
   和根目录 [`AGENTS.md`](../AGENTS.md)；不要把这些参考文档中的旧状态当作当前状态。
