@@ -48,6 +48,22 @@ DIARY_PROMPTS_BY_FEEDBACK = {
         "Do you prefer traveling alone or with friends?",
         "Who would you like to thank today, and why?",
     ],
+    "ko": [
+        "고양이와 강아지 중 무엇을 더 좋아하나요? 왜 그런가요?",
+        "오늘 기분을 좋게 해 준 작은 일은 무엇인가요?",
+        "내일 한 시간이 더 있다면 어떻게 쓰고 싶나요?",
+        "요즘 계속 지키고 싶은 습관이 있나요?",
+        "혼자 여행하는 것과 친구와 여행하는 것 중 무엇을 좋아하나요?",
+        "오늘 누구에게 고마움을 전하고 싶나요? 왜 그런가요?",
+    ],
+    "es": [
+        "¿Prefieres los gatos o los perros? ¿Por qué?",
+        "¿Qué pequeña cosa te hizo sentir mejor hoy?",
+        "Si mañana tuvieras una hora más, ¿cómo la usarías?",
+        "¿Qué hábito te gustaría mantener ahora?",
+        "¿Prefieres viajar solo o con amigos?",
+        "¿A quién te gustaría dar las gracias hoy y por qué?",
+    ],
 }
 
 
@@ -64,10 +80,15 @@ class DiaryFormatError(Exception):
 
 
 _CJK_OR_KANA_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
+_HANGUL_RE = re.compile(r"[\uac00-\ud7af]")
 
 
 def _validate_sentence_language(sentence: str, language_code: str):
     """Cheap script-level guard; AI still handles real grammar/language judgment."""
+    if language_code == "ko":
+        if not _HANGUL_RE.search(sentence):
+            raise SentenceLanguageMismatch()
+        return
     if language_code in {"fr", "en", "de", "es", "ru"} and _CJK_OR_KANA_RE.search(sentence):
         raise SentenceLanguageMismatch()
     if language_code in {"zh", "ja"} and not _CJK_OR_KANA_RE.search(sentence):

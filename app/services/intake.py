@@ -177,9 +177,8 @@ def prepare_extract(user_id, language_code, text):
 
 # ---- LLM 辅助 ----
 
-_LANG = {"fr": "法语", "en": "英语", "ja": "日语", "de": "德语",
-         "es": "西语", "ru": "俄语", "zh": "中文"}
-_FEEDBACK_LANG = {"zh": "中文", "fr": "法语", "en": "英语"}
+_LANG = dict(words_svc._LANGUAGE_NAMES)
+_FEEDBACK_LANG = dict(words_svc._FEEDBACK_LANGUAGE_NAMES)
 
 
 def _feedback_lang_name(feedback_language_code):

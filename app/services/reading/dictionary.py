@@ -27,8 +27,9 @@ try:
 except ImportError:
     _HAS_LEMMINFLECT = False
 
+from app.services.languages import READER_LANGUAGE_NAMES
 
-SUPPORTED_LANGUAGES = frozenset({"zh", "en", "ja", "fr"})
+SUPPORTED_LANGUAGES = frozenset(READER_LANGUAGE_NAMES)
 LOWERCASE_LANGUAGES = frozenset({"en", "fr"})
 _CJK_SPACE_RE = re.compile(
     r"([\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff])"

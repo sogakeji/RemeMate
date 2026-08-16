@@ -16,7 +16,7 @@ class PartnerPacket(db.Model):
         ),
         db.CheckConstraint(
             "language_code IS NULL OR "
-            "language_code IN ('fr','en','ja','de','es','ru','zh')",
+            "language_code IN ('fr','en','ja','ko','de','es','ru','zh')",
             name="ck_partner_packets_language",
         ),
         db.UniqueConstraint(

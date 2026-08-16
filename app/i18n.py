@@ -12,6 +12,7 @@ from flask import g, request, session
 from flask_login import current_user
 
 from app.extensions import db
+from app.services.languages import KNOWN_LANGUAGE_NAMES
 
 
 SUPPORTED_UI_LOCALES = ("zh", "en")
@@ -74,7 +75,7 @@ def translate(key: str, **values) -> str:
 def localized_language_names() -> dict[str, str]:
     return {
         code: translate(f"language.{code}")
-        for code in ("fr", "en", "ja", "de", "es", "ru", "zh")
+        for code in KNOWN_LANGUAGE_NAMES
     }
 
 

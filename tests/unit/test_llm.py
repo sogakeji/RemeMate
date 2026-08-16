@@ -41,6 +41,18 @@ def test_failover_to_secondary():
     assert p1.calls == 1 and p2.calls == 1
 
 
+def test_excluded_provider_is_skipped():
+    p1, p2 = FakeProvider("deepseek"), FakeProvider("openai")
+    llm.set_registry({"general": [p1, p2]})
+    result = llm.chat(
+        [{"role": "user", "content": "hi"}],
+        task="general",
+        excluded_provider_names={"deepseek"},
+    )
+    assert result.provider == "openai"
+    assert p1.calls == 0 and p2.calls == 1
+
+
 def test_all_down_raises():
     p1, p2 = FakeProvider("deepseek", "fail"), FakeProvider("openai", "fail")
     llm.set_registry({"correction": [p1, p2]})

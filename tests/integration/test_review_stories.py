@@ -1654,7 +1654,7 @@ def test_orchestrate_invalid_result_records_tokens_and_failed_event(
             "SELECT event_type FROM learning_funnel_events "
             "WHERE user_id=:uid"
         ), {"uid": uid}).scalars())
-    assert token_row == (7, 9)
+    assert token_row == (14, 18)
     assert run_status == ("failed", "invalid_schema")
     assert "story_generation_failed" in event_types
     assert "story_generation_ready" not in event_types

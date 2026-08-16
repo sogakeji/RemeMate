@@ -113,7 +113,7 @@
       <div class="lang-switcher" id="langSwitcher" style="display:inline-block;">
         <button type="button" class="lang-current" id="langCurrent" title="{{ _('settings.learning') }}">
           <span class="lang-flag">
-            {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺','zh':'🇨🇳'} %}
+            {% set _flag = {'fr':'🇫🇷','en':'🇬🇧','ja':'🇯🇵','ko':'🇰🇷','de':'🇩🇪','es':'🇪🇸','ru':'🇷🇺','zh':'🇨🇳'} %}
             {{ _flag.get(current_language, '📖') }}
           </span>
           <span class="lang-label">{{ ui_language_names.get(current_language, current_language or '—') }}</span>
@@ -256,7 +256,7 @@
         if (!text.trim()) return;
         var langMap = {
           fr: 'fr-FR', en: 'en-US', ja: 'ja-JP',
-          de: 'de-DE', es: 'es-ES', ru: 'ru-RU', zh: 'zh-CN'
+          ko: 'ko-KR', de: 'de-DE', es: 'es-ES', ru: 'ru-RU', zh: 'zh-CN'
         };
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = langMap[btn.getAttribute('data-lang')] || 'en-US';

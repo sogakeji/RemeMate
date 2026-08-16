@@ -209,7 +209,7 @@ def test_input_hash_rejects_unsupported_languages():
         review_story_input_hash(
             contract_version=REVIEW_STORY_CONTRACT_VERSION,
             target_language="fr",
-            feedback_language="ja",
+            feedback_language="de",
             terms=(),
         )
 

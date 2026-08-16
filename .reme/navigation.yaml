@@ -5,18 +5,19 @@ documents:
     lifecycle: decision
 
   - path: docs/HANDOFF.md
-    read_when: 需要恢复当前分支、部署状态、架构约束与已知陷阱时
+    read_when: 需要恢复当前分支或部署状态时；只读当前快照，跳过历史内容
     role: progress
     authority: approved
 
   - path: docs/BACKLOG.md
-    read_when: 需要选择下一项工作、判断反馈是否推迟，或确认 SessionPad 探索边界时
+    read_when: 需要选择未完成工作或确认延期事项时
     role: plan
-    status: stale
+    status: current
 
   - path: docs/PROGRESS.md
-    read_when: 需要追溯里程碑、历史验证结果或旧上下文归档位置时
+    read_when: 需要追溯里程碑或历史验证结果时；默认跳过，不作为当前状态
     role: progress
+    status: historical
 
   - path: docs/deploy-closed-beta.md
     read_when: 获得明确批准后，需要部署开放注册代码、执行发布检查、后续开启或回滚时

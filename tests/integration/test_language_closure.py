@@ -1,6 +1,6 @@
 """ui-rescope step4d 语言闭环补全：加词中心默认 / 造句 / stats 都跟当前语言。
 
-之前漏：切俄语→设置也切俄语（状态写对），但加词默认仍法语、造句仍法语、stats「开始
+之前漏：切语言→设置也切该语言（状态写对），但加词默认仍法语、造句仍法语、stats「开始
 复习」跳法语。本组验证当前语言闭环覆盖到这三处。
 """
 import re
@@ -19,14 +19,13 @@ def _switch(client, code):
 
 
 def test_add_center_defaults_to_current_language(app, client, bypass_engine):
-    """切到俄语后，加词中心语言下拉默认选俄语（不是硬编码法语）。"""
+    """切到韩语后，加词中心语言下拉默认选韩语（不是硬编码法语）。"""
     provision_user(app, "lc1@t.com", PW)
     login(client, "lc1@t.com", PW)
-    _switch(client, "ru")
+    _switch(client, "ko")
     page = client.get("/words/add").get_data(as_text=True)
-    # 加词中心 LanguageChoiceForm 渲染的 ru option 带 selected 标记
-    # （WTForms 顺序：`selected value="ru"`，hidden base 切换器 form 不渲染 select）
-    assert ('selected value="ru"' in page) or ('value="ru" selected' in page)
+    # 加词中心 LanguageChoiceForm 渲染的 ko option 带 selected 标记
+    assert ('selected value="ko"' in page) or ('value="ko" selected' in page)
 
 
 def test_stats_filtered_by_current_language(app, client, bypass_engine):

@@ -12,17 +12,18 @@ from app.services import llm
 from app.services.review_stories import (
     DailyReviewStorySummary,
     ReviewStoryTermSnapshot,
+    SUPPORTED_FEEDBACK_LANGUAGES,
+    SUPPORTED_TARGET_LANGUAGES,
 )
 
 
 _LANGUAGE_NAMES = {
-    "fr": "French",
-    "en": "English",
-    "ja": "Japanese",
-    "de": "German",
-    "es": "Spanish",
-    "ru": "Russian",
     "zh": "Chinese",
+    "en": "English",
+    "fr": "French",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "es": "Spanish",
 }
 _COMMON_APOSTROPHES = str.maketrans(
     {"’": "'", "‘": "'", "ʼ": "'", "＇": "'"}
@@ -30,6 +31,7 @@ _COMMON_APOSTROPHES = str.maketrans(
 _WHITESPACE = re.compile(r"\s+")
 _HAN = re.compile(r"[\u3400-\u9fff]")
 _JAPANESE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff]")
+_HANGUL = re.compile(r"[\uac00-\ud7af]")
 _CYRILLIC = re.compile(r"[\u0400-\u04ff]")
 _LATIN_CHAR = re.compile(r"[A-Za-z\u00c0-\u024f]")
 _HTML_TAG = re.compile(r"<[^>]+>")
@@ -89,6 +91,10 @@ def build_review_story_messages(
     terms: tuple[ReviewStoryTermSnapshot, ...],
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Build the deterministic, provider-safe review-story request."""
+    if target_language not in SUPPORTED_TARGET_LANGUAGES:
+        raise ValueError(f"unsupported target language: {target_language!r}")
+    if feedback_language not in SUPPORTED_FEEDBACK_LANGUAGES:
+        raise ValueError(f"unsupported feedback language: {feedback_language!r}")
     if not 3 <= len(terms) <= 5:
         raise ValueError("review story requires 3 to 5 terms")
     expected_keys = [f"t{i}" for i in range(1, len(terms) + 1)]
@@ -149,51 +155,111 @@ def build_review_story_messages(
     )
 
 
+def build_review_story_repair_messages(
+    messages: tuple[dict[str, str], dict[str, str]],
+    *,
+    error_code: str,
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Add one bounded repair instruction without echoing provider output."""
+    return (
+        *messages,
+        {
+            "role": "user",
+            "content": (
+                "Your previous response failed the JSON contract with error "
+                f"{error_code!r}. Regenerate the complete response now. Return "
+                "JSON only with exactly the requested fields. Every input key "
+                "must appear exactly once, and each target_form and "
+                "translation_form must be copied as an exact contiguous phrase "
+                "from the target and translated text of that same sentence. "
+                "Do not explain the repair and do not use Markdown."
+            ),
+        },
+    )
+
+
 def generate_review_story_once(
     summary: DailyReviewStorySummary,
 ) -> ReviewStoryAttemptResult:
-    """Make exactly one logical provider attempt with no database side effects."""
+    """Make one bounded logical generation attempt with no DB side effects."""
     terms = tuple(target.snapshot for target in summary.targets)
     messages = build_review_story_messages(
         target_language=summary.target_language,
         feedback_language=summary.feedback_language,
         terms=terms,
     )
-    try:
-        provider_result = llm.chat(messages, task="general", json_mode=True)
-    except llm.AllProvidersDown:
+    expected_keys = tuple(term.key for term in terms)
+    prompt_tokens = 0
+    completion_tokens = 0
+    last_provider = None
+    last_model = None
+    last_error = None
+    request_messages = messages
+    excluded_provider_names: set[str] = set()
+
+    # Initial generation + one same-chain repair + one alternate-provider
+    # attempt at most.  Contract failures do not open the transport breaker,
+    # so the final attempt explicitly excludes the last provider.
+    for attempt_index in range(3):
+        try:
+            kwargs = {"task": "general", "json_mode": True}
+            if excluded_provider_names:
+                kwargs["excluded_provider_names"] = excluded_provider_names
+            provider_result = llm.chat(request_messages, **kwargs)
+        except llm.AllProvidersDown:
+            if last_error is not None:
+                break
+            return ReviewStoryAttemptResult(
+                story=None,
+                error_code="provider_unavailable",
+                prompt_tokens=0,
+                completion_tokens=0,
+                provider=None,
+                model=None,
+            )
+
+        prompt_tokens += provider_result.prompt_tokens
+        completion_tokens += provider_result.completion_tokens
+        last_provider = provider_result.provider or last_provider
+        last_model = provider_result.model or last_model
+        try:
+            story = validate_review_story_result(
+                provider_result.content,
+                target_language=summary.target_language,
+                feedback_language=summary.feedback_language,
+                expected_keys=expected_keys,
+            )
+        except ReviewStoryContractError as exc:
+            last_error = exc.code
+            if attempt_index == 0:
+                request_messages = build_review_story_repair_messages(
+                    messages,
+                    error_code=exc.code,
+                )
+            elif attempt_index == 1:
+                request_messages = build_review_story_repair_messages(
+                    messages,
+                    error_code=exc.code,
+                )
+                if provider_result.provider:
+                    excluded_provider_names = {provider_result.provider}
+            continue
         return ReviewStoryAttemptResult(
-            story=None,
-            error_code="provider_unavailable",
-            prompt_tokens=0,
-            completion_tokens=0,
-            provider=None,
-            model=None,
+            story=story,
+            error_code=None,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            provider=last_provider,
+            model=last_model,
         )
 
-    try:
-        story = validate_review_story_result(
-            provider_result.content,
-            target_language=summary.target_language,
-            feedback_language=summary.feedback_language,
-            expected_keys=tuple(term.key for term in terms),
-        )
-    except ReviewStoryContractError as exc:
-        return ReviewStoryAttemptResult(
-            story=None,
-            error_code=exc.code,
-            prompt_tokens=provider_result.prompt_tokens,
-            completion_tokens=provider_result.completion_tokens,
-            provider=provider_result.provider,
-            model=provider_result.model,
-        )
     return ReviewStoryAttemptResult(
-        story=story,
-        error_code=None,
-        prompt_tokens=provider_result.prompt_tokens,
-        completion_tokens=provider_result.completion_tokens,
-        provider=provider_result.provider,
-        model=provider_result.model,
+        story=None,
+        error_code=last_error or "provider_unavailable",
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        provider=last_provider,
+        model=last_model,
     )
 
 
@@ -338,6 +404,8 @@ def _matches_writing_system(value: str, language: str) -> bool:
         return bool(_HAN.search(value))
     if language == "ja":
         return bool(_JAPANESE.search(value))
+    if language == "ko":
+        return bool(_HANGUL.search(value))
     if language == "ru":
         return bool(_CYRILLIC.search(value))
     if language not in {"fr", "en", "de", "es"}:

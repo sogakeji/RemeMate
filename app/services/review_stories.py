@@ -23,9 +23,9 @@ from app.services.timeutil import local_day_window_utc, utc_now
 
 REVIEW_STORY_CONTRACT_VERSION = "review_story_v1"
 SUPPORTED_TARGET_LANGUAGES = frozenset(
-    {"fr", "en", "ja", "de", "es", "ru", "zh"}
+    {"fr", "en", "ja", "ko", "es", "zh"}
 )
-SUPPORTED_FEEDBACK_LANGUAGES = frozenset({"zh", "fr", "en"})
+SUPPORTED_FEEDBACK_LANGUAGES = frozenset({"zh", "en", "fr", "ja", "ko", "es"})
 VALID_REVIEW_GRADES = frozenset({2, 3, 5})
 VALID_REVIEW_SOURCES = frozenset({"review", "bark"})
 ELIGIBILITY_SILENT = "silent"

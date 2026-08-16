@@ -12,11 +12,10 @@ import json
 from dataclasses import dataclass, field
 
 from app.services import llm
+from app.services.languages import AI_LANGUAGE_NAMES
 
-LANG_NAMES = {"fr": "法语", "en": "英语", "ja": "日语", "de": "德语",
-              "es": "西班牙语", "ru": "俄语", "zh": "中文"}
-
-FEEDBACK_LANG_NAMES = {"zh": "中文", "fr": "法语", "en": "英语"}
+LANG_NAMES = dict(AI_LANGUAGE_NAMES)
+FEEDBACK_LANG_NAMES = dict(AI_LANGUAGE_NAMES)
 
 
 @dataclass

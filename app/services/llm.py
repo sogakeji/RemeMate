@@ -162,7 +162,13 @@ def get_chain(task):
     return reg.get(task, reg.get("general", []))
 
 
-def chat(messages, *, task="general", json_mode=False) -> LLMResult:
+def chat(
+    messages,
+    *,
+    task="general",
+    json_mode=False,
+    excluded_provider_names=None,
+) -> LLMResult:
     """统一入口：按 task 的 provider 链做 failover，返回 LLMResult。"""
     chain = get_chain(task)
     if not chain:
@@ -170,7 +176,10 @@ def chat(messages, *, task="general", json_mode=False) -> LLMResult:
 
     started = time.time()
     last_err = None
+    excluded_provider_names = set(excluded_provider_names or ())
     for provider in chain:
+        if provider.name in excluded_provider_names:
+            continue
         if _breaker.is_open(provider.name):
             continue
         remaining = TOTAL_DEADLINE - (time.time() - started)

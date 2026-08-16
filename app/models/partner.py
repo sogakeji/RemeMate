@@ -19,12 +19,12 @@ class LanguagePartner(db.Model):
         db.Index("ix_language_partners_user_updated", "user_id", "updated_at"),
         db.CheckConstraint(
             "native_language_code IS NULL OR "
-            "native_language_code IN ('fr','en','ja','de','es','ru','zh')",
+            "native_language_code IN ('fr','en','ja','ko','de','es','ru','zh')",
             name="ck_language_partners_native_language",
         ),
         db.CheckConstraint(
             "learning_language_code IS NULL OR "
-            "learning_language_code IN ('fr','en','ja','de','es','ru','zh')",
+            "learning_language_code IN ('fr','en','ja','ko','de','es','ru','zh')",
             name="ck_language_partners_learning_language",
         ),
         db.CheckConstraint(

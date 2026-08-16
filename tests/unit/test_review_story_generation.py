@@ -72,9 +72,8 @@ def test_build_messages_for_french_story_with_chinese_feedback():
         ("fr", "French"),
         ("en", "English"),
         ("ja", "Japanese"),
-        ("de", "German"),
+        ("ko", "Korean"),
         ("es", "Spanish"),
-        ("ru", "Russian"),
         ("zh", "Chinese"),
     ],
 )
@@ -84,6 +83,9 @@ def test_build_messages_for_french_story_with_chinese_feedback():
         ("zh", "Chinese"),
         ("fr", "French"),
         ("en", "English"),
+        ("ja", "Japanese"),
+        ("ko", "Korean"),
+        ("es", "Spanish"),
     ],
 )
 def test_build_messages_supports_contract_languages(
@@ -615,7 +617,7 @@ def test_generate_once_calls_general_json_mode_and_returns_usage(monkeypatch):
     )
     calls = []
 
-    def fake_chat(messages, *, task, json_mode):
+    def fake_chat(messages, *, task, json_mode, **kwargs):
         calls.append((messages, task, json_mode))
         return LLMResult(raw, 17, 23, "fake", "fake-model")
 
@@ -696,11 +698,11 @@ def test_generate_once_degrades_when_all_providers_are_down(monkeypatch):
     assert attempt.model is None
 
 
-def test_generate_once_returns_invalid_result_usage_without_second_call(monkeypatch):
+def test_generate_once_repairs_invalid_result_with_bounded_retry(monkeypatch):
     calls = []
 
-    def fake_chat(messages, *, task, json_mode):
-        calls.append((messages, task, json_mode))
+    def fake_chat(messages, *, task, json_mode, **kwargs):
+        calls.append((messages, task, json_mode, kwargs))
         return LLMResult("not json", 17, 23, "fake", "fake-model")
 
     monkeypatch.setattr(generation.llm, "chat", fake_chat)
@@ -728,13 +730,74 @@ def test_generate_once_returns_invalid_result_usage_without_second_call(monkeypa
 
     attempt = generate_review_story_once(summary)
 
-    assert len(calls) == 1
+    assert len(calls) == 3
     assert attempt.story is None
     assert attempt.error_code == "invalid_json"
-    assert attempt.prompt_tokens == 17
-    assert attempt.completion_tokens == 23
+    assert attempt.prompt_tokens == 51
+    assert attempt.completion_tokens == 69
     assert attempt.provider == "fake"
     assert attempt.model == "fake-model"
+    assert calls[2][3]["excluded_provider_names"] == {"fake"}
+
+
+def test_generate_once_returns_repaired_story_and_aggregated_usage(monkeypatch):
+    repaired = json.dumps(
+        {
+            "title": {"target": "Un jour heureux", "translation": "快乐的一天"},
+            "sentences": [
+                {
+                    "target": "Je quitte la maison.",
+                    "translation": "我离开房子。",
+                    "terms": [
+                        {"key": "t1", "target_form": "maison", "translation_form": "房子"},
+                        {"key": "t2", "target_form": "quitte", "translation_form": "离开"},
+                    ],
+                },
+                {
+                    "target": "Je suis heureux.",
+                    "translation": "我很高兴。",
+                    "terms": [{"key": "t3", "target_form": "heureux", "translation_form": "高兴"}],
+                },
+                {"target": "Le soleil brille.", "translation": "阳光明媚。", "terms": []},
+                {"target": "Je rentre.", "translation": "我回去了。", "terms": []},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    responses = iter([
+        LLMResult("not json", 17, 23, "fake", "fake-model"),
+        LLMResult(repaired, 19, 29, "fake", "fake-model"),
+    ])
+
+    def fake_chat(messages, *, task, json_mode):
+        return next(responses)
+
+    monkeypatch.setattr(generation.llm, "chat", fake_chat)
+    snapshots = (
+        ReviewStoryTermSnapshot("t1", "maison", "n.", "房子"),
+        ReviewStoryTermSnapshot("t2", "partir", "v.", "离开"),
+        ReviewStoryTermSnapshot("t3", "heureux", "adj.", "高兴"),
+    )
+    summary = DailyReviewStorySummary(
+        user_id=1,
+        local_date=date(2026, 7, 24),
+        day_start_utc=datetime(2026, 7, 23, 16),
+        day_end_utc=datetime(2026, 7, 24, 16),
+        target_language="fr",
+        feedback_language="zh",
+        reviewed_word_count=10,
+        forgotten_word_count=3,
+        eligibility="normal",
+        targets=tuple(ReviewStoryTarget(index, 2, snapshot) for index, snapshot in enumerate(snapshots, start=1)),
+        input_hash="a" * 64,
+    )
+
+    attempt = generate_review_story_once(summary)
+
+    assert attempt.story is not None
+    assert attempt.error_code is None
+    assert attempt.prompt_tokens == 36
+    assert attempt.completion_tokens == 52
 
 
 def test_validate_normalizes_nfkc_case_whitespace_and_apostrophes():

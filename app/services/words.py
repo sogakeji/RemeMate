@@ -25,21 +25,16 @@ from app.models.word import WordList, Word, Definition, ReviewLog
 from app.models.intake import IntakeSource, WordCandidate
 from app.models.reading import ReadingDocument
 from app.services import srs
+from app.services.languages import AI_LANGUAGE_NAMES, KNOWN_LANGUAGE_NAMES
 from app.services.timeutil import next_midnight_utc, today_local_start_utc, utc_now
 
 
 # language_code → 隐式词表的内部 name（用户不可见；不展示、不让改名）。
-_LANGUAGE_NAMES = {
-    "fr": "法语", "en": "英语", "ja": "日语",
-    "de": "德语", "es": "西语", "ru": "俄语",
-    "zh": "中文",
-}
-
-_FEEDBACK_LANGUAGE_NAMES = {
-    "zh": "中文",
-    "fr": "法语",
-    "en": "英语",
-}
+# New user-facing vocabulary and AI choices.  Keep the private known map
+# below for reading legacy de/ru rows without exposing them as new choices.
+_LANGUAGE_NAMES = dict(AI_LANGUAGE_NAMES)
+_KNOWN_LANGUAGE_NAMES = dict(KNOWN_LANGUAGE_NAMES)
+_FEEDBACK_LANGUAGE_NAMES = dict(AI_LANGUAGE_NAMES)
 
 _PUSH_NOTIFY_FIELDS = {
     "notify_review_reminder",
@@ -69,7 +64,7 @@ def review_attempt_version(due_at: datetime) -> str:
 
 
 def _language_name(language_code: str) -> str:
-    return _LANGUAGE_NAMES.get(language_code, language_code)
+    return _KNOWN_LANGUAGE_NAMES.get(language_code, language_code)
 
 
 def _feedback_language_name(language_code: str | None) -> str:
@@ -91,7 +86,7 @@ def get_or_create_language_list(user_id: int, language_code: str) -> WordList:
     不变量：每 (user_id, language_code) 零或一张词表。复用现有那张不另建，
     避免导入/设语言反复建表。name 存内部语言名（如「法语」），用户不可见。
     """
-    if language_code not in _LANGUAGE_NAMES:
+    if language_code not in _KNOWN_LANGUAGE_NAMES:
         raise ValueError(f"未知语言 code：{language_code!r}")
     wl = (WordList.query
           .filter_by(user_id=user_id, language_code=language_code)
@@ -118,7 +113,7 @@ def _parse_learning(raw: str | None) -> list[str]:
     """users.learning_languages 逗号串 → code 列表（去重保序、过滤非法）。"""
     if not raw:
         return []
-    return [c for c in (s.strip() for s in raw.split(",")) if c in _LANGUAGE_NAMES]
+    return [c for c in (s.strip() for s in raw.split(",")) if c in _KNOWN_LANGUAGE_NAMES]
 
 
 def _serialize_learning(codes: list[str]) -> str | None:
@@ -172,7 +167,7 @@ def set_current_language(user_id: int, language_code: str) -> str:
     不变量：current_language 必须是 learning_languages 子集。该语言若不在学集合，
     一并加入（用户在首页切语言即默认「在学」），保证首切不卡。
     """
-    if language_code not in _LANGUAGE_NAMES:
+    if language_code not in _KNOWN_LANGUAGE_NAMES:
         raise ValueError(f"未知语言 code：{language_code!r}")
     u = db.session.get(User, user_id)
     if u is None:

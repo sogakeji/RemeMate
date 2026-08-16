@@ -2,12 +2,9 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Length
 
+from app.services.languages import AI_LANGUAGE_NAMES
 
-LANG_CHOICES = [
-    ("fr", "法语"), ("en", "英语"), ("ja", "日语"),
-    ("de", "德语"), ("es", "西语"), ("ru", "俄语"),
-    ("zh", "中文"),
-]
+LANG_CHOICES = list(AI_LANGUAGE_NAMES.items())
 
 
 class NewListForm(FlaskForm):

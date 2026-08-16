@@ -49,11 +49,11 @@ class ReviewStoryRun(db.Model):
             name="ck_review_story_runs_attempt_version",
         ),
         db.CheckConstraint(
-            "target_language IN ('fr','en','ja','de','es','ru','zh')",
+            "target_language IN ('fr','en','ja','ko','de','es','ru','zh')",
             name="ck_review_story_runs_target_language",
         ),
         db.CheckConstraint(
-            "feedback_language IN ('zh','fr','en')",
+            "feedback_language IN ('zh','fr','en','ja','ko','es')",
             name="ck_review_story_runs_feedback_language",
         ),
         db.CheckConstraint(
