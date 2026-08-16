@@ -5,6 +5,7 @@ description: 一名设计学生用语法书、词汇和沉浸把自己的英语�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 自学英语, 留学, 语法与沉浸
 date: 2026-08-16
+visible_from: 2026-08-18
 published: true
 indexable: false
 image: public/blog/three-shelves-toward-japan/three-shelves-toward-japan.jpg

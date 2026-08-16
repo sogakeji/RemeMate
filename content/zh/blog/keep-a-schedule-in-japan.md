@@ -5,6 +5,7 @@ description: 住在日本的加拿大女孩 Maddie，把初级日语当成另一
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 自学日语, 汉字, 语言学习计划
 date: 2026-08-16
+visible_from: 2026-08-31
 published: true
 indexable: false
 image: public/blog/keep-a-schedule-in-japan/keep-a-schedule-in-japan.jpg

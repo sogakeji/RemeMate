@@ -5,6 +5,7 @@ description: Zoe 如何把语言学习放进工作、读博、做饭和走路之
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 语言学习习惯, 全职工作中的语言学习
 date: 2026-08-16
+visible_from: 2026-08-17
 published: true
 indexable: false
 image: public/blog/between-the-sink-and-the-page/between-the-sink-and-the-page.jpg

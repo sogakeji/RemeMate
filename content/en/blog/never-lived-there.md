@@ -5,6 +5,7 @@ description: Nate acquires English from Netflix and YouTube without ever living 
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, learning from TV shows, shadowing, self-taught English
 date: 2026-08-16
+visible_from: 2026-08-28
 published: true
 indexable: false
 image: public/blog/never-lived-there/never-lived-there.jpg

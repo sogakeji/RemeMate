@@ -5,6 +5,7 @@ description: Pearly treats English as a lazy, low-stress practice, then walks a 
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, lazy language learning, zero-stress learning, self-taught English
 date: 2026-08-16
+visible_from: 2026-08-21
 published: true
 indexable: false
 image: public/blog/zero-stress-in-six-rooms/zero-stress-in-six-rooms.jpg

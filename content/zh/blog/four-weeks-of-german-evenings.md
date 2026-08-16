@@ -5,6 +5,7 @@ description: 苏黎世的投资教练把为期四周的德语课加进全职工�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 德语 B1, 强化课程, 全职工作中学德语
 date: 2026-08-16
+visible_from: 2026-08-26
 published: true
 indexable: false
 image: public/blog/four-weeks-of-german-evenings/four-weeks-of-german-evenings.jpg

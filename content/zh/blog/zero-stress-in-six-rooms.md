@@ -5,6 +5,7 @@ description: Pearly 把英语当成懒惰、低压力的练习，再带着镜头
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 轻松学语言, 零压力学习, 自学英语
 date: 2026-08-16
+visible_from: 2026-08-21
 published: true
 indexable: false
 image: public/blog/zero-stress-in-six-rooms/zero-stress-in-six-rooms.jpg

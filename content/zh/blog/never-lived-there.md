@@ -5,6 +5,7 @@ description: Nate 从未在英语国家住过，却靠 Netflix 和 YouTube 习�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 用剧学语言, 影子跟读, 自学英语
 date: 2026-08-16
+visible_from: 2026-08-28
 published: true
 indexable: false
 image: public/blog/never-lived-there/never-lived-there.jpg

@@ -5,6 +5,7 @@ description: Weronika leaves Polish classroom English behind and learns to speak
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, learning English on YouTube, learning by traveling, real conversations
 date: 2026-08-16
+visible_from: 2026-08-25
 published: true
 indexable: false
 image: public/blog/school-failed-me-on-the-road/school-failed-me-on-the-road.jpg

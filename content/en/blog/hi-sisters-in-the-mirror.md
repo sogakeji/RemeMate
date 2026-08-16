@@ -5,6 +5,7 @@ description: A student failed by school English learns to talk by retelling vlog
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, self-taught English, output practice, learning from vlogs
 date: 2026-08-16
+visible_from: 2026-08-24
 published: true
 indexable: false
 image: public/blog/hi-sisters-in-the-mirror/hi-sisters-in-the-mirror.jpg

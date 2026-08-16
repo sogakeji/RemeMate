@@ -5,6 +5,7 @@ description: Emi learns fluent Mandarin on her own by starting with tones, then 
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, self-taught Mandarin, Chinese tones, learning from TV shows
 date: 2026-08-16
+visible_from: 2026-08-20
 published: true
 indexable: false
 image: public/blog/tones-before-the-variety-show/tones-before-the-variety-show.jpg

@@ -5,6 +5,7 @@ description: Emi 自学流利普通话：先把声调当作地基，再让播客
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 自学普通话, 中文声调, 用电视剧学语言
 date: 2026-08-16
+visible_from: 2026-08-20
 published: true
 indexable: false
 image: public/blog/tones-before-the-variety-show/tones-before-the-variety-show.jpg

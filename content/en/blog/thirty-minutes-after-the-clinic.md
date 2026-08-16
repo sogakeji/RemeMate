@@ -5,6 +5,7 @@ description: A dietitian tries to keep Korean alive in thirty-minute pockets aft
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, Korean study, learning with a full-time job, Anki
 date: 2026-08-16
+visible_from: 2026-08-19
 published: true
 indexable: false
 image: public/blog/thirty-minutes-after-the-clinic/thirty-minutes-after-the-clinic.jpg

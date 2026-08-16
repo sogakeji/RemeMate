@@ -5,6 +5,7 @@ description: A Zurich investment coach adds a four-week German course to a full-
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, German B1, intensive course, learning German with a full-time job
 date: 2026-08-16
+visible_from: 2026-08-26
 published: true
 indexable: false
 image: public/blog/four-weeks-of-german-evenings/four-weeks-of-german-evenings.jpg

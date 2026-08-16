@@ -5,6 +5,7 @@ description: Maddie, a Canadian living in Japan, treats beginner Japanese as ano
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, self-study Japanese, kanji, language study schedule
 date: 2026-08-16
+visible_from: 2026-08-31
 published: true
 indexable: false
 image: public/blog/keep-a-schedule-in-japan/keep-a-schedule-in-japan.jpg

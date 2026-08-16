@@ -5,6 +5,7 @@ description: 一位营养师试着在全职工作的一周里，用每天三十�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 韩语学习, 全职工作中的语言学习, Anki
 date: 2026-08-16
+visible_from: 2026-08-19
 published: true
 indexable: false
 image: public/blog/thirty-minutes-after-the-clinic/thirty-minutes-after-the-clinic.jpg

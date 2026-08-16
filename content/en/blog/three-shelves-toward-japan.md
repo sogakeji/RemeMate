@@ -5,6 +5,7 @@ description: A design student builds English from grammar books, vocabulary, and
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, self-taught English, study abroad, grammar and immersion
 date: 2026-08-16
+visible_from: 2026-08-18
 published: true
 indexable: false
 image: public/blog/three-shelves-toward-japan/three-shelves-toward-japan.jpg

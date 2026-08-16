@@ -5,6 +5,7 @@ description: How Zoe keeps several languages alive in the leftover minutes of wo
 series: multi-lingual and their ways of learning
 keywords: language learning, multilingual learning, polyglot, language study habits, learning languages with a full-time job
 date: 2026-08-16
+visible_from: 2026-08-17
 published: true
 indexable: false
 image: public/blog/between-the-sink-and-the-page/between-the-sink-and-the-page.jpg

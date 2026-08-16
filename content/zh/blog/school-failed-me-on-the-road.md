@@ -5,6 +5,7 @@ description: Weronika 把波兰课堂英语抛在身后，从 YouTube、旅行�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 用 YouTube 学英语, 旅行中学语言, 真实对话
 date: 2026-08-16
+visible_from: 2026-08-25
 published: true
 indexable: false
 image: public/blog/school-failed-me-on-the-road/school-failed-me-on-the-road.jpg

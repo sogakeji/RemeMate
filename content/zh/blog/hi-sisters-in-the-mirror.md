@@ -5,6 +5,7 @@ description: 一个被学校英语耽误的学生，靠复述 vlog、对着镜�
 series: multi-lingual and their ways of learning
 keywords: 语言学习, 多语言学习, 多语者, 自学英语, 输出练习, 用 vlog 学英语
 date: 2026-08-16
+visible_from: 2026-08-24
 published: true
 indexable: false
 image: public/blog/hi-sisters-in-the-mirror/hi-sisters-in-the-mirror.jpg
