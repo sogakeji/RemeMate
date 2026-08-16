@@ -86,6 +86,17 @@ content/
 
 进程内缓存文件内容；测试可注入临时目录。不要按请求读盘后拼 HTML 却无测试。
 
+### 定时公开字段
+
+批量预置文章时保留 `date` 作为文章发布日期/内容日期，不复用它控制显示。新增独立字段 `visible_from`：
+
+```yaml
+date: 2026-08-10
+visible_from: 2026-08-16
+```
+
+`visible_from` 不晚于站点业务日期时，文章才出现在 Blog 列表、可访问并可进入 sitemap；未来文章返回 404。`Article` JSON-LD 的 `datePublished` 继续使用 `date`。站点业务日期统一使用 `Asia/Shanghai`，具体实现需补定向测试。
+
 ## 页面与 SEO 契约
 
 公开内容页使用独立轻量布局，不套登录后 `base.html` 导航。每页必须有：

@@ -76,6 +76,25 @@ def test_lists_published_placeholder_but_not_indexable(catalog):
     assert [item.path for item in urls] == ["/", "/login", "/register"]
 
 
+def test_future_visible_from_post_is_hidden(tmp_path):
+    _write_tree(tmp_path)
+    for locale in ("en", "zh"):
+        blog = tmp_path / locale / "blog"
+        (blog / "scheduled.md").write_text(
+            "---\ntitle: Scheduled\nslug: scheduled\ndescription: scheduled\n"
+            "date: 2026-08-14\nvisible_from: 2099-01-01\n"
+            "published: true\nindexable: true\n---\n\nLater.\n",
+            encoding="utf-8",
+        )
+    content.configure_content_root(tmp_path)
+    try:
+        assert content.get_published_post("en", "scheduled") is None
+        assert all(post.slug != "scheduled" for post in content.list_published_posts("en"))
+        assert all("scheduled" not in item.path for item in content.iter_indexable_urls(registration_enabled=False))
+    finally:
+        content.configure_content_root(None)
+
+
 def test_unpublished_post_is_absent(tmp_path):
     _write_tree(
         tmp_path,

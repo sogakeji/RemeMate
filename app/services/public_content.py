@@ -6,14 +6,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from html import escape
 from pathlib import Path, PurePosixPath
 import re
+from zoneinfo import ZoneInfo
 
 LOCALES = ("en", "zh")
 DEFAULT_LOCALE = "en"
 HTML_LANG = {"en": "en", "zh": "zh-Hans"}
+_BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 _REPO_CONTENT_ROOT = Path(__file__).resolve().parents[2] / "content"
 _REPO_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
@@ -63,6 +65,7 @@ class Post:
     series: str | None
     keywords: tuple[str, ...]
     date: date
+    visible_from: date | None
     updated: date | None
     published: bool
     indexable: bool
@@ -79,6 +82,7 @@ class PostSummary:
     description: str
     series: str | None
     date: date
+    visible_from: date | None
     indexable: bool
 
 
@@ -128,12 +132,22 @@ def public_path(kind: str, locale: str, slug: str | None = None) -> str:
     raise PublicContentError(f"unknown public path kind: {kind}")
 
 
+def _business_date() -> date:
+    return datetime.now(_BUSINESS_TIMEZONE).date()
+
+
+def _is_visible(post: Post) -> bool:
+    return post.published and (
+        post.visible_from is None or post.visible_from <= _business_date()
+    )
+
+
 def list_published_posts(locale: str) -> list[PostSummary]:
     locale = _require_locale(locale)
     posts = [
         post
         for (post_locale, _slug), post in _catalog().posts.items()
-        if post_locale == locale and post.published
+        if post_locale == locale and _is_visible(post)
     ]
     posts.sort(key=lambda post: (post.date, post.slug), reverse=True)
     return [
@@ -144,6 +158,7 @@ def list_published_posts(locale: str) -> list[PostSummary]:
             description=post.description,
             series=post.series,
             date=post.date,
+            visible_from=post.visible_from,
             indexable=post.indexable,
         )
         for post in posts
@@ -153,7 +168,7 @@ def list_published_posts(locale: str) -> list[PostSummary]:
 def get_published_post(locale: str, slug: str) -> Post | None:
     locale = _require_locale(locale)
     post = _catalog().posts.get((locale, slug))
-    if post is None or not post.published:
+    if post is None or not _is_visible(post):
         return None
     return post
 
@@ -187,14 +202,14 @@ def iter_indexable_urls(*, registration_enabled: bool) -> list[IndexableUrl]:
 
     seen_slugs: set[str] = set()
     for (_locale, slug), post in _catalog().posts.items():
-        if slug in seen_slugs or not post.published or not post.indexable:
+        if slug in seen_slugs or not _is_visible(post) or not post.indexable:
             continue
         pair = {
             locale: _catalog().posts.get((locale, slug))
             for locale in LOCALES
         }
         if not all(
-            other is not None and other.published and other.indexable
+            other is not None and _is_visible(other) and other.indexable
             for other in pair.values()
         ):
             continue
@@ -356,6 +371,7 @@ def _load_post(locale: str, path: Path) -> Post:
         series=_optional_text(meta, "series"),
         keywords=_optional_keywords(meta, path),
         date=_required_date(meta, "date", path),
+        visible_from=_optional_date(meta, "visible_from", path),
         updated=_optional_date(meta, "updated", path),
         published=published,
         indexable=indexable,
