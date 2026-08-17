@@ -1,0 +1,23 @@
+RemeMate sentence-writing scheduling release evidence
+
+release_commit=6281293a20bfb4657f42561218743b364c2a4234
+release_branch=fix/sentence-writing-schedule-refresh
+
+staging:
+- TDD red: 1 failed, 29 deselected
+- write integration after fix: 30 passed
+- adjacent SRS/task regression: 44 passed, 1 warning
+- real HTTP login -> provider correction -> save -> next recommendation: PASS
+- temporary staging account and data: cleaned
+
+production:
+- preflight worktree: clean at 7479d44
+- pre-deploy PostgreSQL dump and release bundle: validated
+- flask doctor --strict: PASS; migrations=e8f9a0b1c2d3
+- deployed HEAD: 6281293a20bfb4657f42561218743b364c2a4234
+- service: active
+- internal and public /healthz: 200 / 200
+- post-deploy error journal: empty
+- pg_stat_user_tables counts: unchanged before and after
+
+RESULT: PASS

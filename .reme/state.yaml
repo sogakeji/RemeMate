@@ -1,10 +1,10 @@
 workspace:
   git_root: .
 checkpoint:
-  recorded_at_head: b87c7094af806387bafdbb82c9bc523abae3ae51
-  recorded_at_branch: master
-  worktree_fingerprint: aa2006ba5340c61570cec8d8f866a9ee1a0b83635d1fbd7894dd7c9ad03aeb48
-  phase: SEO1 merged to master, staging verified and stopped
+  recorded_at_head: 6281293a20bfb4657f42561218743b364c2a4234
+  recorded_at_branch: fix/sentence-writing-schedule-refresh
+  worktree_fingerprint: pending-final-docs-commit
+  phase: sentence scheduling fix deployed to production and verified
 maintenance:
   status: current
   reasons: []

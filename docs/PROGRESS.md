@@ -262,3 +262,11 @@
 - 部署前代码备份 `/home/ubuntu/rememate-backups/rememate-code-before-sessionpad-20260731-225753.tgz`（SHA-256 `0760d7b0a6d40b3945a25c39eab288adca3f6295af7fc3e87f0c0315297d8635`），数据库备份 `/home/ubuntu/rememate-backups/rememate-db-before-sessionpad-20260731-225753.dump`（SHA-256 `514465aae48c1ca432ed1cbd61a4dee6d69225f937ce7a90f68fafbb1c7039e2`）。
 - strict doctor、服务重启、内外网健康、首页、journal 均通过；部署前后核心计数一致：用户 6、词条 160、输出 1、伙伴 5、复盘 6、反馈包 6、候选来源 15、候选词 203、故事运行 1、漏斗事件 7。
 - 生产只读 SessionPad 冒烟通过（真实复盘页 200、候选入口和专属 accept/ignore 路由可见/注册）；未开始 observation dashboard。GCP 全量为 **660 passed, 16 warnings**。
+
+### 2026-08-17：造句保存后单词调度刷新修复与生产发布
+
+- 公测人测确认：保存一句造句后，下一次推荐仍是同一个单词，跨天刷新也不变化。根因是保存路径只写入 `output_entries`，没有调用现有 SRS 调度和 `review_logs` 记录。
+- 在 `fix/sentence-writing-schedule-refresh` 分支按 TDD 修复：保存成功后用统一时间调用现有 SRS `q=5` 调度，并写入来源为 `write` 的复习日志；新增回归断言保存后下一次 `/write` 推荐切换且旧词不再出现。
+- 新云机隔离 staging：先以测试断言得到 **1 failed, 29 deselected**，实现后造句集成 **30 passed**；与 SRS/任务相邻回归合计 **44 passed, 1 warning**。真实 HTTP 流程完成登录、真实 provider 批改、保存及推荐切换，临时账号与数据已清理。全量 `pytest -q` 在 120 秒上限内未产出断言结果并超时，未留下残余进程。
+- 发布提交 `6281293a20bfb4657f42561218743b364c2a4234` 已推送到 `origin/fix/sentence-writing-schedule-refresh`，生产 `/srv/rememate` 从 `7479d44` 更新到该提交；本轮未合并或更新 `origin/master`。
+- 发布前 PostgreSQL 备份已验证，位于 `/home/ubuntu/rememate-deploy-backups/20260817-081832-pre-6281293`。未触碰生产 `.env`、`.venv`、数据库内容或 `/srv/rememate-data`；本次无迁移。`flask doctor --strict`、服务、内外网健康检查和错误日志检查通过，发布前后业务表计数一致。

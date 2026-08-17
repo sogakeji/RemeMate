@@ -1,6 +1,6 @@
 # RemeMate HANDOFF
 
-> 当前快照：2026-08-16 · `master` · HEAD `4a579315`
+> 当前快照：2026-08-17 · 发布锚点 `fix/sentence-writing-schedule-refresh@6281293`
 
 ## 读取规则
 
@@ -12,8 +12,12 @@
 
 ## 当前状态
 
-- 本地 `master` 与生产 `/srv/rememate` 已对齐 `4a579315`；生产原有代码工作树改动已先备份，
-  再按本地版本更新。未触碰 `.env`、`.venv`、数据库或 `/srv/rememate-data`。
+- 修复分支 `fix/sentence-writing-schedule-refresh` 已推送到 origin，发布锚点为
+  `6281293a20bfb4657f42561218743b364c2a4234`；生产 `/srv/rememate` 的 `master` 已部署同一提交。
+  本地 `master` 与 `origin/master` 仍为 `7479d44`，本轮未执行 merge。
+- 生产原有代码工作树在发布前为干净状态；发布前 PostgreSQL 与发布 bundle 备份位于
+  `/home/ubuntu/rememate-deploy-backups/20260817-081832-pre-6281293`。未触碰 `.env`、`.venv`、
+  数据库内容或 `/srv/rememate-data`，本轮无迁移。
 - 生产对外公测已获得批准；现有 `OPEN_REGISTRATION_ENABLED="true"` 为已授权状态，公开注册入口
   HTTPS 冒烟返回 200。
 - 产品界面只支持简体中文、英语；AI 支持中文、英文、法语、日语、韩语、西班牙语；德语、
@@ -24,6 +28,10 @@
   `/home/ubuntu/rememate-deploy-backups/20260816-225055-pre-4a57931`；迁移前后业务表行数记录一致。
 - 生产现有 `.env` 中 `OPEN_REGISTRATION_ENABLED="true"`，本次未修改；该配置已获对外公测批准。
 
+- 造句保存后单词调度已修复：保存成功会更新现有 SRS 调度并写入 `write` 来源复习日志，下一次
+  `/write` 推荐切换到下一个词。生产发布后 `flask doctor --strict`、服务 active、内外网
+  `/healthz` 200、错误日志为空，发布前后业务表计数一致。
+
 ## 最近验证
 
 - 六种 AI 语言的一键填充、例句、学习笔记均真实调用 provider 并通过。
@@ -31,12 +39,15 @@
 - 复习小故事的真实 provider 复测中，英文、日文、韩文、西班牙文通过；中文、法文在有界
   重试后仍出现 `invalid_schema`，韩文观察到首次失败后重试成功的波动。生产已按明确批准部署，
   但短故事暂不能宣称六语种稳定可用。
-- 新云机相关定向测试：**101 passed, 2 deselected**。
+- 新云机造句相关定向测试：造句集成 **30 passed**；与 SRS/任务相邻回归合计 **44 passed, 1 warning**；
+  真实 HTTP provider 流程通过且临时账号已清理。全量 `pytest -q` 在 120 秒上限内超时但未产出
+  断言失败，未留下残余进程。
 
 ## 下一步与边界
 
-- 下一项是 [`docs/BACKLOG.md`](./BACKLOG.md) 中的“Review Story 多语言稳定性二次优化”；
-  先补失败回归和脱敏观测，再重跑六语种 staging smoke。
+- 下一项仍是 [`docs/BACKLOG.md`](./BACKLOG.md) 中的“Review Story 多语言稳定性二次优化”；
+  先补失败回归和脱敏观测，再重跑六语种 staging smoke。造句修复分支当前只完成发布，尚未合并
+  到 `master`。
 - 生产部署必须保留数据库备份、迁移检查、`flask doctor --strict`、服务/HTTPS/日志和数据保留检查；
   对外公测期间继续关注注册邮件投递和异常流量。
 - 架构与部署规则分别见 [`docs/arch/`](./arch/)、[`docs/deploy-closed-beta.md`](./deploy-closed-beta.md)

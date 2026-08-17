@@ -32,3 +32,15 @@ evidence:
     command: python -m pytest --noconftest -q tests/unit/test_public_content.py; staging HTTP smoke
     result: exit_code_0
     supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
+
+  - claim: Sentence save reschedules the recommended word and the release passed staging and production checks
+    status: verified
+    verified_at_head: 6281293a20bfb4657f42561218743b364c2a4234
+    verified_on_branch: fix/sentence-writing-schedule-refresh
+    covers:
+      - app/services/writing.py
+      - tests/integration/test_write.py
+      - app/services/srs.py
+    source: .reme/evidence/sentence-writing-20260817.txt
+    command: staging targeted pytest and real HTTP smoke; production flask doctor, service, health, log, and data-count checks
+    result: exit_code_0
