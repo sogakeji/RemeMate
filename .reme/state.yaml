@@ -3,7 +3,7 @@ workspace:
 checkpoint:
   recorded_at_head: 6281293a20bfb4657f42561218743b364c2a4234
   recorded_at_branch: fix/sentence-writing-schedule-refresh
-  worktree_fingerprint: pending-final-docs-commit
+  worktree_fingerprint: 115fd8921329a5dd770966e50660df41ca94fba0c85f314963a4653a8880d2ca
   phase: sentence scheduling fix deployed to production and verified
 maintenance:
   status: current
