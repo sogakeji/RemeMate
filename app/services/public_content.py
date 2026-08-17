@@ -44,6 +44,7 @@ class ImageAsset:
 class QaItem:
     question: str
     answer: str
+    answer_html: str = ""
     images: tuple[ImageAsset, ...] = ()
 
 
@@ -327,13 +328,27 @@ def _load_qa(locale: str, path: Path) -> QaPage:
         if not isinstance(item, dict):
             raise PublicContentError(f"{path} items must be mappings")
         question = _required_text(item, "question", path)
-        answer = _required_text(item, "answer", path)
+        raw_answer = _required_text(item, "answer", path)
+        answer_html = (
+            render_limited_markdown(raw_answer, image_scope=f"public/qa/{locale}")
+            if raw_answer.strip()
+            else ""
+        )
+        # JSON-LD / page text: drop inline-image syntax, keep the wording.
+        answer_plain = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", raw_answer).strip()
         images = _parse_images(
             item.get("images", []),
             f"public/qa/{locale}",
             path,
         )
-        items.append(QaItem(question=question, answer=answer, images=images))
+        items.append(
+            QaItem(
+                question=question,
+                answer=answer_plain,
+                answer_html=answer_html,
+                images=images,
+            )
+        )
     return QaPage(
         locale=locale,
         title=_required_text(data, "title", path),
@@ -445,6 +460,10 @@ def _parse_item_list(lines: list[str], start: int) -> tuple[list[dict], int]:
             if ":" not in rest:
                 raise PublicContentError(f"invalid YAML list item: {raw}")
             key, value = rest.split(":", 1)
+            if value.strip() in ("", "|"):
+                block, index = _read_block_value(lines, index + 1, raw)
+                current[key.strip()] = block
+                continue
             current[key.strip()] = _parse_scalar(value.strip())
         elif current is not None and stripped == "images:":
             images, index = _parse_nested_image_list(lines, index + 1)
@@ -452,6 +471,10 @@ def _parse_item_list(lines: list[str], start: int) -> tuple[list[dict], int]:
             continue
         elif current is not None and stripped and ":" in stripped:
             key, value = stripped.split(":", 1)
+            if value.strip() in ("", "|"):
+                block, index = _read_block_value(lines, index + 1, raw)
+                current[key.strip()] = block
+                continue
             current[key.strip()] = _parse_scalar(value.strip())
         else:
             raise PublicContentError(f"invalid YAML list continuation: {raw}")
@@ -459,6 +482,40 @@ def _parse_item_list(lines: list[str], start: int) -> tuple[list[dict], int]:
     if not items:
         raise PublicContentError("items list is empty")
     return items, index
+
+
+def _read_block_value(lines: list[str], start: int, raw: str) -> tuple[str, int]:
+    """Read an indented block scalar (``key: |``) into a multi-line string.
+
+    The block's base indent is taken from its first non-blank line; lines
+    indented at or deeper than that belong to the value. Blank lines inside
+    the block are kept so markdown paragraphs survive.
+    """
+    parts: list[str] = []
+    base: int | None = None
+    index = start
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip():
+            parts.append("")
+            index += 1
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if base is None:
+            if indent < 3:
+                raise PublicContentError(
+                    f"block value after {raw!r} must be indented deeper than its key"
+                )
+            base = indent
+        if indent < base:
+            break
+        parts.append(line[base:])
+        index += 1
+    while parts and not parts[-1].strip():
+        parts.pop()
+    if not parts or not any(part.strip() for part in parts):
+        raise PublicContentError(f"block value after {raw!r} must not be empty")
+    return "\n".join(parts), index
 
 
 def _parse_nested_image_list(lines: list[str], start: int) -> tuple[list[dict], int]:

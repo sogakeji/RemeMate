@@ -248,3 +248,81 @@ def test_public_routes_render_placeholders(public_client):
     assert "/qa" not in sitemap.get_data(as_text=True)
     assert "Disallow: /words" in robots.get_data(as_text=True)
     assert 'name="robots" content="noindex"' not in login_page.get_data(as_text=True)
+
+
+# ---- 多段 Markdown 答案（block scalar）----
+
+QA_BLOCK = """title: Sample Q&A
+description: Sample description
+indexable: false
+items:
+  - question: How do I add a word?
+    answer: |
+      **In one sentence**
+
+      Collect what you actually meet.
+
+      - catch a few words
+      - review them later
+
+      ![Add word screen](public/qa/en/add.webp)
+"""
+
+
+def test_qa_block_answer_renders_markdown(tmp_path):
+    (tmp_path / "en" / "blog").mkdir(parents=True)
+    (tmp_path / "en" / "qa.yaml").write_text(QA_BLOCK, encoding="utf-8")
+    static = tmp_path / "static"
+    image = static / "public" / "qa" / "en"
+    image.mkdir(parents=True)
+    (image / "add.webp").write_bytes(b"image")
+    content.configure_content_root(tmp_path)
+    content.configure_static_root(static)
+    try:
+        item = content.get_qa_page("en").items[0]
+        assert "<strong>In one sentence</strong>" in item.answer_html
+        assert "<ul>" in item.answer_html
+        assert '<img src="/static/public/qa/en/add.webp"' in item.answer_html
+        # JSON-LD plain text keeps wording but drops the inline image syntax
+        assert "Collect what you actually meet" in item.answer
+        assert "![Add word screen]" not in item.answer
+        assert "add.webp" not in item.answer
+    finally:
+        content.configure_content_root(None)
+        content.configure_static_root(None)
+
+
+def test_qa_block_answer_rejects_anchor_links(tmp_path):
+    (tmp_path / "en" / "blog").mkdir(parents=True)
+    (tmp_path / "en" / "qa.yaml").write_text(
+        "title: FAQ\ndescription: D\nindexable: false\n"
+        "items:\n  - question: Q?\n    answer: |\n      See the section below.\n\n"
+        "      More in [8.6](#86-troubleshooting).\n",
+        encoding="utf-8",
+    )
+    content.configure_content_root(tmp_path)
+    try:
+        with pytest.raises(content.PublicContentError):
+            content.get_qa_page("en")
+    finally:
+        content.configure_content_root(None)
+
+
+def test_qa_block_answer_rejects_out_of_scope_image(tmp_path):
+    (tmp_path / "en" / "blog").mkdir(parents=True)
+    (tmp_path / "en" / "qa.yaml").write_text(
+        "title: FAQ\ndescription: D\nindexable: false\n"
+        "items:\n  - question: Q?\n    answer: |\n      ![x](public/blog/demo/x.webp)\n",
+        encoding="utf-8",
+    )
+    static = tmp_path / "static"
+    (static / "public" / "blog" / "demo").mkdir(parents=True)
+    (static / "public" / "blog" / "demo" / "x.webp").write_bytes(b"x")
+    content.configure_content_root(tmp_path)
+    content.configure_static_root(static)
+    try:
+        with pytest.raises(content.PublicContentError):
+            content.get_qa_page("en")
+    finally:
+        content.configure_content_root(None)
+        content.configure_static_root(None)

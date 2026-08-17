@@ -24,8 +24,11 @@ def test_public_placeholder_pages_are_previewable_and_not_indexed(client):
 
     qa_page = qa.get_data(as_text=True)
     assert "FAQPage" in qa_page
-    assert "Is this the finished FAQ?" in qa_page
-    assert "这是最终的常见问题页吗" in zh_qa.get_data(as_text=True)
+    assert "RemeMate FAQ" in qa_page
+    assert "1.1 What is RemeMate" in qa_page
+    assert "<strong>In one sentence</strong>" in qa_page
+    assert "这是" in zh_qa.get_data(as_text=True)
+    assert "<strong>一句话结论</strong>" in zh_qa.get_data(as_text=True)
     assert "Article" in post.get_data(as_text=True)
     assert "Why word lists fail" in listing.get_data(as_text=True)
     assert "为什么背完词表还是不会用" in zh_listing.get_data(as_text=True)

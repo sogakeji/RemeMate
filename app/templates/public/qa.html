@@ -5,7 +5,7 @@
 {% for item in page.items %}
 <section class="item">
   <h2>{{ item.question }}</h2>
-  <p>{{ item.answer }}</p>
+  <div class="qa-answer">{{ item.answer_html|safe }}</div>
   {% for image in item.images %}
   <figure class="content-figure">
     <img src="{{ url_for('static', filename=image.src) }}" alt="{{ image.alt }}" loading="lazy">
