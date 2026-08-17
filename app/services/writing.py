@@ -11,11 +11,12 @@ import random
 from sqlalchemy import case
 
 from app.extensions import db
-from app.models.word import WordList, Word
+from app.models.word import WordList, Word, ReviewLog
 from app.models.output import OutputEntry
 from app.services import correction as correction_svc
 from app.services import moderation as moderation_svc
 from app.services import quota as quota_svc
+from app.services import srs
 from app.services.timeutil import utc_now
 from app.services.words import get_word
 
@@ -216,6 +217,7 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
     if word is None:
         return None
     wl = db.session.get(WordList, word.list_id)
+    now = utc_now()
     has_error = bool(pending.get("has_error"))   # 提交时已算好（见 write 路由）
     entry = OutputEntry(
         word_id=word_id, user_id=user_id,
@@ -228,9 +230,18 @@ def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:
         has_error=has_error,
         is_nsfw=bool(pending.get("is_nsfw", True)),
         is_public=False,
-        created_at=utc_now(),
+        created_at=now,
     )
     db.session.add(entry)
+    srs.grade(word, 5, now=now)
+    db.session.add(ReviewLog(
+        word_id=word.id,
+        user_id=user_id,
+        ts=word.last_review,
+        grade=5,
+        source="write",
+        interval_after=word.interval,
+    ))
     db.session.commit()
     return entry
 

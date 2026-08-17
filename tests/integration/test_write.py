@@ -517,6 +517,37 @@ def test_compose_prioritizes_due_lapses(app, client, bypass_engine, fake_llm):
     assert '<select name="word_id"' not in page
 
 
+def test_saving_sentence_refreshes_recommended_word(
+        app, client, bypass_engine, fake_llm):
+    _, first_wid = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/words/add", json={"language_code": "fr", "word": "steady",
+                                    "definitions": [{"meaning": "稳定"}]})
+    with bypass_engine.connect() as c:
+        second_wid = c.execute(text(
+            "SELECT id FROM words WHERE word='steady'"
+        )).scalar_one()
+        c.execute(text(
+            "UPDATE words SET due_date='2020-01-01' WHERE id=:wid"
+        ), {"wid": first_wid})
+        c.execute(text(
+            "UPDATE words SET due_date='2020-01-02' WHERE id=:wid"
+        ), {"wid": second_wid})
+        c.commit()
+
+    first_page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{first_wid}"' in first_page
+
+    client.post("/write/submit", data={
+        "word_id": first_wid,
+        "sentence": "Un essai.",
+    })
+    client.post("/write/save")
+
+    refreshed_page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{second_wid}"' in refreshed_page
+    assert f'name="word_id" value="{first_wid}"' not in refreshed_page
+
+
 def test_target_word_not_used_flagged(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     fake_llm["content"] = ('{"corrected":"x","translation":"t","target_word_used":false,'
