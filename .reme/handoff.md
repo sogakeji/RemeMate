@@ -1,16 +1,14 @@
 # Current handoff
 
-> handoff@4a579315 · phase: public beta approved and production verified · checked: 2026-08-16
+> handoff@03a2851 · phase: 专栏去 AI 味完成并提交 · checked: 2026-08-17
 
-- 当前目标：完成语言支持收敛；保留已完成的 AI 语言功能修复；下一阶段处理 Review Story 多语言稳定性二次优化。
-- 当前状态：本地 `master` 与生产 `/srv/rememate` 均已对齐 `4a579315`；产品界面仅支持简体中文/英语，AI 支持中文/英文/法语/日语/韩语/西班牙语，阅读器仅支持中文/英语/法语/日语，德语/俄语仅保留历史兼容并从新入口隐藏。
-- 生产迁移：已升级至 `e8f9a0b1c2d3`；`flask doctor --strict`、服务 active、内网 `/healthz` 200、公网 HTTPS `/healthz` 200，部署后的错误日志为空。
-- 数据保全：迁移前 PostgreSQL `rememate` 已生成并验证备份，备份目录为 `/home/ubuntu/rememate-deploy-backups/20260816-225055-pre-4a57931`；迁移前后业务表行数记录一致，未触碰 `.env`、`.venv`、数据库或 `/srv/rememate-data`。
-- 生产原有代码工作树已按本地权威版本更新；更新前的 tracked/untracked 改动已保存在上述备份目录，未纳入当前版本的登录初始化文件也未写入仓库。
-- 生产 `.env` 的 `OPEN_REGISTRATION_ENABLED="true"` 已获得对外公测批准，本次未修改；注册邮件配置已通过 `flask doctor --strict`，公开注册入口 HTTPS 冒烟返回 200。
-- AI 真实复测：一键填充/例句/笔记六语种全通过；造句批改六语种全通过；复习小故事英文、日文、韩文、西班牙文通过，中文/法文在有界重试后仍有 `invalid_schema`，韩文存在首次失败后重试成功的波动。生产已按明确批准发布，但暂不能宣称短故事六语种稳定可用。
-- 下一动作：按 [docs/BACKLOG.md](../docs/BACKLOG.md) 的“Review Story 多语言稳定性二次优化”建立独立修复切片；先补细分错误码、单 provider 重试、脱敏观测和 fake-provider 回归，再重跑六语种 staging smoke。
-- 工作树纪律：保留现有用户改动，不 reset、stash、覆盖、merge、push 或部署；修改项目文件前先运行 `git status --short --branch`，并将当前 HEAD 与本 handoff 锚点比较。
+- 当前目标：让 11 篇语言学习专栏（en/zh 各 11 篇）读起来像人写的；内容改动已提交但未部署。
+- 当前阶段：`1_humanizer` 技能已安装（`~/.pi/agent/skills/1_humanizer`）；11 篇专栏正文重写完成并提交为 `03a2851`，frontmatter、事实、日期、来源链接原样保留；生产 `/srv/rememate` 仍为 `4a579315`，本地领先生产 9 个提交且未部署。
+- 下一动作：按 [docs/BACKLOG.md](../docs/BACKLOG.md) 的"Review Story 多语言稳定性二次优化"建立独立修复切片（细分错误码、单 provider 重试、脱敏观测、fake-provider 回归），再重跑六语种 staging smoke。
+- 阻塞项：本地未部署的 9 个提交（含专栏内容与 FAQ/SEO 发布）是否需要上线，需用户明确部署批准 → 裁定依据：docs/deploy-closed-beta.md 与 docs/HANDOFF.md
+- 权威规格：[AGENTS.md](../AGENTS.md)
+- 当前计划：[docs/plans/2026-08-14-public-seo-content.md](../docs/plans/2026-08-14-public-seo-content.md)
+- 详细进度：[docs/PROGRESS.md](../docs/PROGRESS.md) · 部署状态：[docs/HANDOFF.md](../docs/HANDOFF.md)
 - 文档导航：[navigation.yaml](./navigation.yaml)
 - 证据账本：[evidence.yaml](./evidence.yaml)
 - 状态快照：[state.yaml](./state.yaml)

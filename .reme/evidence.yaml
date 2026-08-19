@@ -32,3 +32,35 @@ evidence:
     command: python -m pytest --noconftest -q tests/unit/test_public_content.py; staging HTTP smoke
     result: exit_code_0
     supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
+
+  - claim: 11 篇专栏文章（en/zh 各 11 篇）经 1_humanizer 技能重写并提交；正文去除破折号、伪深刻句、三连排比与碎片句，frontmatter、事实、日期、来源链接原样保留
+    status: verified
+    verified_at_head: 03a2851
+    verified_on_branch: master
+    covers:
+      - content/en/blog/between-the-sink-and-the-page.md
+      - content/en/blog/four-weeks-of-german-evenings.md
+      - content/en/blog/hi-sisters-in-the-mirror.md
+      - content/en/blog/keep-a-schedule-in-japan.md
+      - content/en/blog/never-lived-there.md
+      - content/en/blog/pockets-in-a-nine-to-five.md
+      - content/en/blog/school-failed-me-on-the-road.md
+      - content/en/blog/thirty-minutes-after-the-clinic.md
+      - content/en/blog/three-shelves-toward-japan.md
+      - content/en/blog/tones-before-the-variety-show.md
+      - content/en/blog/zero-stress-in-six-rooms.md
+      - content/zh/blog/between-the-sink-and-the-page.md
+      - content/zh/blog/four-weeks-of-german-evenings.md
+      - content/zh/blog/hi-sisters-in-the-mirror.md
+      - content/zh/blog/keep-a-schedule-in-japan.md
+      - content/zh/blog/never-lived-there.md
+      - content/zh/blog/pockets-in-a-nine-to-five.md
+      - content/zh/blog/school-failed-me-on-the-road.md
+      - content/zh/blog/thirty-minutes-after-the-clinic.md
+      - content/zh/blog/three-shelves-toward-japan.md
+      - content/zh/blog/tones-before-the-variety-show.md
+      - content/zh/blog/zero-stress-in-six-rooms.md
+    source: git:03a2851
+    command: git diff --check; git diff -U0 校验 frontmatter 字段无变更; grep 抽查关键事实与来源链接仍存在
+    result: exit_code_0
+    supports: docs/plans/2026-08-14-public-seo-content.md
