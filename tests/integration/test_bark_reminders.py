@@ -131,7 +131,7 @@ def test_review_reminder_cli_is_idempotent_for_same_local_day(
     assert second.exit_code == 0
     assert "sent=1" in first.output
     assert "sent=0" in second.output
-    assert "duplicates=1" in second.output
+    assert "no_due=1" in second.output
     assert len(calls) == 1
 
 
