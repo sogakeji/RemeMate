@@ -144,3 +144,14 @@ evidence:
   command: grok 在 tencent-new 跑 pytest（4 条 + unit + review_story* + write）
   result: exit_code_0
   supports: tests/
+- claim: Bark 推送两个修复已部署生产：①timer OnCalendar 改为每 2 小时整点（00,02,...,22:00）并重装生效；②build_review_reminder_payload
+    正文移除释义/例句（防剧透），保留词+语言+通用提醒+待复习数；tencent-new 验证定向 15 passed、全量 284 passed 无失败；生产
+    timer 下次触发 18:00，手动重跑 duplicates=1 幂等
+  status: verified
+  verified_at_head: d583df7
+  verified_on_branch: master
+  source: git:d583df7
+  command: grok 在 tencent-new 跑 pytest；ssh tencent-old 重装 timer + systemd-analyze
+    + doctor + 手动 service 运行 + psql push_log
+  result: exit_code_0
+  supports: docs/deploy-bark-timer.md

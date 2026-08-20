@@ -4,8 +4,8 @@ workspace:
 checkpoint:
   recorded_at_head: 7daee60c662648b2a1221fa1ed0100709f41040d
   recorded_at_branch: master
-  worktree_fingerprint: cf6f53681f85378f9c9e5b6ddcb46641908bcac2b9c412a2f89cf4697fb382a6
-  phase: 清理 4 条失败测试完成；本地与生产对齐（master 3e9f0f3）
+  worktree_fingerprint: 26223df66bf0c87ccddf0626db39aebda5ae4766086113e0ccb4af65f778a383
+  phase: Bark 推送节奏(2h)与正文(无翻译)修复已部署；本地与生产对齐
 
 maintenance:
   status: current
