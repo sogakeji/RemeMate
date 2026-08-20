@@ -84,9 +84,8 @@ def run_bark_from_database(
     """Run one Bark heartbeat using the BYPASSRLS dispatch connection.
 
     ``send_review_reminders`` already contains the due-word query, Bark
-    payload, URL validation, and push-log idempotency. The temporary views
-    below scope that existing batch-shaped service to one eligible user per
-    callback without changing its sending logic.
+    payload, URL validation, and push-log idempotency. The user snapshot is
+    taken before dispatch, and every user's work is committed independently.
     """
     dispatch_database_url = (
         dispatch_database_url or os.environ.get("DISPATCH_DATABASE_URL")
@@ -98,21 +97,23 @@ def run_bark_from_database(
 
     engine = create_engine(dispatch_database_url, pool_pre_ping=True)
     try:
-        with engine.begin() as conn:
-            users = get_active_bark_users(conn)
+        with engine.connect() as conn:
+            with conn.begin():
+                users = get_active_bark_users(conn)
 
             def send_review_reminder(user, *, dry_run):
-                return _send_one_user(
-                    conn,
-                    user,
-                    now_utc=now_utc,
-                    limit_per_user=limit_per_user,
-                    dry_run=dry_run,
-                    post=post,
-                    secret_key=secret_key,
-                    public_base_url=public_base_url,
-                    send_review_reminders=notifications.send_review_reminders,
-                )
+                with conn.begin():
+                    return _send_one_user(
+                        conn,
+                        user,
+                        now_utc=now_utc,
+                        limit_per_user=limit_per_user,
+                        dry_run=dry_run,
+                        post=post,
+                        secret_key=secret_key,
+                        public_base_url=public_base_url,
+                        send_review_reminders=notifications.send_review_reminders,
+                    )
 
             return run_bark(
                 users,
@@ -135,49 +136,17 @@ def _send_one_user(
     public_base_url: str | None,
     send_review_reminders: Callable[..., object],
 ) -> object:
-    """Invoke the existing notification service with one user in scope."""
-    _set_user_scope(conn, user.id)
-    try:
-        return send_review_reminders(
-            conn,
-            now_utc=now_utc,
-            limit_per_user=limit_per_user,
-            dry_run=dry_run,
-            post=post,
-            secret_key=secret_key,
-            public_base_url=public_base_url,
-        )
-    finally:
-        _clear_user_scope(conn)
-
-
-def _set_user_scope(conn, user_id: int) -> None:
-    """Scope the existing unparameterized user query to one user.
-
-    The dispatch role intentionally bypasses application RLS. Temporary views
-    keep the service's existing SQL reusable while ensuring each per-user
-    invocation sees only its selected ``users`` and ``user_settings`` rows.
-    """
-    _clear_user_scope(conn)
-    conn.execute(text(
-        """
-        CREATE TEMP VIEW users AS
-        SELECT * FROM public.users WHERE id = :user_id
-        """
-    ), {"user_id": user_id})
-    conn.execute(text(
-        """
-        CREATE TEMP VIEW user_settings AS
-        SELECT * FROM public.user_settings WHERE user_id = :user_id
-        """
-    ), {"user_id": user_id})
-    conn.execute(text("SET LOCAL search_path TO pg_temp, public"))
-
-
-def _clear_user_scope(conn) -> None:
-    conn.execute(text(
-        "DROP VIEW IF EXISTS pg_temp.users, pg_temp.user_settings"
-    ))
+    """Invoke the existing notification service for one explicit user."""
+    return send_review_reminders(
+        conn,
+        now_utc=now_utc,
+        limit_per_user=limit_per_user,
+        dry_run=dry_run,
+        post=post,
+        secret_key=secret_key,
+        public_base_url=public_base_url,
+        user_id=user.id,
+    )
 
 
 def _positive_limit(value: str) -> int:
