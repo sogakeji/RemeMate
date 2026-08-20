@@ -180,3 +180,65 @@ def test_review_reminder_scope_uses_user_id_and_local_day(
             """
         ), {"key": f"{uid}:review:{word_id}:2026-07-09"}).fetchone()
     assert row == (uid, f"{uid}:review:{word_id}:2026-07-09")
+
+
+def test_bark_runner_rolls_back_only_the_user_with_sql_failure(
+        bypass_engine, app, monkeypatch):
+    uid_a = provision_user(app, "dispatch-a@t.com", "pw12345678")
+    uid_b = provision_user(app, "dispatch-b@t.com", "pw12345678")
+    uid_c = provision_user(app, "dispatch-c@t.com", "pw12345678")
+    for uid in (uid_a, uid_b, uid_c):
+        _make_due_word(bypass_engine, uid)
+        _configure_bark(bypass_engine, uid)
+
+    class Resp:
+        status_code = 200
+
+    calls = []
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (None, None, None, None, ("43.155.109.24", 443))
+        ],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append((url, json, timeout, allow_redirects))
+        return Resp()
+
+    monkeypatch.setattr(notifications.requests, "post", fake_post)
+    real_sender = notifications.send_review_reminders
+
+    def fail_b_only(conn, **kwargs):
+        user_id = kwargs.get("user_id")
+        assert user_id is not None
+        if user_id == uid_b:
+            conn.execute(text(
+                "SELECT missing_dispatch_column FROM users"
+            ))
+        return real_sender(conn, **kwargs)
+
+    monkeypatch.setattr(notifications, "send_review_reminders", fail_b_only)
+    from dispatch.runner import run_bark_from_database
+
+    stats = run_bark_from_database(
+        now_utc=datetime(2026, 7, 9, 12, 0, 0),
+        secret_key="test-secret",
+        public_base_url="https://rememate.test",
+        post=fake_post,
+    )
+
+    assert stats.users_seen == 3
+    assert stats.sent == 2
+    assert stats.failed == 1
+    assert len(calls) == 2
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            """
+            SELECT user_id
+            FROM push_log
+            ORDER BY user_id
+            """
+        )).fetchall()
+    assert [row[0] for row in rows] == [uid_a, uid_c]
