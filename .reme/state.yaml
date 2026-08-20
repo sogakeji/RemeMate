@@ -2,10 +2,10 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: e699f8805600ecb82227bd34e8dfba1b1afaa8e4
+  recorded_at_head: 7daee60c662648b2a1221fa1ed0100709f41040d
   recorded_at_branch: master
-  worktree_fingerprint: eefaca37d9af512c820e427a3e806a8c2c18be61404ea95a8b37f3e742a5b1f3
-  phase: 生产已部署 e699f88（/write 目标词轮换）并验证；本地与生产对齐
+  worktree_fingerprint: fa1380993aeff6fb11d1afcbaa1ed7341a2ce38847bb1dee31ca8cfef2876317
+  phase: Bark 定时推送已上线生产并真实推送验证；本地与生产对齐
 
 maintenance:
   status: current

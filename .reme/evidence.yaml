@@ -118,3 +118,12 @@ evidence:
     command: ssh tencent-old 部署检查命令；psql 模拟 get_practice_words 验证目标词轮换；backfill CLI dry-run/apply
     result: exit_code_0
     supports: docs/deploy-closed-beta.md
+
+  - claim: Bark 定时推送上线生产并验证：分支 feat/bark-scheduled-push 经 grok 审查（初审 BLOCKER+MAJOR → codex 返工 → 二审通过）后合并 master；部署 7daee60（dispatch/runner.py + systemd 单元 + docs）；真实生产密钥下 systemd 服务跑通 users=1 sent=1（shinypig88/biographie，push_log 4:review:159:2026-08-20），重跑 sent=0 duplicates=1 幂等；rememate-bark.timer 已 enable；tencent-new 重测 dispatch 7/7 passed、全量回归无新增失败
+    status: verified
+    verified_at_head: 7daee60
+    verified_on_branch: master
+    source: git:7daee60
+    command: grok 审查与 tencent-new 测试；ssh tencent-old 安装 timer 与 systemd 服务实跑；psql 查 push_log
+    result: exit_code_0
+    supports: docs/deploy-bark-timer.md
