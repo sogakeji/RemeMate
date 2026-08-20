@@ -64,3 +64,39 @@ evidence:
     command: git diff --check; git diff -U0 校验 frontmatter 字段无变更; grep 抽查关键事实与来源链接仍存在
     result: exit_code_0
     supports: docs/plans/2026-08-14-public-seo-content.md
+
+  - claim: 第二轮去 AI 味：grok headless 逐篇审查全部 13 篇文章（en/zh 各 13 篇），按审查重写；去掉伪深刻格言、not-X-but-Y、拟人、三连排比、自我指涉与抒情收尾，事实/链接/frontmatter 保留，仅两篇基准文章的 description 按审查重写
+    status: verified
+    verified_at_head: 7d61aa9
+    verified_on_branch: master
+    covers:
+      - content/en/blog/between-the-sink-and-the-page.md
+      - content/en/blog/four-weeks-of-german-evenings.md
+      - content/en/blog/hi-sisters-in-the-mirror.md
+      - content/en/blog/keep-a-schedule-in-japan.md
+      - content/en/blog/language-exchange-notes.md
+      - content/en/blog/never-lived-there.md
+      - content/en/blog/pockets-in-a-nine-to-five.md
+      - content/en/blog/school-failed-me-on-the-road.md
+      - content/en/blog/thirty-minutes-after-the-clinic.md
+      - content/en/blog/three-shelves-toward-japan.md
+      - content/en/blog/tones-before-the-variety-show.md
+      - content/en/blog/why-word-lists-fail.md
+      - content/en/blog/zero-stress-in-six-rooms.md
+      - content/zh/blog/between-the-sink-and-the-page.md
+      - content/zh/blog/four-weeks-of-german-evenings.md
+      - content/zh/blog/hi-sisters-in-the-mirror.md
+      - content/zh/blog/keep-a-schedule-in-japan.md
+      - content/zh/blog/language-exchange-notes.md
+      - content/zh/blog/never-lived-there.md
+      - content/zh/blog/pockets-in-a-nine-to-five.md
+      - content/zh/blog/school-failed-me-on-the-road.md
+      - content/zh/blog/thirty-minutes-after-the-clinic.md
+      - content/zh/blog/three-shelves-toward-japan.md
+      - content/zh/blog/tones-before-the-variety-show.md
+      - content/zh/blog/why-word-lists-fail.md
+      - content/zh/blog/zero-stress-in-six-rooms.md
+    source: git:7d61aa9
+    command: grok -p 逐篇审查（humanizer 35 模式）输出到 /tmp/grok-reviews/; git diff --check; python 校验 zh description 均为中文、frontmatter 其余字段无变更
+    result: exit_code_0
+    supports: docs/plans/2026-08-14-public-seo-content.md
