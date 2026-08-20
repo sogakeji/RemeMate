@@ -1,12 +1,13 @@
 from pathlib import Path
 
 
-def test_bark_systemd_units_define_quarter_hour_dispatch():
+def test_bark_systemd_units_define_two_hour_dispatch():
     root = Path(__file__).parents[2]
     timer = (root / "deploy/systemd/rememate-bark.timer").read_text(encoding="utf-8")
     service = (root / "deploy/systemd/rememate-bark.service").read_text(encoding="utf-8")
 
-    assert "OnCalendar=*-*-* *:00,15,30,45:00" in timer
+    assert "OnCalendar=*-*-* 00,02,04,06,08,10,12,14,16,18,20,22:00:00" in timer
+    assert "*:00,15,30,45:00" not in timer
     assert "Persistent=true" in timer
     assert "Type=oneshot" in service
     assert "User=ubuntu" in service
