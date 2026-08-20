@@ -90,12 +90,14 @@ def send_review_reminders(
     post=None,
     secret_key: str | None = None,
     public_base_url: str | None = None,
+    user_id: int | None = None,
 ) -> ReviewReminderStats:
     """Send at most ``limit_per_user`` due-word reminders per configured user.
 
     A reminder is idempotent per user + word + user-local date. This allows an
     overdue word to remind again tomorrow while preventing repeated timer runs
-    from sending duplicates on the same day.
+    from sending duplicates on the same day. When ``user_id`` is provided,
+    restrict the otherwise batch-shaped scan to that user.
     """
     if limit_per_user < 1:
         raise ValueError("limit_per_user must be >= 1")
@@ -111,9 +113,10 @@ def send_review_reminders(
           AND s.bark_url IS NOT NULL
           AND s.bark_url <> ''
           AND s.notify_review_reminder = true
+          AND (:user_id IS NULL OR u.id = :user_id)
         ORDER BY u.id
         """
-    )).fetchall()
+    ), {"user_id": user_id}).fetchall()
 
     for user in users:
         stats.users_seen += 1
