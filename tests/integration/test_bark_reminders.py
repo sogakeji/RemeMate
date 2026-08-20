@@ -80,7 +80,7 @@ def test_review_reminder_cli_sends_due_word_and_records_push(
         "json": {
             "title": "maison",
             "subtitle": "法语 · 待复习",
-            "body": "房子",
+            "body": "有单词到期了，回来复习一下。",
             "group": "RemeMate",
             "url": calls[0]["json"]["url"],
         },
@@ -165,9 +165,10 @@ def test_build_review_reminder_payload_includes_due_count():
     assert payload == {
         "title": "maison",
         "subtitle": "法语 · 待复习",
-        "body": "房子\n还有 3 个词待复习。",
+        "body": "有单词到期了，回来复习一下。\n还有 3 个词待复习。",
         "group": "RemeMate",
     }
+    assert "房子" not in payload["body"]
 
 
 def test_bark_review_link_opens_public_card_and_records_grade(
