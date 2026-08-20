@@ -176,7 +176,7 @@ def _add_bark_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--flock-lock",
         nargs="?",
-        const="/tmp/rememate-bark.lock",
+        const="/run/rememate/bark.lock",
         default=None,
         metavar="PATH",
         help="acquire a non-blocking flock before dispatching",

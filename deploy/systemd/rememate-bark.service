@@ -1,6 +1,6 @@
 [Unit]
 Description=RemeMate Bark review reminder dispatch
-After=network-online.target
+After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
@@ -8,4 +8,5 @@ Type=oneshot
 User=ubuntu
 WorkingDirectory=/srv/rememate
 EnvironmentFile=/srv/rememate/.env
-ExecStart=/usr/bin/flock -n /tmp/rememate-bark.lock /srv/rememate/.venv/bin/python -m dispatch.runner bark
+RuntimeDirectory=rememate
+ExecStart=/srv/rememate/.venv/bin/python -u -m dispatch.runner bark --flock-lock /run/rememate/bark.lock
