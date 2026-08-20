@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import argparse
+from contextlib import contextmanager
 import os
 import sys
 from typing import Callable, Iterable
@@ -178,7 +180,118 @@ def _clear_user_scope(conn) -> None:
     ))
 
 
+def _positive_limit(value: str) -> int:
+    limit = int(value)
+    if limit < 1:
+        raise argparse.ArgumentTypeError("limit must be >= 1")
+    return limit
+
+
+def _add_bark_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--limit",
+        type=_positive_limit,
+        default=1,
+        help="maximum due words per user",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="count candidates without sending or writing push_log",
+    )
+    parser.add_argument(
+        "--public-base-url",
+        default=None,
+        help="public site root for review links; defaults to PUBLIC_BASE_URL",
+    )
+    parser.add_argument(
+        "--flock-lock",
+        nargs="?",
+        const="/tmp/rememate-bark.lock",
+        default=None,
+        metavar="PATH",
+        help="acquire a non-blocking flock before dispatching",
+    )
+
+
+def _print_stats(stats: BarkRunStats) -> None:
+    print(
+        "bark reminders: "
+        f"users={stats.users_seen} sent={stats.sent} "
+        f"duplicates={stats.skipped_duplicate} "
+        f"no_due={stats.skipped_no_due} failed={stats.failed}"
+    )
+
+
+def _execute_bark(args: argparse.Namespace) -> int:
+    try:
+        stats = run_bark_from_database(
+            limit_per_user=args.limit,
+            dry_run=args.dry_run,
+            secret_key=os.environ.get("SECRET_KEY"),
+            public_base_url=(
+                args.public_base_url or os.environ.get("PUBLIC_BASE_URL")
+            ),
+        )
+    except Exception as exc:
+        print(f"[dispatch] bark runner failed: {exc}", file=sys.stderr)
+        return 1
+    _print_stats(stats)
+    return 1 if stats.failed else 0
+
+
+@contextmanager
+def _non_blocking_flock(path: str):
+    """Yield whether a Unix flock was acquired."""
+    try:
+        import fcntl
+    except ImportError as exc:
+        raise RuntimeError("--flock-lock is only supported on Unix") from exc
+
+    with open(path, "a+", encoding="utf-8") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Command-line entry point for scheduled dispatch jobs."""
+    parser = argparse.ArgumentParser(description="RemeMate dispatch runner")
+    subparsers = parser.add_subparsers(dest="command")
+    bark_parser = subparsers.add_parser(
+        "bark", help="send due review reminders through Bark"
+    )
+    _add_bark_arguments(bark_parser)
+    args = parser.parse_args(argv)
+
+    if args.command != "bark":
+        parser.print_help(sys.stderr)
+        return 2
+
+    if args.flock_lock:
+        try:
+            with _non_blocking_flock(args.flock_lock) as acquired:
+                if not acquired:
+                    print("[dispatch] bark runner already running")
+                    return 0
+                return _execute_bark(args)
+        except OSError as exc:
+            print(f"[dispatch] cannot acquire flock: {exc}", file=sys.stderr)
+            return 1
+    return _execute_bark(args)
+
+
 def _merge_notification_stats(target: BarkRunStats, result: object) -> None:
     """Merge the existing notification service's result into runner stats."""
     for field in ("sent", "skipped_no_due", "skipped_duplicate", "failed"):
         setattr(target, field, getattr(target, field) + getattr(result, field, 0))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
