@@ -38,11 +38,9 @@ class NotificationError(ValueError):
 def build_review_reminder_payload(row, *, due_count: int,
                                   review_url: str | None = None) -> dict:
     """Build a Bark payload for one due word."""
-    meaning = (row.meaning or "").strip()
-    example = (row.example or "").strip()
-    body = meaning or example or "有单词到期了，回来复习一下。"
+    body = "有单词到期了，回来复习一下。"
     if due_count > 1:
-        body = f"{body}\n还有 {due_count} 个词待复习。"
+        body += f"\n还有 {due_count} 个词待复习。"
     payload = {
         "title": row.word,
         "subtitle": f"{_language_name(row.language_code)} · 待复习",
