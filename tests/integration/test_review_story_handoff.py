@@ -213,7 +213,8 @@ def test_story_handoff_rejects_expired_ready_run(
     with bypass_engine.begin() as connection:
         connection.execute(text(
             "UPDATE review_story_runs "
-            "SET content_expires_at=now() - interval '1 second' "
+            "SET content_expires_at=(now() AT TIME ZONE 'UTC') "
+            "- interval '1 second' "
             "WHERE id=:run_id"
         ), {"run_id": run_id})
 
