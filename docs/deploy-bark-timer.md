@@ -1,8 +1,8 @@
 # RemeMate Bark 定时复习提醒
 
-这两个 systemd 单元负责每 15 分钟运行一次 RemeMate 的 Bark 复习提醒：
+这两个 systemd 单元负责每 2 小时运行一次 RemeMate 的 Bark 复习提醒：
 
-- `rememate-bark.timer`：在每小时的 `:00`、`:15`、`:30`、`:45` 触发，主机离线时由 `Persistent=true` 补跑。
+- `rememate-bark.timer`：在偶数小时整点 `00:00`、`02:00`、…、`22:00` 触发，主机离线时由 `Persistent=true` 补跑。
 - `rememate-bark.service`：以 `ubuntu` 用户运行 `/srv/rememate` 下的 `.venv`，并通过 runner 自带的 flock 防止重叠执行。
 
 推送筛选、dry-run、Bark URL 校验、按用户隔离和幂等均由 `dispatch.runner` 与现有 `send_review_reminders` 负责。幂等记录写入已有的 `push_log`，不创建 `.dispatch_state.json` 或其他状态文件。
