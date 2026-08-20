@@ -2,10 +2,10 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: 7d61aa910b45b817bb2604be7d5574534af00856
+  recorded_at_head: 4ee4cb6c4ee7aa40d8d10bffdc9ff4eba8c72e85
   recorded_at_branch: master
   worktree_fingerprint: 60c2e85117ebf7d0004d963127764479021103181a6d2f3dcb8ad4013e767a26
-  phase: 两轮专栏去 AI 味完成（03a2851 + 7d61aa9）；生产未部署
+  phase: 生产已部署至 4ee4cb6 并验证；本地与生产对齐
 
 maintenance:
   status: current

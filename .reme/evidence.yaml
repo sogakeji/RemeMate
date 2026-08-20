@@ -100,3 +100,12 @@ evidence:
     command: grok -p 逐篇审查（humanizer 35 模式）输出到 /tmp/grok-reviews/; git diff --check; python 校验 zh description 均为中文、frontmatter 其余字段无变更
     result: exit_code_0
     supports: docs/plans/2026-08-14-public-seo-content.md
+
+  - claim: 生产部署 4ee4cb6 完成并验证：备份 pg_dump/release.bundle/status.txt；bundle 快进 da2a41f→4ee4cb6（纯内容+reme）；flask db upgrade 无操作；flask doctor --strict 12 项全 OK；服务重启后 active；内网与公网 HTTPS /healthz 200；/qa、/blog、4 篇中英文章冒烟 200 且返回 humanized 正文；错误日志为空；.env、.venv、/srv/rememate-data 未触碰
+    status: verified
+    verified_at_head: 4ee4cb6
+    verified_on_branch: master
+    source: git:4ee4cb6
+    command: ssh tencent-old 部署与检查命令（见 docs/deploy-closed-beta.md 部署后自检）；curl 公网冒烟
+    result: exit_code_0
+    supports: docs/deploy-closed-beta.md
