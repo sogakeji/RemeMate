@@ -1,129 +1,146 @@
 evidence:
-  - claim: REME checkpoint deterministic checks passed
-    status: claim
-    source: .reme/evidence/checkpoint-c6be3ef.txt
-    command: python inline REME checkpoint checker
-    result: exit_code_0
-
-  - claim: REME reconcile deterministic checks passed
-    status: claim
-    source: .reme/evidence/reconcile-f296cca.txt
-    command: python inline REME reconcile checker
-    result: exit_code_0
-
-  - claim: SEO1 public pages passed targeted unit and staging smoke verification
-    status: verified
-    verified_at_head: b87c7094af806387bafdbb82c9bc523abae3ae51
-    verified_on_branch: master
-    covers:
-      - app/blueprints/public/routes.py
-      - app/services/public_content.py
-      - app/templates/main/landing.html
-      - app/templates/public/base.html
-      - app/templates/public/qa.html
-      - app/templates/public/blog_index.html
-      - app/templates/public/post.html
-      - content/en/qa.yaml
-      - content/zh/qa.yaml
-      - content/en/blog/why-word-lists-fail.md
-      - content/zh/blog/why-word-lists-fail.md
-      - tests/unit/test_public_content.py
-    source: .reme/evidence/seo1-staging-20260815.txt
-    command: python -m pytest --noconftest -q tests/unit/test_public_content.py; staging HTTP smoke
-    result: exit_code_0
-    supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
-
-  - claim: 11 篇专栏文章（en/zh 各 11 篇）经 1_humanizer 技能重写并提交；正文去除破折号、伪深刻句、三连排比与碎片句，frontmatter、事实、日期、来源链接原样保留
-    status: verified
-    verified_at_head: 03a2851
-    verified_on_branch: master
-    covers:
-      - content/en/blog/between-the-sink-and-the-page.md
-      - content/en/blog/four-weeks-of-german-evenings.md
-      - content/en/blog/hi-sisters-in-the-mirror.md
-      - content/en/blog/keep-a-schedule-in-japan.md
-      - content/en/blog/never-lived-there.md
-      - content/en/blog/pockets-in-a-nine-to-five.md
-      - content/en/blog/school-failed-me-on-the-road.md
-      - content/en/blog/thirty-minutes-after-the-clinic.md
-      - content/en/blog/three-shelves-toward-japan.md
-      - content/en/blog/tones-before-the-variety-show.md
-      - content/en/blog/zero-stress-in-six-rooms.md
-      - content/zh/blog/between-the-sink-and-the-page.md
-      - content/zh/blog/four-weeks-of-german-evenings.md
-      - content/zh/blog/hi-sisters-in-the-mirror.md
-      - content/zh/blog/keep-a-schedule-in-japan.md
-      - content/zh/blog/never-lived-there.md
-      - content/zh/blog/pockets-in-a-nine-to-five.md
-      - content/zh/blog/school-failed-me-on-the-road.md
-      - content/zh/blog/thirty-minutes-after-the-clinic.md
-      - content/zh/blog/three-shelves-toward-japan.md
-      - content/zh/blog/tones-before-the-variety-show.md
-      - content/zh/blog/zero-stress-in-six-rooms.md
-    source: git:03a2851
-    command: git diff --check; git diff -U0 校验 frontmatter 字段无变更; grep 抽查关键事实与来源链接仍存在
-    result: exit_code_0
-    supports: docs/plans/2026-08-14-public-seo-content.md
-
-  - claim: 第二轮去 AI 味：grok headless 逐篇审查全部 13 篇文章（en/zh 各 13 篇），按审查重写；去掉伪深刻格言、not-X-but-Y、拟人、三连排比、自我指涉与抒情收尾，事实/链接/frontmatter 保留，仅两篇基准文章的 description 按审查重写
-    status: verified
-    verified_at_head: 7d61aa9
-    verified_on_branch: master
-    covers:
-      - content/en/blog/between-the-sink-and-the-page.md
-      - content/en/blog/four-weeks-of-german-evenings.md
-      - content/en/blog/hi-sisters-in-the-mirror.md
-      - content/en/blog/keep-a-schedule-in-japan.md
-      - content/en/blog/language-exchange-notes.md
-      - content/en/blog/never-lived-there.md
-      - content/en/blog/pockets-in-a-nine-to-five.md
-      - content/en/blog/school-failed-me-on-the-road.md
-      - content/en/blog/thirty-minutes-after-the-clinic.md
-      - content/en/blog/three-shelves-toward-japan.md
-      - content/en/blog/tones-before-the-variety-show.md
-      - content/en/blog/why-word-lists-fail.md
-      - content/en/blog/zero-stress-in-six-rooms.md
-      - content/zh/blog/between-the-sink-and-the-page.md
-      - content/zh/blog/four-weeks-of-german-evenings.md
-      - content/zh/blog/hi-sisters-in-the-mirror.md
-      - content/zh/blog/keep-a-schedule-in-japan.md
-      - content/zh/blog/language-exchange-notes.md
-      - content/zh/blog/never-lived-there.md
-      - content/zh/blog/pockets-in-a-nine-to-five.md
-      - content/zh/blog/school-failed-me-on-the-road.md
-      - content/zh/blog/thirty-minutes-after-the-clinic.md
-      - content/zh/blog/three-shelves-toward-japan.md
-      - content/zh/blog/tones-before-the-variety-show.md
-      - content/zh/blog/why-word-lists-fail.md
-      - content/zh/blog/zero-stress-in-six-rooms.md
-    source: git:7d61aa9
-    command: grok -p 逐篇审查（humanizer 35 模式）输出到 /tmp/grok-reviews/; git diff --check; python 校验 zh description 均为中文、frontmatter 其余字段无变更
-    result: exit_code_0
-    supports: docs/plans/2026-08-14-public-seo-content.md
-
-  - claim: 生产部署 4ee4cb6 完成并验证：备份 pg_dump/release.bundle/status.txt；bundle 快进 da2a41f→4ee4cb6（纯内容+reme）；flask db upgrade 无操作；flask doctor --strict 12 项全 OK；服务重启后 active；内网与公网 HTTPS /healthz 200；/qa、/blog、4 篇中英文章冒烟 200 且返回 humanized 正文；错误日志为空；.env、.venv、/srv/rememate-data 未触碰
-    status: verified
-    verified_at_head: 4ee4cb6
-    verified_on_branch: master
-    source: git:4ee4cb6
-    command: ssh tencent-old 部署与检查命令（见 docs/deploy-closed-beta.md 部署后自检）；curl 公网冒烟
-    result: exit_code_0
-    supports: docs/deploy-closed-beta.md
-
-  - claim: 生产部署 e699f88（/write 目标词轮换修复）完成并验证：快进 4ee4cb6→e699f88；db upgrade 至 c1d2e3f4a5b6（新增 output_entries 索引）；backfill dry-run 3 → apply 3 → 幂等 0；flask doctor --strict 13 项全 OK；服务重启 active；内网与公网 /healthz 200；真实目标词首位由 météorologique 变为 repérer；错误日志为空；.env/数据未触碰、行数不变
-    status: verified
-    verified_at_head: e699f88
-    verified_on_branch: master
-    source: git:e699f88
-    command: ssh tencent-old 部署检查命令；psql 模拟 get_practice_words 验证目标词轮换；backfill CLI dry-run/apply
-    result: exit_code_0
-    supports: docs/deploy-closed-beta.md
-
-  - claim: Bark 定时推送上线生产并验证：分支 feat/bark-scheduled-push 经 grok 审查（初审 BLOCKER+MAJOR → codex 返工 → 二审通过）后合并 master；部署 7daee60（dispatch/runner.py + systemd 单元 + docs）；真实生产密钥下 systemd 服务跑通 users=1 sent=1（shinypig88/biographie，push_log 4:review:159:2026-08-20），重跑 sent=0 duplicates=1 幂等；rememate-bark.timer 已 enable；tencent-new 重测 dispatch 7/7 passed、全量回归无新增失败
-    status: verified
-    verified_at_head: 7daee60
-    verified_on_branch: master
-    source: git:7daee60
-    command: grok 审查与 tencent-new 测试；ssh tencent-old 安装 timer 与 systemd 服务实跑；psql 查 push_log
-    result: exit_code_0
-    supports: docs/deploy-bark-timer.md
+- claim: REME checkpoint deterministic checks passed
+  status: claim
+  source: .reme/evidence/checkpoint-c6be3ef.txt
+  command: python inline REME checkpoint checker
+  result: exit_code_0
+- claim: REME reconcile deterministic checks passed
+  status: claim
+  source: .reme/evidence/reconcile-f296cca.txt
+  command: python inline REME reconcile checker
+  result: exit_code_0
+- claim: SEO1 public pages passed targeted unit and staging smoke verification
+  status: verified
+  verified_at_head: b87c7094af806387bafdbb82c9bc523abae3ae51
+  verified_on_branch: master
+  covers:
+  - app/blueprints/public/routes.py
+  - app/services/public_content.py
+  - app/templates/main/landing.html
+  - app/templates/public/base.html
+  - app/templates/public/qa.html
+  - app/templates/public/blog_index.html
+  - app/templates/public/post.html
+  - content/en/qa.yaml
+  - content/zh/qa.yaml
+  - content/en/blog/why-word-lists-fail.md
+  - content/zh/blog/why-word-lists-fail.md
+  - tests/unit/test_public_content.py
+  source: .reme/evidence/seo1-staging-20260815.txt
+  command: python -m pytest --noconftest -q tests/unit/test_public_content.py; staging
+    HTTP smoke
+  result: exit_code_0
+  supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
+- claim: 11 篇专栏文章（en/zh 各 11 篇）经 1_humanizer 技能重写并提交；正文去除破折号、伪深刻句、三连排比与碎片句，frontmatter、事实、日期、来源链接原样保留
+  status: verified
+  verified_at_head: 03a2851
+  verified_on_branch: master
+  covers:
+  - content/en/blog/between-the-sink-and-the-page.md
+  - content/en/blog/four-weeks-of-german-evenings.md
+  - content/en/blog/hi-sisters-in-the-mirror.md
+  - content/en/blog/keep-a-schedule-in-japan.md
+  - content/en/blog/never-lived-there.md
+  - content/en/blog/pockets-in-a-nine-to-five.md
+  - content/en/blog/school-failed-me-on-the-road.md
+  - content/en/blog/thirty-minutes-after-the-clinic.md
+  - content/en/blog/three-shelves-toward-japan.md
+  - content/en/blog/tones-before-the-variety-show.md
+  - content/en/blog/zero-stress-in-six-rooms.md
+  - content/zh/blog/between-the-sink-and-the-page.md
+  - content/zh/blog/four-weeks-of-german-evenings.md
+  - content/zh/blog/hi-sisters-in-the-mirror.md
+  - content/zh/blog/keep-a-schedule-in-japan.md
+  - content/zh/blog/never-lived-there.md
+  - content/zh/blog/pockets-in-a-nine-to-five.md
+  - content/zh/blog/school-failed-me-on-the-road.md
+  - content/zh/blog/thirty-minutes-after-the-clinic.md
+  - content/zh/blog/three-shelves-toward-japan.md
+  - content/zh/blog/tones-before-the-variety-show.md
+  - content/zh/blog/zero-stress-in-six-rooms.md
+  source: git:03a2851
+  command: git diff --check; git diff -U0 校验 frontmatter 字段无变更; grep 抽查关键事实与来源链接仍存在
+  result: exit_code_0
+  supports: docs/plans/2026-08-14-public-seo-content.md
+- claim: 第二轮去 AI 味：grok headless 逐篇审查全部 13 篇文章（en/zh 各 13 篇），按审查重写；去掉伪深刻格言、not-X-but-Y、拟人、三连排比、自我指涉与抒情收尾，事实/链接/frontmatter
+    保留，仅两篇基准文章的 description 按审查重写
+  status: verified
+  verified_at_head: 7d61aa9
+  verified_on_branch: master
+  covers:
+  - content/en/blog/between-the-sink-and-the-page.md
+  - content/en/blog/four-weeks-of-german-evenings.md
+  - content/en/blog/hi-sisters-in-the-mirror.md
+  - content/en/blog/keep-a-schedule-in-japan.md
+  - content/en/blog/language-exchange-notes.md
+  - content/en/blog/never-lived-there.md
+  - content/en/blog/pockets-in-a-nine-to-five.md
+  - content/en/blog/school-failed-me-on-the-road.md
+  - content/en/blog/thirty-minutes-after-the-clinic.md
+  - content/en/blog/three-shelves-toward-japan.md
+  - content/en/blog/tones-before-the-variety-show.md
+  - content/en/blog/why-word-lists-fail.md
+  - content/en/blog/zero-stress-in-six-rooms.md
+  - content/zh/blog/between-the-sink-and-the-page.md
+  - content/zh/blog/four-weeks-of-german-evenings.md
+  - content/zh/blog/hi-sisters-in-the-mirror.md
+  - content/zh/blog/keep-a-schedule-in-japan.md
+  - content/zh/blog/language-exchange-notes.md
+  - content/zh/blog/never-lived-there.md
+  - content/zh/blog/pockets-in-a-nine-to-five.md
+  - content/zh/blog/school-failed-me-on-the-road.md
+  - content/zh/blog/thirty-minutes-after-the-clinic.md
+  - content/zh/blog/three-shelves-toward-japan.md
+  - content/zh/blog/tones-before-the-variety-show.md
+  - content/zh/blog/why-word-lists-fail.md
+  - content/zh/blog/zero-stress-in-six-rooms.md
+  source: git:7d61aa9
+  command: grok -p 逐篇审查（humanizer 35 模式）输出到 /tmp/grok-reviews/; git diff --check;
+    python 校验 zh description 均为中文、frontmatter 其余字段无变更
+  result: exit_code_0
+  supports: docs/plans/2026-08-14-public-seo-content.md
+- claim: 生产部署 4ee4cb6 完成并验证：备份 pg_dump/release.bundle/status.txt；bundle 快进 da2a41f→4ee4cb6（纯内容+reme）；flask
+    db upgrade 无操作；flask doctor --strict 12 项全 OK；服务重启后 active；内网与公网 HTTPS /healthz
+    200；/qa、/blog、4 篇中英文章冒烟 200 且返回 humanized 正文；错误日志为空；.env、.venv、/srv/rememate-data
+    未触碰
+  status: verified
+  verified_at_head: 4ee4cb6
+  verified_on_branch: master
+  source: git:4ee4cb6
+  command: ssh tencent-old 部署与检查命令（见 docs/deploy-closed-beta.md 部署后自检）；curl 公网冒烟
+  result: exit_code_0
+  supports: docs/deploy-closed-beta.md
+- claim: 生产部署 e699f88（/write 目标词轮换修复）完成并验证：快进 4ee4cb6→e699f88；db upgrade 至 c1d2e3f4a5b6（新增
+    output_entries 索引）；backfill dry-run 3 → apply 3 → 幂等 0；flask doctor --strict 13
+    项全 OK；服务重启 active；内网与公网 /healthz 200；真实目标词首位由 météorologique 变为 repérer；错误日志为空；.env/数据未触碰、行数不变
+  status: verified
+  verified_at_head: e699f88
+  verified_on_branch: master
+  source: git:e699f88
+  command: ssh tencent-old 部署检查命令；psql 模拟 get_practice_words 验证目标词轮换；backfill CLI
+    dry-run/apply
+  result: exit_code_0
+  supports: docs/deploy-closed-beta.md
+- claim: Bark 定时推送上线生产并验证：分支 feat/bark-scheduled-push 经 grok 审查（初审 BLOCKER+MAJOR →
+    codex 返工 → 二审通过）后合并 master；部署 7daee60（dispatch/runner.py + systemd 单元 + docs）；真实生产密钥下
+    systemd 服务跑通 users=1 sent=1（shinypig88/biographie，push_log 4:review:159:2026-08-20），重跑
+    sent=0 duplicates=1 幂等；rememate-bark.timer 已 enable；tencent-new 重测 dispatch 7/7
+    passed、全量回归无新增失败
+  status: verified
+  verified_at_head: 7daee60
+  verified_on_branch: master
+  source: git:7daee60
+  command: grok 审查与 tencent-new 测试；ssh tencent-old 安装 timer 与 systemd 服务实跑；psql 查
+    push_log
+  result: exit_code_0
+  supports: docs/deploy-bark-timer.md
+- claim: 清理 4 条失败测试（均为测试问题）：public_content 日期断言更新到 2026-08-17、QA fixture 补 zh/qa.yaml、handoff
+    过期用 UTC 设值、orchestrate 测试改为"内部有界重试全失败后显式重试成功"；tencent-new 验证 4 条全绿、相关套件 336 passed
+    无新增失败
+  status: verified
+  verified_at_head: 3e9f0f3
+  verified_on_branch: master
+  source: git:3e9f0f3
+  command: grok 在 tencent-new 跑 pytest（4 条 + unit + review_story* + write）
+  result: exit_code_0
+  supports: tests/
