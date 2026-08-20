@@ -201,6 +201,60 @@ def test_review_reminders_rotate_to_next_unpushed_due_word(
     ]
 
 
+def test_review_reminders_reset_rotation_on_next_local_day(
+        bypass_engine, app, monkeypatch):
+    uid = provision_user(app, "daily-reset@t.com", "pw12345678")
+    word_id = _make_due_word(bypass_engine, uid, word="alpha")
+    _configure_bark(bypass_engine, uid)
+
+    class Resp:
+        status_code = 200
+
+    calls = []
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (None, None, None, None, ("43.155.109.24", 443))
+        ],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append(json["title"])
+        return Resp()
+
+    stats_by_tick = []
+    for now_utc in (
+        datetime(2026, 7, 9, 12, 0, 0),
+        datetime(2026, 7, 9, 14, 0, 0),
+        datetime(2026, 7, 10, 12, 0, 0),
+    ):
+        with bypass_engine.begin() as conn:
+            stats_by_tick.append(notifications.send_review_reminders(
+                conn,
+                user_id=uid,
+                now_utc=now_utc,
+                post=fake_post,
+            ))
+
+    assert calls == ["alpha", "alpha"]
+    assert [stats.sent for stats in stats_by_tick] == [1, 0, 1]
+    assert stats_by_tick[1].skipped_no_due == 1
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            """
+            SELECT idempotency_key
+            FROM push_log
+            WHERE user_id=:uid
+            ORDER BY idempotency_key
+            """
+        ), {"uid": uid}).scalars().all()
+    assert rows == [
+        f"{uid}:review:{word_id}:2026-07-09",
+        f"{uid}:review:{word_id}:2026-07-10",
+    ]
+
+
 def test_review_reminder_cli_skips_users_without_due_words(
         app, runner, bypass_engine, monkeypatch):
     uid = provision_user(app, "not-due@t.com", "pw12345678")
