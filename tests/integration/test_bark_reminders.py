@@ -23,11 +23,16 @@ def _make_due_word(
         due_at="2026-07-09 11:00:00"):
     with bypass_engine.begin() as c:
         list_id = c.execute(text(
-            """
-            INSERT INTO word_lists(user_id,name,language_code,created_at)
-            VALUES (:uid,'法语','fr',now()) RETURNING id
-            """
+            "SELECT id FROM word_lists "
+            "WHERE user_id=:uid AND language_code='fr'"
         ), {"uid": uid}).scalar()
+        if list_id is None:
+            list_id = c.execute(text(
+                """
+                INSERT INTO word_lists(user_id,name,language_code,created_at)
+                VALUES (:uid,'法语','fr',now()) RETURNING id
+                """
+            ), {"uid": uid}).scalar()
         due_expr = f"timestamp '{due_at}'" if due else "timestamp '2026-07-10 00:00:00'"
         word_id = c.execute(text(
             f"""
