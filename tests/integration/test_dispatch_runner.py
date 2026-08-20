@@ -108,7 +108,7 @@ def test_bark_runner_dry_run_real_run_and_retry_are_idempotent(
 
     assert retry.users_seen == 1
     assert retry.sent == 0
-    assert retry.skipped_duplicate == 1
+    assert retry.skipped_no_due == 1
     assert len(calls) == 1
 
 
