@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from datetime import datetime
 
 from sqlalchemy import text
@@ -108,3 +110,17 @@ def test_bark_runner_dry_run_real_run_and_retry_are_idempotent(
     assert retry.sent == 0
     assert retry.skipped_duplicate == 1
     assert len(calls) == 1
+
+
+def test_bark_module_dry_run_entrypoint_exits_successfully(monkeypatch):
+    monkeypatch.setenv("DISPATCH_DATABASE_URL", os.environ["TEST_DISPATCH_DATABASE_URL"])
+
+    result = subprocess.run(
+        [sys.executable, "-m", "dispatch.runner", "bark", "--dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "bark reminders:" in result.stdout
