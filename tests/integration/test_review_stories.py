@@ -1789,12 +1789,15 @@ def test_orchestrate_failed_attempt_requires_explicit_single_retry(
     class Provider:
         name = "fake-retry"
         calls = 0
+        orchestrations = 0
 
         def call(self, messages, *, timeout, json_mode=False):
             self.calls += 1
+            if len(messages) == 2:
+                self.orchestrations += 1
             content = (
                 '{"unexpected":true}'
-                if self.calls == 1
+                if self.orchestrations == 1
                 else _valid_provider_story_json()
             )
             return llm.LLMResult(
@@ -1845,7 +1848,7 @@ def test_orchestrate_failed_attempt_requires_explicit_single_retry(
     assert retry.action == "ready"
     assert retry.attempt_count == 2
     assert retry.attempt_version == 2
-    assert provider.calls == 2
+    assert provider.calls == 3
     with bypass_engine.connect() as connection:
         token_count = connection.execute(text(
             "SELECT count(*) FROM token_usage_log "
