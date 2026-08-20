@@ -171,7 +171,7 @@
     "write.incomplete": "This sentence looks incomplete.",
     "write.language_mismatch": "This does not look like the current target language. Switch languages or rewrite it in the current language.",
     "write.mode_label": "Writing mode",
-    "write.no_due_words": "No {language} words are due for practice today. Review some or come back tomorrow.",
+    "write.no_due_words": "No {language} words are due for practice today. Try the three-line diary, or come back tomorrow.",
     "write.no_words": "There are no {language} words yet. Add some first.",
     "write.open_settings": "Open settings",
     "write.own_key": "own key",

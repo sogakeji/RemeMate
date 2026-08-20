@@ -8,7 +8,10 @@
 import re
 import random
 
+from dataclasses import dataclass
 from datetime import timedelta
+
+from sqlalchemy import text
 
 from app.extensions import db
 from app.models.word import WordList, Word, ReviewLog
@@ -103,17 +106,22 @@ def _validate_sentence_language(sentence: str, language_code: str):
 
 def get_practice_words(user_id: int, limit: int = 50, *,
                        language_code: str | None = None) -> list[Word]:
-    """造句可选词：当前语言内，只取到期词，且最近写过句子的词排后/排除。
+    """造句可选词：只取到期词；近 7 天写过句子的排后，不硬排除。
 
     language_code 给定时只取该语言的词（与首页/词库按当前语言闭环一致）。
 
-    轮换规则（修 M8 后仍复现的“每天目标词不变”）：
+    轮换规则（修 M8 后仍复现的“每天目标词不变”，grok 审查 e4901dd 后调整）：
     1. 只取到期词（due_date <= now）：保存造句后单词被重调度到未来，
-       不再是本日目标词，小词库下目标也会切换。
-    2. 排除 WRITE_TARGET_REPEAT_DAYS 内保存过句子的词（以 output_entries
-       为准，覆盖修复前保存但未被重调度的旧记录）：刚写过的不再立即回来。
-    3. 排序：同组里优先易忘词，其次按到期先后。
-    若没有符合条件的目标词则返回空列表（路由显示空状态）。
+       小词库下目标也会切换。
+    2. 近 WRITE_TARGET_REPEAT_DAYS 天内保存过句子的词排后（以 output_entries
+       为准，覆盖修复前保存但未被重调度的旧记录）：
+       - 有未写过的到期词时，目标轮换到它们；
+       - 全部到期词都是近 7 天写过时，回退到最近写过最久的那一个，
+         保证仍有到期词时 /write 始终有目标（与 due_count 语义一致），
+         而不是把页面写空。
+    3. 排序：未写过/很久没写的优先；同组内优先易忘词（lapses 高），
+       其次最后练习时间旧的在先（轮换），再次按到期先后；id 稳定 tie-break。
+    真正没有到期词时才返回空列表（路由显示空状态）。
     """
     now = utc_now()
     cutoff = now - timedelta(days=WRITE_TARGET_REPEAT_DAYS)
@@ -129,9 +137,11 @@ def get_practice_words(user_id: int, limit: int = 50, *,
         .exists()
     )
     return (q.filter(Word.due_date <= now)
-            .filter(~written_recently)
-            .order_by(Word.lapses.desc(),
-                      Word.due_date.asc())
+            .order_by(written_recently.asc(),
+                      Word.lapses.desc(),
+                      Word.last_review.asc().nullsfirst(),
+                      Word.due_date.asc(),
+                      Word.id.asc())
             .limit(limit).all())
 
 
@@ -319,3 +329,73 @@ def unpublish_entry(user_id: int, entry_id: int) -> bool:
     entry.is_public = False
     db.session.commit()
     return True
+
+
+@dataclass
+class WriteBackfillStats:
+    candidates: int = 0
+    applied: int = 0
+
+
+def backfill_write_scheduling(conn, *, now=None, dry_run: bool = False) -> WriteBackfillStats:
+    """一次性修复：给“保存过造句但从未被 SRS 重调度”的词补 grade(5) 调度。
+
+    6281293 之前的保存不会调用 srs.grade，导致这些词的 due_date 停在过去，
+    永远排在 /write 目标词第一位。判断条件：存在 output_entry 且该词的
+    last_review 早于（或没有）那条记录 —— 即保存时没有触发过重调度。
+
+    用 grade(5)（同 save_entry 的语义）推 due_date 到未来；重复运行幂等
+    （backfill 后 last_review=now，条件不再命中）。用 dispatch 连接（BYPASSRLS），
+    不写 review_logs（避免污染“今日已复习”统计）。
+    """
+    now = now or utc_now()
+    legacy = text(
+        """
+        SELECT w.id
+        FROM words w
+        WHERE EXISTS (
+            SELECT 1 FROM output_entries oe
+            WHERE oe.word_id = w.id
+              AND oe.created_at > COALESCE(w.last_review, '1970-01-01'::timestamp)
+        )
+        """
+    )
+    candidates = conn.execute(legacy).fetchall()
+    stats = WriteBackfillStats(candidates=len(candidates))
+    if dry_run or not candidates:
+        return stats
+    conn.execute(
+        text(
+            """
+            WITH legacy AS (
+                SELECT w.id, w.ease, w.reps, w.interval
+                FROM words w
+                WHERE EXISTS (
+                    SELECT 1 FROM output_entries oe
+                    WHERE oe.word_id = w.id
+                      AND oe.created_at > COALESCE(w.last_review, '1970-01-01'::timestamp)
+                )
+            ),
+            graded AS (
+                SELECT id,
+                       GREATEST(1.3, ease + 0.1) AS ease,
+                       CASE
+                           WHEN reps = 0 THEN 1
+                           WHEN reps = 1 THEN 6
+                           ELSE round(interval * GREATEST(1.3, ease + 0.1))
+                       END AS interval
+                FROM legacy
+            )
+            UPDATE words w
+            SET ease = graded.ease,
+                interval = graded.interval,
+                reps = w.reps + 1,
+                due_date = now() + make_interval(days => graded.interval::int),
+                last_review = now()
+            FROM graded
+            WHERE w.id = graded.id
+            """
+        )
+    )
+    stats.applied = len(candidates)
+    return stats

@@ -594,8 +594,8 @@ def test_sentence_too_long_400(app, client, bypass_engine, fake_llm):
 
 def test_completed_sentence_word_still_recommended_small_library(
         app, client, bypass_engine, fake_llm):
-    """复现：词库很小（单个词）时，完成造句并保存后，
-    /write 仍把同一个词推荐为今日目标词（用户症状：几天打开都是同一个词）。"""
+    """复现（用户症状）：词库很小（单个词）时，完成造句并保存后，
+    /write 不再把同一个词推荐为今日目标词（保存后词被重调度到未来）。"""
     _, wid = _setup_user_with_word(app, client, bypass_engine)
 
     page = client.get("/write").get_data(as_text=True)
@@ -608,22 +608,21 @@ def test_completed_sentence_word_still_recommended_small_library(
     client.post("/write/save")
 
     refreshed = client.get("/write").get_data(as_text=True)
-    # 已完成的词不应仍在目标位；小词库下没有其他到期词时应是空状态
+    # 已完成的词已不因到期被推荐；且空状态是"没有到期词"，不是"还没有词"
     assert f'name="word_id" value="{wid}"' not in refreshed
+    assert "没有到期的目标词" in refreshed
+    assert "还没有词" not in refreshed
+    assert "去加词" not in refreshed
 
 
-def test_word_with_legacy_sentence_not_recommended_even_if_due(
+def test_due_word_written_recently_falls_back_as_target_single_word(
         app, client, bypass_engine, fake_llm):
-    """用户真实数据场景：词已有一条旧造句记录（修复前保存、未被 SRS 重调度），
-    即使它仍然到期（due_date 在过去），也不应再作为今日目标词。"""
+    """回退语义：唯一到期词是近 7 天写的，/write 仍推荐它（不把页面写空），
+    与 due_count（首页"待复习 N"）保持一致。"""
     _, wid = _setup_user_with_word(app, client, bypass_engine)
-    # 模拟修复前保存：只有 output_entry，没有 write 来源的 review_log
-    client.post("/write/submit", data={
-        "word_id": wid,
-        "sentence": "Un essai.",
-    })
+    client.post("/write/submit", data={"word_id": wid, "sentence": "Un essai."})
     client.post("/write/save")
-    # 把词设回到期（模拟旧数据：due 在过去、从未被 grade 重调度）
+    # 模拟保存后仍到期（例如写过的词第二天又到期、或遗留未重调度数据）
     with bypass_engine.connect() as c:
         c.execute(text(
             "UPDATE words SET due_date='2026-07-19' WHERE id=:wid"
@@ -631,4 +630,151 @@ def test_word_with_legacy_sentence_not_recommended_even_if_due(
         c.commit()
 
     page = client.get("/write").get_data(as_text=True)
-    assert f'name="word_id" value="{wid}"' not in page
+    assert f'name="word_id" value="{wid}"' in page
+
+
+def test_word_with_sentence_eight_days_ago_is_recommended_when_due(
+        app, client, bypass_engine, fake_llm):
+    """窗口语义：entry 超过 7 天（此处 8 天）不再算"最近写过"，
+    词到期时回到优先目标池（锁定 7 天窗口不是永久排除）。"""
+    _, wid = _setup_user_with_word(app, client, bypass_engine)
+    with bypass_engine.connect() as c:
+        uid = c.execute(text(
+            "SELECT wl.user_id FROM words w JOIN word_lists wl ON wl.id=w.list_id "
+            "WHERE w.id=:w"), {"w": wid}).scalar_one()
+        c.execute(text(
+            "UPDATE words SET due_date='2026-07-19', last_review=NULL WHERE id=:w"
+        ), {"w": wid})
+        c.execute(text(
+            "INSERT INTO output_entries(user_id, word_id, original, corrected, "
+            "feedback, translation, word_text, language_code, is_public, is_nsfw, "
+            "upvote_count, created_at) "
+            "VALUES(:u, :w, 'x', 'x', '', '', 'décollage', 'fr', false, false, "
+            "0, now() - interval '8 days')"
+        ), {"u": uid, "w": wid})
+        c.commit()
+
+    page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{wid}"' in page
+
+
+def test_rotation_prefers_unwritten_due_word_over_recently_written(
+        app, client, bypass_engine, fake_llm):
+    """轮换：两个到期词，A 近 7 天写过、B 从未写过 → 目标词是 B 而不是 A。"""
+    _, first_wid = _setup_user_with_word(app, client, bypass_engine)
+    client.post("/words/add", json={"language_code": "fr", "word": "steady",
+                                    "definitions": [{"meaning": "稳定"}]})
+    with bypass_engine.connect() as c:
+        second_wid = c.execute(text(
+            "SELECT id FROM words WHERE word='steady'"
+        )).scalar_one()
+        uid = c.execute(text(
+            "SELECT wl.user_id FROM words w JOIN word_lists wl ON wl.id=w.list_id "
+            "WHERE w.id=:w"), {"w": first_wid}).scalar_one()
+        c.execute(text(
+            "UPDATE words SET due_date='2026-07-19' WHERE id=:w"), {"w": second_wid})
+        c.execute(text(
+            "INSERT INTO output_entries(user_id, word_id, original, corrected, "
+            "feedback, translation, word_text, language_code, is_public, is_nsfw, "
+            "upvote_count, created_at) "
+            "VALUES(:u, :w, 'x', 'x', '', '', 'décollage', 'fr', false, false, "
+            "0, now())"
+        ), {"u": uid, "w": first_wid})
+        c.execute(text(
+            "UPDATE words SET due_date='2026-07-19' WHERE id=:w"), {"w": first_wid})
+        c.commit()
+
+    page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{second_wid}"' in page
+    assert f'name="word_id" value="{first_wid}"' not in page
+
+
+def test_story_handoff_target_shown_when_practice_pool_empty(
+        app, client, bypass_engine, fake_llm):
+    """review-story handoff：practice 池为空（故事词未到期）时，
+    /write?source=review-story 仍显示故事指定词。"""
+    uid, wid = _setup_user_with_word(app, client, bypass_engine)
+    with bypass_engine.connect() as c:
+        # 把故事词推到未来，使其不在 practice 池
+        c.execute(text(
+            "UPDATE words SET due_date=now() + interval '10 days' WHERE id=:w"
+        ), {"w": wid})
+        c.execute(text(
+            "INSERT INTO review_story_runs(user_id, local_date, target_language, "
+            "feedback_language, contract_version, input_hash, term_word_ids, "
+            "status, attempt_count, attempt_version, content_expires_at, "
+            "created_at, updated_at) "
+            "VALUES(:u, CURRENT_DATE, 'fr', 'zh', 'test', :h, :terms, 'ready', "
+            "0, 0, now() + interval '1 hour', now(), now())"
+        ), {
+            "u": uid,
+            "h": "a" * 64,
+            "terms": f'{{"k1": {wid}}}',
+        })
+        c.commit()
+        run_id = c.execute(text(
+            "SELECT id FROM review_story_runs WHERE user_id=:u"), {"u": uid}
+        ).scalar_one()
+
+    handoff = client.post("/write/from-story", data={
+        "story_run_id": run_id,
+        "term_key": "k1",
+    })
+    assert handoff.status_code in (200, 302)
+    page = client.get("/write?source=review-story").get_data(as_text=True)
+    assert f'name="word_id" value="{wid}"' in page
+
+
+def test_backfill_write_scheduling_grades_legacy_words(
+        app, bypass_engine):
+    """backfill：有 output_entry 但从未被重调度的词（last_review 早于记录），
+    dry-run 统计、apply 推 due_date 到未来且幂等。"""
+    from app.services import writing as writing_svc
+    from app.services.timeutil import utc_now
+    from datetime import timedelta
+
+    uid = provision_user(app, "backfill@t.com", PW)
+    with bypass_engine.connect() as c:
+        c.execute(text(
+            "INSERT INTO word_lists(user_id, name, language_code, created_at) "
+            "VALUES(:u, 'fr', 'fr', now()) RETURNING id"), {"u": uid})
+        c.commit()
+    with bypass_engine.connect() as c:
+        list_id = c.execute(text(
+            "SELECT id FROM word_lists WHERE user_id=:u"), {"u": uid}
+        ).scalar_one()
+        c.execute(text(
+            "INSERT INTO words(list_id, word, marked, due_date, reps, interval, ease, lapses) "
+            "VALUES(:l, 'legacy', false, '2026-07-19', 0, 1, 2.5, 0) RETURNING id"), {"l": list_id})
+        c.commit()
+    with bypass_engine.connect() as c:
+        wid = c.execute(text(
+            "SELECT id FROM words WHERE word='legacy'")).scalar_one()
+        c.execute(text(
+            "INSERT INTO output_entries(user_id, word_id, original, corrected, "
+            "feedback, translation, word_text, language_code, is_public, is_nsfw, "
+            "upvote_count, created_at) "
+            "VALUES(:u, :w, 'x', 'x', '', '', 'legacy', 'fr', false, false, "
+            "0, now() - interval '4 days')"
+        ), {"u": uid, "w": wid})
+        c.commit()
+
+    with bypass_engine.begin() as conn:
+        stats = writing_svc.backfill_write_scheduling(conn, dry_run=True)
+        assert stats.candidates == 1
+        assert stats.applied == 0
+        stats2 = writing_svc.backfill_write_scheduling(conn)
+        assert stats2.candidates == 1
+        assert stats2.applied == 1
+        # 幂等：再跑一次无候选
+        stats3 = writing_svc.backfill_write_scheduling(conn)
+        assert stats3.candidates == 0
+
+    with bypass_engine.connect() as c:
+        row = c.execute(text(
+            "SELECT reps, interval, due_date, last_review FROM words WHERE id=:w"
+        ), {"w": wid}).fetchone()
+        assert row.reps == 1
+        assert row.interval == 1
+        assert row.due_date > utc_now() - timedelta(minutes=1)
+        assert row.last_review is not None

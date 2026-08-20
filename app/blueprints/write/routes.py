@@ -103,8 +103,11 @@ def compose():
     feedback_lang = words_svc.get_feedback_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
-    has_any_words = lang is not None and any(
-        count > 0 for _, count in words_svc.get_word_lists(_uid(), language_code=lang))
+    # 空状态需要区分“没有词”和“有词但没有到期”：仅在 words 为空时才查存在性
+    has_any_words = False
+    if not words and lang is not None:
+        has_any_words = any(
+            count > 0 for _, count in words_svc.get_word_lists(_uid(), language_code=lang))
     if story_target is not None:
         if all(word.id != story_target.word_id for word in words):
             words.insert(0, story_target.word)

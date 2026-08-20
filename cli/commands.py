@@ -18,6 +18,7 @@ from app.services import llm
 from app.services import review_story_cleanup
 from app.services import words as words_svc
 from app.services import notifications
+from app.services import writing as writing_svc
 from config import INSECURE_SECRET_DEFAULT, is_configured, validate_fernet_key
 
 
@@ -110,6 +111,30 @@ def register_commands(app):
             f"users={stats.users_seen} sent={stats.sent} "
             f"duplicates={stats.skipped_duplicate} no_due={stats.skipped_no_due} "
             f"failed={stats.failed}"
+        )
+
+    @app.cli.command("backfill-write-scheduling")
+    @click.option("--dry-run", is_flag=True, default=False,
+                  help="只统计候选词，不修改数据库")
+    def backfill_write_scheduling(dry_run):
+        """一次性修复：给保存过造句但从未被 SRS 重调度的词补 grade(5) 调度。
+
+        6281293 之前的保存不写 write 来源的调度，导致这类词 due_date 停在过去、
+        永远排在 /write 目标词第一位。用 dispatch 连接，幂等可重跑。
+        """
+        dispatch_url = current_app.config.get("DISPATCH_DATABASE_URL")
+        if not dispatch_url:
+            raise click.ClickException("DISPATCH_DATABASE_URL missing")
+        engine = create_engine(dispatch_url, pool_pre_ping=True)
+        try:
+            with engine.begin() as conn:
+                stats = writing_svc.backfill_write_scheduling(
+                    conn, dry_run=dry_run)
+        finally:
+            engine.dispose()
+        click.echo(
+            "write-scheduling backfill: "
+            f"candidates={stats.candidates} applied={stats.applied}"
         )
 
     @app.cli.command("cleanup-review-stories")
