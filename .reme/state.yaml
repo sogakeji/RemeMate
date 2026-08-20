@@ -2,10 +2,10 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: e006076f676895343bb74b8e9cf3209c4126b0c5
+  recorded_at_head: 1fb2dedbcb7f4af9379dbcc4d9b73948dfa27c6d
   recorded_at_branch: master
-  worktree_fingerprint: 88fcc6989d42148f136a99278a56b232fa2717565549e66735a1de2c8226c7b0
-  phase: Bark 每日轮换推送已部署；本地与生产对齐
+  worktree_fingerprint: be1667aa95035f485993693e2014cc68327cc4a82fb4e5905a633dd0dd6ede74
+  phase: Git 与 handoff 已按生产基线校准；origin 与本地对齐，生产保持 e006076
 
 maintenance:
   status: current

@@ -17,7 +17,7 @@ documents:
   - path: docs/PROGRESS.md
     read_when: 需要追溯里程碑或历史验证结果时；默认跳过，不作为当前状态
     role: progress
-    status: historical
+    lifecycle: archive
 
   - path: docs/deploy-closed-beta.md
     read_when: 获得明确批准后，需要部署开放注册代码、执行发布检查、后续开启或回滚时

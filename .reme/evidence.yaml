@@ -10,7 +10,7 @@ evidence:
   command: python inline REME reconcile checker
   result: exit_code_0
 - claim: SEO1 public pages passed targeted unit and staging smoke verification
-  status: verified
+  status: stale
   verified_at_head: b87c7094af806387bafdbb82c9bc523abae3ae51
   verified_on_branch: master
   covers:
@@ -32,7 +32,7 @@ evidence:
   result: exit_code_0
   supports: docs/plans/2026-08-14-public-seo-content.md#seo1-公开内容地基--占位页
 - claim: 11 篇专栏文章（en/zh 各 11 篇）经 1_humanizer 技能重写并提交；正文去除破折号、伪深刻句、三连排比与碎片句，frontmatter、事实、日期、来源链接原样保留
-  status: verified
+  status: stale
   verified_at_head: 03a2851
   verified_on_branch: master
   covers:
