@@ -109,3 +109,12 @@ evidence:
     command: ssh tencent-old 部署与检查命令（见 docs/deploy-closed-beta.md 部署后自检）；curl 公网冒烟
     result: exit_code_0
     supports: docs/deploy-closed-beta.md
+
+  - claim: 生产部署 e699f88（/write 目标词轮换修复）完成并验证：快进 4ee4cb6→e699f88；db upgrade 至 c1d2e3f4a5b6（新增 output_entries 索引）；backfill dry-run 3 → apply 3 → 幂等 0；flask doctor --strict 13 项全 OK；服务重启 active；内网与公网 /healthz 200；真实目标词首位由 météorologique 变为 repérer；错误日志为空；.env/数据未触碰、行数不变
+    status: verified
+    verified_at_head: e699f88
+    verified_on_branch: master
+    source: git:e699f88
+    command: ssh tencent-old 部署检查命令；psql 模拟 get_practice_words 验证目标词轮换；backfill CLI dry-run/apply
+    result: exit_code_0
+    supports: docs/deploy-closed-beta.md
