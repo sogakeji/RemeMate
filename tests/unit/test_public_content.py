@@ -272,6 +272,13 @@ items:
 def test_qa_block_answer_renders_markdown(tmp_path):
     (tmp_path / "en" / "blog").mkdir(parents=True)
     (tmp_path / "en" / "qa.yaml").write_text(QA_BLOCK, encoding="utf-8")
+    (tmp_path / "zh").mkdir(parents=True)
+    (tmp_path / "zh" / "qa.yaml").write_text(
+        "title: Sample Q&A\ndescription: Sample description\n"
+        "indexable: false\nitems:\n"
+        "  - question: 占位问题？\n    answer: 占位答案。\n",
+        encoding="utf-8",
+    )
     static = tmp_path / "static"
     image = static / "public" / "qa" / "en"
     image.mkdir(parents=True)
