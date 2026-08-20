@@ -118,6 +118,7 @@ def send_review_reminders(
 
     for user in users:
         stats.users_seen += 1
+        local_date = _local_date(now_utc, user.timezone)
         due_words = conn.execute(text(
             """
             SELECT w.id, w.word, wl.language_code,
@@ -135,12 +136,20 @@ def send_review_reminders(
             ) d ON true
             WHERE wl.user_id = :user_id
               AND w.due_date <= :now_utc
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM push_log p
+                  WHERE p.idempotency_key = concat(
+                      :user_id, ':review:', w.id::text, ':', :local_date
+                  )
+              )
             ORDER BY w.due_date ASC, w.id DESC
             LIMIT :limit
             """
         ), {
             "user_id": user.id,
             "now_utc": now_utc,
+            "local_date": local_date,
             "limit": limit_per_user,
         }).fetchall()
 
@@ -148,7 +157,6 @@ def send_review_reminders(
             stats.skipped_no_due += 1
             continue
 
-        local_date = _local_date(now_utc, user.timezone)
         due_count = _due_count(conn, user.id, now_utc)
         for word in due_words:
             key = f"{user.id}:review:{word.id}:{local_date}"
