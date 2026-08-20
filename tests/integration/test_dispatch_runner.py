@@ -124,3 +124,59 @@ def test_bark_module_dry_run_entrypoint_exits_successfully(monkeypatch):
 
     assert result.returncode == 0
     assert "bark reminders:" in result.stdout
+
+
+def test_review_reminder_scope_uses_user_id_and_local_day(
+        bypass_engine, app, monkeypatch):
+    uid = provision_user(
+        app, "la-dispatch@t.com", "pw12345678", tz="America/Los_Angeles"
+    )
+    word_id = _make_due_word(bypass_engine, uid)
+    _configure_bark(bypass_engine, uid)
+
+    class Resp:
+        status_code = 200
+
+    calls = []
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (None, None, None, None, ("43.155.109.24", 443))
+        ],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append((url, json, timeout, allow_redirects))
+        return Resp()
+
+    monkeypatch.setattr(notifications.requests, "post", fake_post)
+    now_utc = datetime(2026, 7, 9, 16, 30, 0)
+    with bypass_engine.begin() as conn:
+        stats = notifications.send_review_reminders(
+            conn,
+            user_id=uid,
+            now_utc=now_utc,
+            secret_key="test-secret",
+            public_base_url="https://rememate.test",
+            post=fake_post,
+        )
+
+    assert stats.users_seen == 1
+    assert stats.sent == 1
+    assert len(calls) == 1
+    url, payload, timeout, allow_redirects = calls[0]
+    assert url == "https://api.day.app/test-key"
+    assert payload["title"] == "maison"
+    assert payload["url"].startswith("https://rememate.test/bark/review/v1.")
+    assert timeout == 5
+    assert allow_redirects is False
+    with bypass_engine.connect() as conn:
+        row = conn.execute(text(
+            """
+            SELECT user_id, idempotency_key
+            FROM push_log
+            WHERE idempotency_key=:key
+            """
+        ), {"key": f"{uid}:review:{word_id}:2026-07-09"}).fetchone()
+    assert row == (uid, f"{uid}:review:{word_id}:2026-07-09")
