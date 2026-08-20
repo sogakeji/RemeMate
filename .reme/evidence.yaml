@@ -155,3 +155,14 @@ evidence:
     + doctor + 手动 service 运行 + psql push_log
   result: exit_code_0
   supports: docs/deploy-bark-timer.md
+- claim: Bark 每日轮换推送已部署生产：send_review_reminders 的 due-words 查询排除当天已推词（NOT EXISTS push_log
+    幂等键），每 2 小时 tick 推下一个未推过的到期词、不依赖用户点击；tencent-new 终验 bark/dispatch 17 passed、unit+write
+    284 passed 无失败；生产手动运行推 162(répétitions) 跳过已推 161，timer 20:00 下次触发
+  status: verified
+  verified_at_head: e006076
+  verified_on_branch: master
+  source: git:e006076
+  command: grok 在 tencent-new 跑 pytest；ssh tencent-old 部署 + doctor + 手动 service 运行
+    + psql push_log
+  result: exit_code_0
+  supports: docs/deploy-bark-timer.md
