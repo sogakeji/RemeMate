@@ -202,7 +202,7 @@ def test_repo_placeholders_load():
     post = content.get_published_post("zh", "why-word-lists-fail")
     assert qa.title.startswith("RemeMate")
     assert post is not None
-    assert post.date == date(2026, 8, 14)
+    assert post.date == date(2026, 8, 17)
     assert post.indexable is False
 
 
