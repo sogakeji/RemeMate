@@ -177,7 +177,7 @@ def test_review_reminders_rotate_to_next_unpushed_due_word(
     for now_utc in (
         datetime(2026, 7, 9, 12, 0, 0),
         datetime(2026, 7, 9, 14, 0, 0),
-        datetime(2026, 7, 9, 16, 0, 0),
+        datetime(2026, 7, 9, 15, 0, 0),
     ):
         with bypass_engine.begin() as conn:
             stats = notifications.send_review_reminders(
