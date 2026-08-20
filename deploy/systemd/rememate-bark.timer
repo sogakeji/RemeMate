@@ -1,0 +1,10 @@
+[Unit]
+Description=RemeMate Bark review reminder timer (every 15 minutes)
+
+[Timer]
+OnCalendar=*-*-* *:00,15,30,45:00
+Persistent=true
+Unit=rememate-bark.service
+
+[Install]
+WantedBy=timers.target
