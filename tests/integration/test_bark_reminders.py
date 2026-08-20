@@ -18,7 +18,9 @@ def _configure_bark(bypass_engine, uid, *, enabled=True):
         ), {"uid": uid, "enabled": enabled})
 
 
-def _make_due_word(bypass_engine, uid, *, word="maison", due=True):
+def _make_due_word(
+        bypass_engine, uid, *, word="maison", due=True,
+        due_at="2026-07-09 11:00:00"):
     with bypass_engine.begin() as c:
         list_id = c.execute(text(
             """
@@ -26,7 +28,7 @@ def _make_due_word(bypass_engine, uid, *, word="maison", due=True):
             VALUES (:uid,'法语','fr',now()) RETURNING id
             """
         ), {"uid": uid}).scalar()
-        due_expr = "timestamp '2026-07-09 11:00:00'" if due else "timestamp '2026-07-10 00:00:00'"
+        due_expr = f"timestamp '{due_at}'" if due else "timestamp '2026-07-10 00:00:00'"
         word_id = c.execute(text(
             f"""
             INSERT INTO words(list_id,word,marked,due_date,interval,ease,reps,lapses)
@@ -131,6 +133,72 @@ def test_review_reminder_cli_is_idempotent_for_same_local_day(
     assert "sent=0" in second.output
     assert "duplicates=1" in second.output
     assert len(calls) == 1
+
+
+def test_review_reminders_rotate_to_next_unpushed_due_word(
+        bypass_engine, app, monkeypatch):
+    uid = provision_user(app, "rotate-remind@t.com", "pw12345678")
+    word_a = _make_due_word(
+        bypass_engine,
+        uid,
+        word="alpha",
+        due_at="2026-07-09 10:00:00",
+    )
+    word_b = _make_due_word(
+        bypass_engine,
+        uid,
+        word="bravo",
+        due_at="2026-07-09 11:00:00",
+    )
+    _configure_bark(bypass_engine, uid)
+
+    class Resp:
+        status_code = 200
+
+    calls = []
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (None, None, None, None, ("43.155.109.24", 443))
+        ],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append(json["title"])
+        return Resp()
+
+    tick_stats = []
+    for now_utc in (
+        datetime(2026, 7, 9, 12, 0, 0),
+        datetime(2026, 7, 9, 14, 0, 0),
+        datetime(2026, 7, 9, 16, 0, 0),
+    ):
+        with bypass_engine.begin() as conn:
+            stats = notifications.send_review_reminders(
+                conn,
+                user_id=uid,
+                now_utc=now_utc,
+                post=fake_post,
+            )
+        tick_stats.append(stats)
+
+    assert calls == ["alpha", "bravo"]
+    assert [stats.sent for stats in tick_stats] == [1, 1, 0]
+    assert tick_stats[2].skipped_no_due == 1
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            """
+            SELECT idempotency_key
+            FROM push_log
+            WHERE user_id=:uid
+            ORDER BY idempotency_key
+            """
+        ), {"uid": uid}).scalars().all()
+    assert rows == [
+        f"{uid}:review:{word_a}:2026-07-09",
+        f"{uid}:review:{word_b}:2026-07-09",
+    ]
 
 
 def test_review_reminder_cli_skips_users_without_due_words(
