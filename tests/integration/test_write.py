@@ -590,3 +590,45 @@ def test_sentence_too_long_400(app, client, bypass_engine, fake_llm):
     uid, wid = _setup_user_with_word(app, client, bypass_engine)
     resp = client.post("/write/submit", data={"word_id": wid, "sentence": "x" * 141})
     assert resp.status_code == 400
+
+
+def test_completed_sentence_word_still_recommended_small_library(
+        app, client, bypass_engine, fake_llm):
+    """复现：词库很小（单个词）时，完成造句并保存后，
+    /write 仍把同一个词推荐为今日目标词（用户症状：几天打开都是同一个词）。"""
+    _, wid = _setup_user_with_word(app, client, bypass_engine)
+
+    page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{wid}"' in page
+
+    client.post("/write/submit", data={
+        "word_id": wid,
+        "sentence": "Un essai.",
+    })
+    client.post("/write/save")
+
+    refreshed = client.get("/write").get_data(as_text=True)
+    # 已完成的词不应仍在目标位；小词库下没有其他到期词时应是空状态
+    assert f'name="word_id" value="{wid}"' not in refreshed
+
+
+def test_word_with_legacy_sentence_not_recommended_even_if_due(
+        app, client, bypass_engine, fake_llm):
+    """用户真实数据场景：词已有一条旧造句记录（修复前保存、未被 SRS 重调度），
+    即使它仍然到期（due_date 在过去），也不应再作为今日目标词。"""
+    _, wid = _setup_user_with_word(app, client, bypass_engine)
+    # 模拟修复前保存：只有 output_entry，没有 write 来源的 review_log
+    client.post("/write/submit", data={
+        "word_id": wid,
+        "sentence": "Un essai.",
+    })
+    client.post("/write/save")
+    # 把词设回到期（模拟旧数据：due 在过去、从未被 grade 重调度）
+    with bypass_engine.connect() as c:
+        c.execute(text(
+            "UPDATE words SET due_date='2026-07-19' WHERE id=:wid"
+        ), {"wid": wid})
+        c.commit()
+
+    page = client.get("/write").get_data(as_text=True)
+    assert f'name="word_id" value="{wid}"' not in page

@@ -103,6 +103,8 @@ def compose():
     feedback_lang = words_svc.get_feedback_language(_uid())
     words = [] if lang is None else writing_svc.get_practice_words(
         _uid(), language_code=lang)
+    has_any_words = lang is not None and any(
+        count > 0 for _, count in words_svc.get_word_lists(_uid(), language_code=lang))
     if story_target is not None:
         if all(word.id != story_target.word_id for word in words):
             words.insert(0, story_target.word)
@@ -114,6 +116,7 @@ def compose():
         words=words,
         target_word=target_word,
         story_handoff=(story_target is not None),
+        has_any_words=has_any_words,
         quota=quota_svc.write_quota_status(_uid()),
         max_chars=writing_svc.MAX_SENTENCE_CHARS,
         diary_line_count=writing_svc.DIARY_LINE_COUNT,

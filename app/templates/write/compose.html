@@ -57,10 +57,16 @@
     </form>
   </div>
   {% elif not words %}
+  {% if has_any_words %}
+  <div class="word-card" style="text-align:center;">
+    <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.no_due_words', language=lang_name) }}</p>
+  </div>
+  {% else %}
   <div class="word-card" style="text-align:center;">
     <p style="margin-bottom:16px;color:var(--text-secondary);">{{ _('write.no_words', language=lang_name) }}</p>
     <a class="btn success" href="{{ url_for('words.add_center') }}">{{ _('write.add_words') }}</a>
   </div>
+  {% endif %}
   {% else %}
   <div class="form-card write-card">
     <form hx-post="{{ url_for('write.submit') }}" hx-target="#write-result"

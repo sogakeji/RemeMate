@@ -8,7 +8,7 @@
 import re
 import random
 
-from sqlalchemy import case
+from datetime import timedelta
 
 from app.extensions import db
 from app.models.word import WordList, Word, ReviewLog
@@ -23,6 +23,11 @@ from app.services.words import get_word
 MAX_SENTENCE_CHARS = 140
 DIARY_LINE_COUNT = 3
 MAX_DIARY_LINE_CHARS = 100
+
+# 造句目标词的最小轮换间隔：写过句子的词在 N 天内不再推荐为今日目标词。
+# 用 output_entries（保存成功才写入）判断，能覆盖修复前保存、但当时未被
+# SRS 重调度的旧记录（如 2026-08-16 之前的保存）。
+WRITE_TARGET_REPEAT_DAYS = 7
 DIARY_PROMPTS = [
     "你更喜欢猫还是狗，为什么？",
     "今天有什么小事让你心情变好了？",
@@ -98,17 +103,35 @@ def _validate_sentence_language(sentence: str, language_code: str):
 
 def get_practice_words(user_id: int, limit: int = 50, *,
                        language_code: str | None = None) -> list[Word]:
-    """造句可选词：当前语言内，到期词在前；同组里优先易忘词。
+    """造句可选词：当前语言内，只取到期词，且最近写过句子的词排后/排除。
 
     language_code 给定时只取该语言的词（与首页/词库按当前语言闭环一致）。
+
+    轮换规则（修 M8 后仍复现的“每天目标词不变”）：
+    1. 只取到期词（due_date <= now）：保存造句后单词被重调度到未来，
+       不再是本日目标词，小词库下目标也会切换。
+    2. 排除 WRITE_TARGET_REPEAT_DAYS 内保存过句子的词（以 output_entries
+       为准，覆盖修复前保存但未被重调度的旧记录）：刚写过的不再立即回来。
+    3. 排序：同组里优先易忘词，其次按到期先后。
+    若没有符合条件的目标词则返回空列表（路由显示空状态）。
     """
     now = utc_now()
+    cutoff = now - timedelta(days=WRITE_TARGET_REPEAT_DAYS)
     q = (Word.query.join(WordList)
          .filter(WordList.user_id == user_id))
     if language_code is not None:
         q = q.filter(WordList.language_code == language_code)
-    due_bucket = case((Word.due_date <= now, 0), else_=1)
-    return (q.order_by(due_bucket, Word.lapses.desc(), Word.due_date.asc())
+    written_recently = (
+        db.select(OutputEntry.id)
+        .where(OutputEntry.user_id == user_id,
+               OutputEntry.word_id == Word.id,
+               OutputEntry.created_at >= cutoff)
+        .exists()
+    )
+    return (q.filter(Word.due_date <= now)
+            .filter(~written_recently)
+            .order_by(Word.lapses.desc(),
+                      Word.due_date.asc())
             .limit(limit).all())
 
 

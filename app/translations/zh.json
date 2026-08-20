@@ -171,6 +171,7 @@
     "write.incomplete": "这句看起来不完整。",
     "write.language_mismatch": "这句看起来不是当前目标语言。请切换语言，或用当前语言重新造句。",
     "write.mode_label": "写作模式",
+    "write.no_due_words": "{language}今天没有到期的目标词，可以去复习，或明天再来。",
     "write.no_words": "{language}还没有词，先去加词。",
     "write.open_settings": "去设置",
     "write.own_key": "自带 key",
