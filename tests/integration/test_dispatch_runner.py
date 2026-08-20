@@ -220,6 +220,7 @@ def test_bark_runner_rolls_back_only_the_user_with_sql_failure(
         return real_sender(conn, **kwargs)
 
     monkeypatch.setattr(notifications, "send_review_reminders", fail_b_only)
+    monkeypatch.setenv("DISPATCH_DATABASE_URL", os.environ["TEST_DISPATCH_DATABASE_URL"])
     from dispatch.runner import run_bark_from_database
 
     stats = run_bark_from_database(
@@ -274,6 +275,7 @@ def test_bark_runner_keeps_each_users_payload_and_push_log_isolated(
         return Resp()
 
     monkeypatch.setattr(notifications.requests, "post", fake_post)
+    monkeypatch.setenv("DISPATCH_DATABASE_URL", os.environ["TEST_DISPATCH_DATABASE_URL"])
     from dispatch.runner import run_bark_from_database
 
     stats = run_bark_from_database(
