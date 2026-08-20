@@ -10,19 +10,19 @@ from dispatch.runner import run_bark_from_database
 from tests.helpers import provision_user
 
 
-def _configure_bark(bypass_engine, uid):
+def _configure_bark(bypass_engine, uid, *, bark_key="test-key"):
     with bypass_engine.begin() as conn:
         conn.execute(text(
             """
             UPDATE user_settings
-            SET bark_url='https://api.day.app/test-key',
+            SET bark_url=:bark_url,
                 notify_review_reminder=true
             WHERE user_id=:uid
             """
-        ), {"uid": uid})
+        ), {"uid": uid, "bark_url": f"https://api.day.app/{bark_key}"})
 
 
-def _make_due_word(bypass_engine, uid):
+def _make_due_word(bypass_engine, uid, *, word="maison", meaning="房子"):
     with bypass_engine.begin() as conn:
         list_id = conn.execute(text(
             """
@@ -36,17 +36,17 @@ def _make_due_word(bypass_engine, uid):
                 list_id,word,marked,due_date,interval,ease,reps,lapses
             )
             VALUES (
-                :list_id,'maison',false,
+                :list_id,:word,false,
                 timestamp '2026-07-09 11:00:00',1,2.5,0,0
             ) RETURNING id
             """
-        ), {"list_id": list_id}).scalar()
+        ), {"list_id": list_id, "word": word}).scalar()
         conn.execute(text(
             """
             INSERT INTO definitions(word_id,part_of_speech,meaning,example)
-            VALUES (:word_id,'名词','房子','La maison est bleue.')
+            VALUES (:word_id,'名词',:meaning,'La maison est bleue.')
             """
-        ), {"word_id": word_id})
+        ), {"word_id": word_id, "meaning": meaning})
         return word_id
 
 
@@ -242,3 +242,73 @@ def test_bark_runner_rolls_back_only_the_user_with_sql_failure(
             """
         )).fetchall()
     assert [row[0] for row in rows] == [uid_a, uid_c]
+
+
+def test_bark_runner_keeps_each_users_payload_and_push_log_isolated(
+        bypass_engine, app, monkeypatch):
+    uid_a = provision_user(app, "payload-a@t.com", "pw12345678")
+    uid_b = provision_user(app, "payload-b@t.com", "pw12345678")
+    word_a = _make_due_word(
+        bypass_engine, uid_a, word="alpha", meaning="A meaning"
+    )
+    word_b = _make_due_word(
+        bypass_engine, uid_b, word="bravo", meaning="B meaning"
+    )
+    _configure_bark(bypass_engine, uid_a, bark_key="key-a")
+    _configure_bark(bypass_engine, uid_b, bark_key="key-b")
+
+    class Resp:
+        status_code = 200
+
+    calls = []
+    monkeypatch.setattr(
+        words_svc.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (None, None, None, None, ("43.155.109.24", 443))
+        ],
+    )
+
+    def fake_post(url, *, json, timeout, allow_redirects):
+        calls.append((url, json, timeout, allow_redirects))
+        return Resp()
+
+    monkeypatch.setattr(notifications.requests, "post", fake_post)
+    from dispatch.runner import run_bark_from_database
+
+    stats = run_bark_from_database(
+        now_utc=datetime(2026, 7, 9, 12, 0, 0),
+        secret_key="test-secret",
+        public_base_url="https://rememate.test",
+        post=fake_post,
+    )
+
+    assert stats.users_seen == 2
+    assert stats.sent == 2
+    assert len(calls) == 2
+    assert {call[1]["title"] for call in calls} == {"alpha", "bravo"}
+    for url, payload, timeout, allow_redirects in calls:
+        assert payload["url"].startswith(
+            "https://rememate.test/bark/review/v1."
+        )
+        assert timeout == 5
+        assert allow_redirects is False
+        if payload["title"] == "alpha":
+            assert "bravo" not in str(payload)
+            assert url.endswith("key-a")
+        else:
+            assert "alpha" not in str(payload)
+            assert url.endswith("key-b")
+
+    with bypass_engine.connect() as conn:
+        rows = conn.execute(text(
+            """
+            SELECT user_id, idempotency_key
+            FROM push_log
+            ORDER BY user_id
+            """
+        )).fetchall()
+    assert rows == [
+        (uid_a, f"{uid_a}:review:{word_a}:2026-07-09"),
+        (uid_b, f"{uid_b}:review:{word_b}:2026-07-09"),
+    ]
