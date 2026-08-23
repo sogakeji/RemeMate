@@ -43,6 +43,13 @@
            {% if _endpoint == 'main.index' %}aria-current="page"{% endif %}>
           {{ nav_icon('home') }}<span class="nav-desktop-label">{{ _('nav.home') }}</span>
         </a>
+        {% if config.PRACTICE_ENABLED %}
+        <a class="nav-link nav-primary {% if _endpoint.startswith('practice.') %}active{% endif %}"
+           href="{{ url_for('practice.index') }}" title="{{ _('nav.practice') }}" aria-label="{{ _('nav.practice') }}"
+           {% if _endpoint.startswith('practice.') %}aria-current="page"{% endif %}>
+          {{ nav_icon('practice') }}<span class="nav-desktop-label">{{ _('nav.practice') }}</span>
+        </a>
+        {% endif %}
         <div class="nav-dropdown {% if _write_active %}nav-domain-active{% endif %}" data-nav-dropdown>
           <button type="button" class="nav-link nav-menu-trigger nav-primary {% if _write_active %}active{% endif %}"
                   data-nav-menu="writing" aria-haspopup="true" aria-expanded="false"

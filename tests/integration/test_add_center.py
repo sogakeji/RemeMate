@@ -383,7 +383,7 @@ def test_nav_promotes_writing_and_partners_to_primary_domains(
     account_menu = page.split('aria-label="我的菜单"', 1)[1].split("</div>", 1)[0]
     assert 'href="/partners"' not in account_menu
     assert 'href="/partner-packets"' not in account_menu
-    assert page.count("nav-mobile-icon") == 5
+    assert page.count("nav-mobile-icon") == 6
 
 
 def test_writing_domain_pages_share_equal_section_navigation(

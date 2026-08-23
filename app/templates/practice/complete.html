@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ _('practice.title') }} · RemeMate{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='practice.css') }}">
+{% endblock %}
+{% block content %}
+<main class="practice-page">
+  <section class="practice-card">
+    <p class="practice-kicker">{{ _('practice.session_complete') }}</p>
+    <p class="practice-score">{{ practice_session.items|selectattr('is_correct', 'equalto', true)|list|length }} / {{ practice_session.items|length }}</p>
+    {% set missed = practice_session.items|selectattr('is_correct', 'equalto', false)|list %}
+    {% if missed %}
+      <h2>{{ _('practice.missed_items') }}</h2>
+      <div class="practice-wrongs">
+        {% for item in missed %}
+          <article class="practice-wrong-item">
+            <p><strong>{{ _('practice.your_answer') }}:</strong> {{ item.submitted_answer }}</p>
+            <p><strong>{{ _('practice.correct') }}:</strong> {{ item.target }}</p>
+            <p lang="fr"><strong>{{ _('practice.sentence') }}:</strong> {{ item.sentence }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="button-group">
+      <a class="btn primary" href="{{ url_for('practice.index') }}">{{ _('practice.again') }}</a>
+      <a class="btn default" href="{{ url_for('main.index') }}">{{ _('practice.back_home') }}</a>
+    </div>
+  </section>
+</main>
+{% endblock %}

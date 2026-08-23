@@ -62,6 +62,7 @@ class BaseConfig:
     DISPATCH_DATABASE_URL = os.environ.get("DISPATCH_DATABASE_URL")
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL")
     OPEN_REGISTRATION_ENABLED = env_bool("OPEN_REGISTRATION_ENABLED")
+    PRACTICE_ENABLED = env_bool("PRACTICE_ENABLED")
     REGISTRATION_TOKEN_TTL_SECONDS = int(
         os.environ.get("REGISTRATION_TOKEN_TTL_SECONDS", 86_400)
     )
@@ -120,10 +121,12 @@ class TestingConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL")
     DISPATCH_DATABASE_URL = os.environ.get("TEST_DISPATCH_DATABASE_URL")
     MIGRATE_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+    PRACTICE_ENABLED = True
 
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
+    PRACTICE_ENABLED = False
 
     def __init__(self):
         # 启动期断言：生产绝不允许用不安全默认密钥或空密钥（H1）。

@@ -22,6 +22,7 @@ from app.models.packet import (
     PartnerPacketItemAdoption, PartnerPacketThank,
 )
 from app.models.review_story import LearningFunnelEvent, ReviewStoryRun
+from app.models.practice import PracticeSession, PracticeItem
 
 __all__ = [
     "User", "UserSettings", "UserQuota", "TokenUsageLog",
@@ -39,4 +40,5 @@ __all__ = [
     "PartnerPacket", "PartnerPacketItem", "PartnerPacketThank",
     "PartnerPacketIntake", "PartnerPacketItemAdoption",
     "ReviewStoryRun", "LearningFunnelEvent",
+    "PracticeSession", "PracticeItem",
 ]

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ _('practice.title') }} · RemeMate{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='practice.css') }}">
+{% endblock %}
+{% block content %}
+<main class="practice-page">
+  <div data-practice-root data-practice-screen="feedback"
+       data-practice-voice-checking="{{ _('practice.voice_checking') }}"
+       data-practice-voice-unsupported="{{ _('practice.voice_unsupported') }}"
+       data-practice-voice-missing="{{ _('practice.voice_missing') }}"
+       data-practice-voice-ready="{{ _('practice.voice_ready') }}"
+       data-practice-voice-report-url="{{ url_for('practice.voice_unavailable') }}">
+  <p class="practice-progress">{{ item.position + 1 }} / {{ practice_session.items|length }}</p>
+  <section class="practice-card {% if item.is_correct %}practice-is-correct{% else %}practice-is-incorrect{% endif %}">
+    <p class="practice-verdict">{{ _('practice.correct') if item.is_correct else _('practice.incorrect') }}</p>
+    <button type="button" class="practice-play" data-practice-play
+            data-practice-sentence="{{ item.sentence }}"
+            data-practice-replay-url="{{ url_for('practice.replay', session_id=practice_session.id, item_id=item.id) }}"
+            aria-label="{{ _('practice.replay') }}">{{ _('practice.replay') }}</button>
+    <p class="practice-voice-status" data-practice-voice-status></p>
+    <dl class="practice-reveal">
+      <div><dt>{{ _('practice.your_answer') }}</dt><dd>{{ item.submitted_answer or _('practice.not_answered') }}</dd></div>
+      <div><dt>{{ _('practice.correct') }}</dt><dd>{{ item.target }}</dd></div>
+      <div><dt>{{ _('practice.full_sentence') }}</dt><dd lang="fr">{{ item.sentence }}</dd></div>
+      <div><dt>{{ _('practice.meaning') }}</dt><dd>{{ item.meaning or _('practice.not_answered') }}</dd></div>
+    </dl>
+    <form method="post" action="{{ url_for('practice.continue_session', session_id=practice_session.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn primary" data-practice-continue>{{ _('practice.continue') }}</button>
+    </form>
+  </section>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='practice.js') }}"></script>
+{% endblock %}

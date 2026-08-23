@@ -70,6 +70,7 @@ def create_app(config_name=None):
     from app.blueprints.reading import bp as reading_bp
     from app.blueprints.partners import bp as partners_bp
     from app.blueprints.public import bp as public_bp
+    from app.blueprints.practice import bp as practice_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -81,6 +82,7 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp)
     app.register_blueprint(reading_bp)
     app.register_blueprint(partners_bp)
+    app.register_blueprint(practice_bp)
 
     # CLI 命令
     from cli.commands import register_commands

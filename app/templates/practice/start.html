@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ _('practice.title') }} · RemeMate{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='practice.css') }}">
+{% endblock %}
+{% block content %}
+<main class="practice-page">
+  <section class="practice-card" data-practice-root data-practice-screen="start"
+           data-practice-voice-checking="{{ _('practice.voice_checking') }}"
+           data-practice-voice-unsupported="{{ _('practice.voice_unsupported') }}"
+           data-practice-voice-missing="{{ _('practice.voice_missing') }}"
+           data-practice-voice-ready="{{ _('practice.voice_ready') }}"
+           {% if language_code == 'fr' and question_count > 0 %}
+           data-practice-voice-report-url="{{ url_for('practice.voice_unavailable') }}"
+           {% endif %}>
+    <p class="practice-kicker">{{ _('practice.kicker') }}</p>
+    <h1>{{ _('practice.title') }}</h1>
+    {% if language_code != 'fr' %}
+      <p class="practice-lead">{{ _('practice.available') }}</p>
+    {% elif question_count == 0 %}
+      <p class="practice-lead">{{ _('practice.empty') }}</p>
+    {% else %}
+      <p class="practice-lead">{{ _('practice.lead') }}</p>
+      <p class="practice-meta">{{ _('practice.question_count_one' if question_count == 1 else 'practice.question_count_many', count=question_count) }} · {{ _('practice.browser_voice') }}</p>
+      <p class="practice-voice-status" data-practice-voice-status>{{ _('practice.voice_checking') }}</p>
+      <button type="button" class="btn default practice-retry" data-practice-retry hidden>{{ _('practice.try_again') }}</button>
+      <form method="post" action="{{ url_for('practice.start') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="voice_available" data-practice-voice-input value="">
+        <button type="submit" class="btn primary practice-cta" data-practice-start disabled>{{ _('practice.start') }}</button>
+      </form>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='practice.js') }}"></script>
+{% endblock %}
