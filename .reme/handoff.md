@@ -1,10 +1,10 @@
 # Current handoff
 
-> handoff@1fb2ded · phase: Git 与 handoff 已按生产基线校准 · checked: 2026-08-20
+> handoff@83e91f2 · phase: Practice 法语 MVP 已发布，进入上线后优化阶段 · checked: 2026-08-23
 
-- 当前目标：保持 `origin/master` 与本地 `master` 同步；生产 Git 保持 `master@e006076`，未经批准不部署。
-- 当前阶段：实际 Git 已确认无分叉；handoff 已更新并安全推送，生产基线完整包含在本地与 origin 中。
-- 下一动作：按 [docs/BACKLOG.md](../docs/BACKLOG.md) 处理 Review Story 多语言稳定性二次优化，先补失败回归和脱敏观测。
+- 当前目标：优先优化 Practice，并修复 AI 批改未完成却消耗用户完成额度的问题。
+- 当前阶段：Practice 已合并、推送并部署生产；UI 与 5 词选择人工验收通过，音质待优化。
+- 下一动作：按 [docs/BACKLOG.md](../docs/BACKLOG.md) 拆分 Practice 语音/多语言与 AI 额度正确性的首个短计划。
 - 阻塞项：无。
 - 权威规格：[AGENTS.md](../AGENTS.md)
 - 当前计划：[docs/BACKLOG.md](../docs/BACKLOG.md)

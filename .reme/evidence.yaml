@@ -1,4 +1,25 @@
 evidence:
+- claim: Practice 里程碑 REME checkpoint 确定性检查通过
+  status: claim
+  source: .reme/evidence/checkpoint-practice-20260823.txt
+  command: python inline REME checkpoint checker
+  result: exit_code_0
+- claim: Practice 法语 MVP 已部署生产并通过发布检查：生产 master@ccd4e45、migration 单一 head e9f0a1b2c3d4、strict doctor 全 OK、服务 active、内外健康检查 200、Practice 开关启用且本人法语词库可选 5 题
+  status: verified
+  verified_at_head: ccd4e45724bacbe9dcd4cd52a5d60dc1bb5fd9e4
+  verified_on_branch: master
+  covers:
+  - app/blueprints/practice/routes.py
+  - app/models/practice.py
+  - app/services/practice.py
+  - app/static/practice.js
+  - config.py
+  - migrations/versions/d7a8b9c0d1e2_add_practice_tables.py
+  - migrations/versions/e9f0a1b2c3d4_add_practice_voice_blocked_state.py
+  source: .reme/evidence/practice-deploy-20260823.txt
+  command: ssh tencent-old 生产 Git/migration/doctor/service/health/data/Practice 只读验证；curl 公网健康与 Practice 入口
+  result: exit_code_0
+  supports: docs/HANDOFF.md#当前状态
 - claim: REME checkpoint deterministic checks passed
   status: claim
   source: .reme/evidence/checkpoint-c6be3ef.txt

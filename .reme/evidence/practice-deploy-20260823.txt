@@ -1,0 +1,31 @@
+Practice production deployment verification
+checked_at=2026-08-23
+HEAD=ccd4e45724bacbe9dcd4cd52a5d60dc1bb5fd9e4
+BRANCH=master
+WORKTREE=clean
+DB_CURRENT
+e9f0a1b2c3d4 (head)
+DB_HEADS
+e9f0a1b2c3d4 (head)
+DOCTOR
+[OK] app database: connected
+[OK] dispatch database: connected
+[OK] migrate database: connected
+[OK] migrations: e9f0a1b2c3d4
+[OK] SECRET_KEY: configured
+[OK] DATA_ENCRYPTION_KEY: configured
+[OK] admin account: 1 active
+[OK] LLM correction: provider configured
+[OK] LLM nsfw: provider configured
+[OK] registration email RESEND_API_KEY: configured
+[OK] registration email AUTH_EMAIL_FROM: configured
+[OK] registration email PUBLIC_BASE_URL: configured
+[OK] reading dictionaries: zh/en/ja/fr present in /srv/rememate-data/dictionaries
+SERVICE=active
+INTERNAL_HEALTH=200
+PRACTICE_GATE=true
+DATA_COUNTS users=9 lists=15 words=214 definitions=206 reviews=216 practice_sessions=0
+PRACTICE_SMOKE language=fr question_count=5
+PUBLIC_HEALTH=200
+PUBLIC_PRACTICE=302
+RESULT=exit_code_0
