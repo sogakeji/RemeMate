@@ -47,6 +47,24 @@ def test_production_config_accepts_complete_env(monkeypatch):
     assert cfg.DEEPSEEK_API_KEY == "sk-test"
 
 
+@pytest.mark.parametrize(("raw", "expected"), [
+    (None, False),
+    ("false", False),
+    ("true", True),
+])
+def test_production_practice_gate_is_explicit_and_fail_safe(
+        monkeypatch, raw, expected):
+    _set_production_env(monkeypatch)
+    if raw is None:
+        monkeypatch.delenv("PRACTICE_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("PRACTICE_ENABLED", raw)
+
+    cfg = get_config("production")
+
+    assert cfg.PRACTICE_ENABLED is expected
+
+
 @pytest.mark.parametrize("name", [
     "SECRET_KEY",
     "DATA_ENCRYPTION_KEY",

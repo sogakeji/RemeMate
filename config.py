@@ -153,6 +153,7 @@ class ProductionConfig(BaseConfig):
         self.MIGRATE_DATABASE_URL = require_configured("MIGRATE_DATABASE_URL")
         self.DISPATCH_DATABASE_URL = require_configured("DISPATCH_DATABASE_URL")
         self.PUBLIC_BASE_URL = optional_configured("PUBLIC_BASE_URL")
+        self.PRACTICE_ENABLED = env_bool("PRACTICE_ENABLED")
         self.DEEPSEEK_API_KEY = optional_configured("DEEPSEEK_API_KEY")
         self.DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         self.DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
