@@ -1,36 +1,39 @@
 # RemeMate HANDOFF
 
-> 当前快照：2026-08-20 · `master` · 以实际 Git HEAD 为准 · 生产 `e006076`
+> 当前快照：2026-08-23 · `master@ccd4e45` · 生产 `ccd4e45` · migration `e9f0a1b2c3d4`
 
 ## 读取规则
 
-- 本文件只记录当前状态、当前阻塞和下一步，不作为过程日志。
-- 带日期的历史过程、旧测试数字和已完成切片不作为当前事实；需要追溯时读取
-  [`docs/PROGRESS.md`](./PROGRESS.md) 或任务专属文档。
-- 已标记为历史/过时的文档默认跳过，只有当前任务明确涉及时才读取；权威路线以当前代码、
-  `AGENTS.md`、本文件和 [`docs/BACKLOG.md`](./BACKLOG.md) 为准。
+- 本文件只保留当前状态、下一阶段和仍会影响工作的踩坑记录。
+- 已完成过程与旧验证数字见 [`docs/PROGRESS.md`](./PROGRESS.md)；待办只看
+  [`docs/BACKLOG.md`](./BACKLOG.md)。
+- 实际 Git、数据库和服务状态优先于文档快照。
 
 ## 当前状态
 
-- 实际生产工作树 `/srv/rememate` 为干净的 `master@e006076`；本地 `master` 是其快进后代，无分叉。
-- `e006076` 已包含 Bark 每两小时提醒、正文防剧透及每日到期词轮换；对应部署与验证证据见
-  [`.reme/evidence.yaml`](../.reme/evidence.yaml)。
-- 本地在生产基线上新增的提交仅涉及 REME checkpoint、handoff 与 `.pi` 验证工具；尚未部署这些提交，
-  也未改动生产 `.env`、`.venv`、数据库或 `/srv/rememate-data`。
-- 生产数据库迁移 head 为 `c1d2e3f4a5b6`；Bark timer 已安装并启用。运行状态的历史验证以证据账本为准，
-  需要发布时必须重新执行部署检查，不能把旧快照当作当前实时健康检查。
+- 法语语境听写 Practice 已合并、推送并部署生产；`PRACTICE_ENABLED=true`，生产迁移为单一 head
+  `e9f0a1b2c3d4`。
+- 用户已用合成词库和本人词库完成人工验收：5 题选择正确、UI 通过；浏览器
+  `speechSynthesis` 音质较差，作为下阶段优化项。
+- 发布前备份、migration upgrade、`flask doctor --strict`、服务/HTTPS/日志与数据保留检查均通过；
+  生产仍为法语限定，不影响 SRS 或 `review_logs`。
 
-## 最近验证
+## 下一阶段
 
-- Bark 每日轮换在 tencent-new 定向测试 17 passed，unit + write 284 passed；生产手动运行确认会跳过当天已推词。
-- Bark 定时推送首次生产实跑 `sent=1`，重复运行 `duplicates=1`，验证幂等。
-- Review Story 中文、法文仍存在 `invalid_schema` 波动，尚不能宣称六语种稳定可用。
+1. 先优化 Practice：语音选择与音质、多语言扩展、上线反馈修复；当前仍只支持法语。
+2. 同步修复 AI 稳定性与额度语义：造句修改/批改未完成时，不应消耗用户的已完成 AI 用量上限。
+3. Review Story 多语言优化后排，待前两项稳定后再启动。
 
-## 下一步与边界
+具体范围与强制项见 [`docs/BACKLOG.md`](./BACKLOG.md)。
 
-- 先将本地 `master` 安全推送至 `origin/master`；生产保持 `e006076`，除非另行明确批准部署。
-- 后续按 [`docs/BACKLOG.md`](./BACKLOG.md) 处理“Review Story 多语言稳定性二次优化”：先补失败回归和
-  脱敏观测，再重跑六语种 staging smoke。
-- 生产部署必须保留数据库备份、迁移检查、`flask doctor --strict`、服务/HTTPS/日志和数据保留检查。
-- 架构与部署规则分别见 [`docs/arch/`](./arch/)、[`docs/deploy-closed-beta.md`](./deploy-closed-beta.md)
-  和根目录 [`AGENTS.md`](../AGENTS.md)；不要把这些参考文档中的旧状态当作当前状态。
+## 保留的踩坑记录
+
+- `ProductionConfig` 必须从环境显式读取 `PRACTICE_ENABLED`；默认关闭，发布时才设置为 `true`。
+- `practice_sessions` 使用 FORCE RLS；含 `blocked` 数据的 downgrade 必须先临时取消 FORCE、转换为
+  `abandoned`，随后恢复 FORCE，不能直接添加旧状态约束。
+- app 角色未设置 `app.current_user_id` 时查询 RLS 表会得到 0 行；数据保留检查应使用 dispatch 角色，
+  不能据此误判生产数据丢失。
+- `tests/conftest.py` 会清空 `rememate_test`；导入人工验收数据后不要继续在同一数据库运行 pytest。
+
+部署与安全边界见 [`docs/deploy-closed-beta.md`](./deploy-closed-beta.md) 和根目录
+[`AGENTS.md`](../AGENTS.md)。
