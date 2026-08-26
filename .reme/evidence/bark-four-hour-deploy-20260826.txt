@@ -1,0 +1,17 @@
+Bark four-hour timer production verification
+checked_at=2026-08-26
+HEAD=2b737d49e0b1d0b803e924fea0cce721628a7b36
+WORKTREE=clean
+VERIFY=exit_code_0
+ENABLED=enabled
+ACTIVE=active
+Description=RemeMate Bark review reminder timer (every 4 hours)
+OnCalendar=*-*-* 00,04,08,12,16,20:00:00
+Persistent=true
+Unit=rememate-bark.service
+NEXT                           LEFT LAST                           PASSED UNIT                ACTIVATES
+Thu 2026-08-27 00:00:00 CST 3h 2min Wed 2026-08-26 20:00:01 CST 57min ago rememate-bark.timer rememate-bark.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+RESULT=exit_code_0

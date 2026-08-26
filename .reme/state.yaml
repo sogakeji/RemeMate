@@ -2,9 +2,9 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: 83e91f25d1abd3c690989495ba8d32f936384a49
+  recorded_at_head: 2b737d49e0b1d0b803e924fea0cce721628a7b36
   recorded_at_branch: master
-  worktree_fingerprint: 2832a927542439c5491ab9343c9bb6cc1fa1d5c05683600a2b5c14a83d3161f2
+  worktree_fingerprint: e433d35526b9f6d132bd4eb02d2745e38d15cceba877eb9d4e8e4fdb4a36eeeb
   phase: Practice 法语 MVP 已发布，进入 Practice 与 AI 稳定性优化阶段
 
 maintenance:

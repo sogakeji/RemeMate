@@ -1,4 +1,19 @@
 evidence:
+- claim: Bark 四小时间隔 REME checkpoint 确定性检查通过
+  status: claim
+  source: .reme/evidence/checkpoint-bark-four-hour-20260826.txt
+  command: python inline REME checkpoint checker
+  result: exit_code_0
+- claim: 生产 Bark 复习提醒已从每 2 小时调整为每 4 小时，timer 为 enabled/active，下一次按 00/04/08/12/16/20 点整触发
+  status: verified
+  verified_at_head: 2b737d49e0b1d0b803e924fea0cce721628a7b36
+  verified_on_branch: master
+  covers:
+  - deploy/systemd/rememate-bark.timer
+  source: .reme/evidence/bark-four-hour-deploy-20260826.txt
+  command: systemd-analyze verify；systemctl is-enabled/is-active/cat/list-timers
+  result: exit_code_0
+  supports: docs/deploy-bark-timer.md
 - claim: Practice 里程碑 REME checkpoint 确定性检查通过
   status: claim
   source: .reme/evidence/checkpoint-practice-20260823.txt
