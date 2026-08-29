@@ -138,20 +138,50 @@ def fake_llm():
         "nsfw_content": '{"is_nsfw":false}',
         "empty": False,
         "nsfw_empty": False,
+        "timeout": False,
+        "sequence": None,
+        "calls": 0,
+        "prompt_tokens": 10,
+        "completion_tokens": 20,
     }
 
     class FP:
         name = "fake"
 
-        def __init__(self, content):
-            self.content = content
+        def __init__(self, kind):
+            self.kind = kind
 
         def call(self, messages, *, timeout, json_mode=False):
-            return llm.LLMResult(self.content, 10, 20, "fake", "fake-model")
+            if self.kind == "nsfw":
+                return llm.LLMResult(
+                    holder["nsfw_content"], 10, 20, "fake", "fake-model",
+                )
+            holder["calls"] += 1
+            if holder["timeout"]:
+                raise llm.ProviderError("fake: timeout")
+            sequence = holder["sequence"]
+            if sequence:
+                idx = min(holder["calls"] - 1, len(sequence) - 1)
+                item = sequence[idx]
+                if item == "timeout":
+                    raise llm.ProviderError("fake: timeout")
+                if item == "fail":
+                    raise llm.ProviderError("fake: down")
+                content = item
+            else:
+                content = holder["content"]
+            return llm.LLMResult(
+                content,
+                holder["prompt_tokens"],
+                holder["completion_tokens"],
+                "fake",
+                "fake-model",
+            )
 
     def install():
-        correction = [] if holder["empty"] else [FP(holder["content"])]
-        nsfw = [] if holder["nsfw_empty"] else [FP(holder["nsfw_content"])]
+        holder["calls"] = 0
+        correction = [] if holder["empty"] else [FP("correction")]
+        nsfw = [] if holder["nsfw_empty"] else [FP("nsfw")]
         llm.set_registry({
             "correction": correction, "nsfw": nsfw, "general": correction,
         })

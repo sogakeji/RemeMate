@@ -33,6 +33,7 @@ class CorrectionResult:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     degraded: bool = False  # True 表示 AI 不可用，走了兜底
+    error_code: str | None = None
 
 
 _SYSTEM_TMPL = """你是严格的{lang}写作批改老师。学生在练习目标词「{word}」造句。
@@ -77,7 +78,7 @@ def _build_messages(sentence, target_word, language_code, feedback_language_code
 
 
 def _degraded_result(sentence, feedback, *, provider="", model="",
-                     prompt_tokens=0, completion_tokens=0):
+                     prompt_tokens=0, completion_tokens=0, error_code="unavailable"):
     return CorrectionResult(
         corrected=sentence, translation="", target_word_used=False,
         incomplete=False, errors=[], is_nsfw=True,
@@ -85,6 +86,88 @@ def _degraded_result(sentence, feedback, *, provider="", model="",
         degraded=True,
         provider=provider, model=model,
         prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+        error_code=error_code,
+    )
+
+
+def _usable_payload(data):
+    """Return (payload, error_code). error_code is set when the result is unusable."""
+    if not isinstance(data, dict):
+        return None, "invalid_schema"
+    corrected = data.get("corrected")
+    if not isinstance(corrected, str):
+        return None, "invalid_schema"
+    if not corrected.strip():
+        return None, "empty_result"
+    errors = data.get("errors", [])
+    if errors is None:
+        errors = []
+    if not isinstance(errors, list) or any(not isinstance(item, dict) for item in errors):
+        return None, "invalid_schema"
+    data = dict(data)
+    data["errors"] = errors
+    return data, None
+
+
+def _feedback_for_error(error_code):
+    if error_code in {"timeout", "unavailable"}:
+        return "AI 批改暂时不可用，请稍后重试。"
+    return "批改结果解析异常，请稍后重试。"
+
+
+def _classify_content(content):
+    if not (content or "").strip():
+        return None, "empty_result"
+    data = _parse(content)
+    if data is None:
+        return None, "parse_error"
+    return _usable_payload(data)
+
+
+def _run_correction(messages, fallback_sentence, *, force_target_word_used=False):
+    """One bounded logical attempt: initial provider + one failover on unusable output."""
+    prompt_tokens = 0
+    completion_tokens = 0
+    last_provider = ""
+    last_model = ""
+    last_error = "unavailable"
+    excluded = set()
+
+    for _ in range(2):
+        try:
+            res = llm.chat(
+                messages,
+                task="correction",
+                json_mode=True,
+                excluded_provider_names=excluded or None,
+            )
+        except llm.AllProvidersDown as exc:
+            if last_error == "unavailable" or not last_provider:
+                last_error = llm.classify_provider_failure(exc)
+            break
+
+        prompt_tokens += res.prompt_tokens or 0
+        completion_tokens += res.completion_tokens or 0
+        last_provider = res.provider or last_provider
+        last_model = res.model or last_model
+        data, error_code = _classify_content(res.content)
+        if error_code:
+            last_error = error_code
+            if res.provider:
+                excluded.add(res.provider)
+            continue
+        if force_target_word_used:
+            data["target_word_used"] = True
+        result = _result_from_data(data, fallback_sentence, res)
+        result.prompt_tokens = prompt_tokens
+        result.completion_tokens = completion_tokens
+        return result
+
+    return _degraded_result(
+        fallback_sentence, _feedback_for_error(last_error),
+        provider=last_provider, model=last_model,
+        prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+        error_code=last_error,
     )
 
 
@@ -93,24 +176,7 @@ def correct_sentence(*, sentence, target_word, language_code,
     """批改一句，返回结构化结果。AI 全挂时返回 degraded 兜底（fail-closed NSFW）。"""
     messages = _build_messages(
         sentence, target_word, language_code, feedback_language_code)
-    try:
-        res = llm.chat(messages, task="correction", json_mode=True)
-    except llm.AllProvidersDown:
-        # AI 不可用：不批改、不判过；NSFW fail-closed（隐藏公开按钮）。
-        # 调用方不会允许保存降级结果，避免把未批改原句混进造句历史。
-        return _degraded_result(sentence, "AI 批改暂时不可用，请稍后重试。")
-
-    data = _parse(res.content)
-    if data is None:
-        # 完全解析不出 JSON：当作降级（不是"真批改"），fail-closed，给用户清晰提示，
-        # 而不是伪装成"没用到目标词"误导（review 阶段四 LOW）。
-        return _degraded_result(
-            sentence, "批改结果解析异常，请稍后重试。",
-            provider=res.provider, model=res.model,
-            prompt_tokens=res.prompt_tokens,
-            completion_tokens=res.completion_tokens,
-        )
-    return _result_from_data(data, sentence, res)
+    return _run_correction(messages, sentence)
 
 
 def correct_diary(*, diary, prompt, language_code,
@@ -124,20 +190,7 @@ def correct_diary(*, diary, prompt, language_code,
              lang=lang, feedback_lang=feedback_lang)},
         {"role": "user", "content": f"提示问题：{prompt}\n学生三行日记：\n{diary}"},
     ]
-    try:
-        res = llm.chat(messages, task="correction", json_mode=True)
-    except llm.AllProvidersDown:
-        return _degraded_result(diary, "AI 批改暂时不可用，请稍后重试。")
-    data = _parse(res.content)
-    if data is None:
-        return _degraded_result(
-            diary, "批改结果解析异常，请稍后重试。",
-            provider=res.provider, model=res.model,
-            prompt_tokens=res.prompt_tokens,
-            completion_tokens=res.completion_tokens,
-        )
-    data["target_word_used"] = True
-    return _result_from_data(data, diary, res)
+    return _run_correction(messages, diary, force_target_word_used=True)
 
 
 def _result_from_data(data, fallback_sentence, res):

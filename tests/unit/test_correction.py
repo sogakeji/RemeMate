@@ -84,3 +84,83 @@ def test_correction_prompt_uses_feedback_language():
     assert "中文写作批改老师" in messages[0]["content"]
     assert "法语翻译" in messages[0]["content"]
     assert "errors.detail 都用法语" in messages[0]["content"]
+
+
+def test_invalid_schema_is_degraded_and_keeps_usage():
+    _set('{"title":"not a correction","sentences":[]}')
+    r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
+    assert r.degraded is True
+    assert r.error_code == "invalid_schema"
+    assert r.prompt_tokens == 3 and r.completion_tokens == 4
+    assert r.corrected == "s"
+
+
+def test_empty_corrected_is_unusable():
+    _set('{"corrected":"","translation":"t","target_word_used":true,'
+         '"incomplete":false,"errors":[],"feedback":"f"}')
+    r = correction.correct_sentence(sentence="orig", target_word="w", language_code="fr")
+    assert r.degraded is True
+    assert r.error_code == "empty_result"
+    assert r.corrected == "orig"
+    assert r.prompt_tokens == 3
+
+
+def test_empty_provider_content_is_unusable():
+    _set("")
+    r = correction.correct_sentence(sentence="orig", target_word="w", language_code="fr")
+    assert r.degraded is True
+    assert r.error_code == "empty_result"
+    assert r.prompt_tokens == 3
+
+
+def test_provider_timeout_is_degraded():
+    class TimeoutP:
+        name = "fake"
+
+        def call(self, messages, *, timeout, json_mode=False):
+            raise llm.ProviderError("fake: timeout")
+
+    llm.set_registry({"correction": [TimeoutP()]})
+    r = correction.correct_sentence(sentence="orig", target_word="w", language_code="fr")
+    assert r.degraded is True
+    assert r.error_code == "timeout"
+    assert r.corrected == "orig"
+
+
+def test_invalid_schema_retries_once_then_succeeds():
+    class P:
+        def __init__(self, name, content, prompt_tokens, completion_tokens):
+            self.name = name
+            self.content = content
+            self.prompt_tokens = prompt_tokens
+            self.completion_tokens = completion_tokens
+            self.calls = 0
+
+        def call(self, messages, *, timeout, json_mode=False):
+            self.calls += 1
+            return llm.LLMResult(
+                self.content, self.prompt_tokens, self.completion_tokens,
+                self.name, "m",
+            )
+
+    primary = P("fake", '{"oops":true}', 3, 4)
+    backup = P(
+        "backup",
+        '{"corrected":"X","translation":"译","target_word_used":true,'
+        '"incomplete":false,"errors":[],"feedback":"f"}',
+        5, 6,
+    )
+    llm.set_registry({"correction": [primary, backup]})
+    r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
+    assert primary.calls == 1 and backup.calls == 1
+    assert r.degraded is False
+    assert r.corrected == "X"
+    assert r.prompt_tokens == 8 and r.completion_tokens == 10
+
+
+def test_unparseable_keeps_provider_usage():
+    _set("完全不是 JSON")
+    r = correction.correct_sentence(sentence="s", target_word="w", language_code="fr")
+    assert r.degraded is True
+    assert r.error_code == "parse_error"
+    assert r.prompt_tokens == 3 and r.completion_tokens == 4

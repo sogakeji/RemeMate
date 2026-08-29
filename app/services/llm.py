@@ -23,8 +23,14 @@ class ProviderError(Exception):
     pass
 
 
-class AllProvidersDown(Exception):
+class ProviderTimeout(ProviderError):
     pass
+
+
+class AllProvidersDown(Exception):
+    def __init__(self, message, *, error_code="unavailable"):
+        super().__init__(message)
+        self.error_code = error_code
 
 
 @dataclass
@@ -89,7 +95,9 @@ class OpenAICompatProvider:
                 model=self.model, messages=messages, **kwargs
             )
         except Exception as e:                       # 网络/超时/限流 → 统一 ProviderError
-            raise ProviderError(f"{self.name}: {e}") from e
+            if _is_timeout_error(e):
+                raise ProviderTimeout(f"{self.name}: timeout") from e
+            raise ProviderError(f"{self.name}: error") from e
         usage = resp.usage
         return LLMResult(
             content=resp.choices[0].message.content or "",
@@ -143,6 +151,22 @@ def _is_deepseek_model(provider) -> bool:
     return bool(provider and "deepseek" in (provider.model or "").lower())
 
 
+def _is_timeout_error(exc) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    name = type(exc).__name__.lower()
+    return "timeout" in name
+
+
+def classify_provider_failure(exc) -> str:
+    if isinstance(exc, ProviderTimeout):
+        return "timeout"
+    text = str(exc).lower()
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return getattr(exc, "error_code", None) or "unavailable"
+
+
 # 测试可通过 set_registry 注入假 provider 链
 _registry_override = None
 
@@ -194,7 +218,10 @@ def chat(
             _breaker.record_failure(provider.name)
             last_err = e
             continue
-    raise AllProvidersDown(f"task={task} 全部 provider 不可用：{last_err}")
+    raise AllProvidersDown(
+        f"task={task} 全部 provider 不可用",
+        error_code=classify_provider_failure(last_err) if last_err else "unavailable",
+    )
 
 
 # ---- 加词中心高层封装（对齐 demo services/llm_service.py） ----

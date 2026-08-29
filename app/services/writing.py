@@ -5,6 +5,7 @@
 - save_entry：用户显式确认后才写 output_entries。
 - is_nsfw 由批改结果决定，经签名 session 传递（路由层），不信客户端。
 """
+import logging
 import re
 import random
 
@@ -22,6 +23,8 @@ from app.services import quota as quota_svc
 from app.services import srs
 from app.services.timeutil import utc_now
 from app.services.words import get_word
+
+_logger = logging.getLogger(__name__)
 
 MAX_SENTENCE_CHARS = 140
 DIARY_LINE_COUNT = 3
@@ -179,35 +182,19 @@ def submit_correction(user_id: int, word_id: int, sentence: str, *,
         return None
     _validate_sentence_language(sentence, wl.language_code)
 
-    source = quota_svc.check_write_quota(user_id)   # 超限抛 SentenceQuotaExceeded
+    source = quota_svc.reserve_write_slot(user_id)   # 超限抛 SentenceQuotaExceeded
     used_user_key = source == "user_key"
-
-    result = correction_svc.correct_sentence(
-        sentence=sentence, target_word=word.word, language_code=wl.language_code,
-        feedback_language_code=feedback_language_code,
-    )
-
-    # 仅在真正调用了 AI（非兜底）时记账 +1
-    if not result.degraded:
-        moderation = moderation_svc.classify_public_text(result.corrected)
-        result.is_nsfw = moderation.is_nsfw
-        if not moderation.degraded:
-            quota_svc.record_feature_usage(
-                user_id,
-                prompt_tokens=moderation.prompt_tokens,
-                completion_tokens=moderation.completion_tokens,
-                provider=moderation.provider,
-                model=moderation.model,
-                feature="nsfw",
-                used_user_key=used_user_key,
-            )
-        quota_svc.record_correction(
-            user_id, prompt_tokens=result.prompt_tokens,
-            completion_tokens=result.completion_tokens,
-            provider=result.provider, model=result.model,
-            used_user_key=used_user_key,
+    try:
+        result = correction_svc.correct_sentence(
+            sentence=sentence, target_word=word.word, language_code=wl.language_code,
+            feedback_language_code=feedback_language_code,
         )
-    return result
+    except Exception:
+        quota_svc.release_write_slot(user_id)
+        raise
+    return _finalize_write_attempt(
+        user_id, result, used_user_key, feature="correction",
+    )
 
 
 def submit_diary(user_id: int, diary: str, *, prompt: str,
@@ -215,13 +202,62 @@ def submit_diary(user_id: int, diary: str, *, prompt: str,
     """批改三行日记（不入库）。不绑定目标词。"""
     diary = _clean_diary(diary)
     _validate_sentence_language(diary, language_code)
-    source = quota_svc.check_write_quota(user_id)
+    source = quota_svc.reserve_write_slot(user_id)
     used_user_key = source == "user_key"
+    try:
+        result = correction_svc.correct_diary(
+            diary=diary, prompt=prompt, language_code=language_code,
+            feedback_language_code=feedback_language_code)
+    except Exception:
+        quota_svc.release_write_slot(user_id)
+        raise
+    return _finalize_write_attempt(
+        user_id, result, used_user_key, feature="diary",
+    )
 
-    result = correction_svc.correct_diary(
-        diary=diary, prompt=prompt, language_code=language_code,
-        feedback_language_code=feedback_language_code)
-    if not result.degraded:
+
+def _log_write_failure(user_id, result):
+    _logger.info(
+        "write_correction_failed user_id=%s stage=%s provider=%s error=%s "
+        "prompt_tokens=%s completion_tokens=%s",
+        user_id,
+        result.error_code or "unavailable",
+        result.provider or "-",
+        result.error_code or "unavailable",
+        result.prompt_tokens or 0,
+        result.completion_tokens or 0,
+    )
+
+
+def _record_provider_cost(user_id, result, used_user_key, feature):
+    if not (result.provider or result.prompt_tokens or result.completion_tokens):
+        return
+    quota_svc.record_feature_usage(
+        user_id,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+        provider=result.provider,
+        model=result.model,
+        feature=feature,
+        used_user_key=used_user_key,
+    )
+
+
+def _finalize_write_attempt(user_id, result, used_user_key, *, feature):
+    """Keep completion quota only for usable results; always split provider cost."""
+    if result.degraded:
+        quota_svc.release_write_slot(user_id)
+        try:
+            _record_provider_cost(user_id, result, used_user_key, feature)
+        except Exception:
+            db.session.rollback()
+            _logger.exception(
+                "write_correction_cost_log_failed user_id=%s", user_id,
+            )
+        _log_write_failure(user_id, result)
+        return result
+
+    try:
         moderation = moderation_svc.classify_public_text(result.corrected)
         result.is_nsfw = moderation.is_nsfw
         if not moderation.degraded:
@@ -239,9 +275,12 @@ def submit_diary(user_id: int, diary: str, *, prompt: str,
             completion_tokens=result.completion_tokens,
             provider=result.provider, model=result.model,
             used_user_key=used_user_key,
-            feature="diary",
+            feature=feature,
         )
-    return result
+        return result
+    except Exception:
+        quota_svc.release_write_slot(user_id)
+        raise
 
 
 def save_entry(user_id: int, word_id: int, pending: dict) -> OutputEntry:

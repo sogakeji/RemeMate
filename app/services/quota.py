@@ -1,7 +1,8 @@
 """造句额度门禁（按提交句数计，见用户决策 2026-06-23）。
 
 - 系统 key：每日 3 句；自带 key：每日 20 句（自带 key 不烧系统额度）。
-- 按「提交批改次数」计，写错重试也计入（口径最简、最省 token）。
+- 按「完成的可用批改」计：reserve 占位，未完成结果 release；写错重试计入。
+- provider 实际 token 写入 TokenUsageLog / tokens_used_today，与完成额度分开。
 - 每日按用户时区午夜重置（复用 quota_reset_at）。
 - token 计数（tokens_used_today）保留作观测，不作为 /write 的限制。
 """
@@ -45,7 +46,7 @@ def _get_or_create_quota(user_id) -> UserQuota:
     return quota
 
 
-def _maybe_reset(quota: UserQuota):
+def _maybe_reset(quota: UserQuota, *, commit=True):
     # None（漏初始化）也当「需重置」，否则永不重置（回归 review A3）
     if quota.quota_reset_at is None or utc_now() >= quota.quota_reset_at:
         quota.tokens_used_today = 0
@@ -54,7 +55,19 @@ def _maybe_reset(quota: UserQuota):
         quota.imports_today = 0
         user = db.session.get(User, quota.user_id)
         quota.quota_reset_at = next_midnight_utc(user.timezone if user else "Asia/Shanghai")
-        db.session.commit()
+        if commit:
+            db.session.commit()
+
+
+def _locked_quota(user_id) -> UserQuota:
+    _get_or_create_quota(user_id)
+    return (
+        UserQuota.query
+        .filter_by(user_id=user_id)
+        .populate_existing()
+        .with_for_update()
+        .one()
+    )
 
 
 def _has_own_key(user_id) -> bool:
@@ -81,7 +94,7 @@ def write_quota_status(user_id) -> dict:
 def check_write_quota(user_id) -> str:
     """检查今日造句额度。返回 'user_key'/'system_key'，超限 raise SentenceQuotaExceeded。
 
-    只检查不递增；成功批改后由 record_correction 递增（避免失败也扣额度）。
+    只检查不递增。提交路径用 reserve_write_slot 原子占位，失败再 release。
     """
     quota = _get_or_create_quota(user_id)
     _maybe_reset(quota)
@@ -92,20 +105,46 @@ def check_write_quota(user_id) -> str:
     return "user_key" if own else "system_key"
 
 
+def reserve_write_slot(user_id) -> str:
+    """Atomically consume one completion slot. Raises SentenceQuotaExceeded."""
+    quota = _locked_quota(user_id)
+    _maybe_reset(quota, commit=False)
+    own = _has_own_key(user_id)
+    limit = OWNKEY_DAILY_SENTENCES if own else SYSTEM_DAILY_SENTENCES
+    if quota.corrections_today >= limit:
+        db.session.commit()
+        raise SentenceQuotaExceeded(used=quota.corrections_today, limit=limit)
+    quota.corrections_today += 1
+    quota.updated_at = utc_now()
+    db.session.commit()
+    return "user_key" if own else "system_key"
+
+
+def release_write_slot(user_id) -> None:
+    """Return a reserved completion slot after an unusable AI result."""
+    quota = _locked_quota(user_id)
+    _maybe_reset(quota, commit=False)
+    if quota.corrections_today > 0:
+        quota.corrections_today -= 1
+        quota.updated_at = utc_now()
+    db.session.commit()
+
+
 def record_correction(user_id, *, prompt_tokens, completion_tokens,
                       provider, model, used_user_key, feature="correction"):
-    """批改成功后调用：句数 +1，token 记账，写 TokenUsageLog。"""
-    quota = _get_or_create_quota(user_id)
-    quota.corrections_today += 1
-    if not used_user_key:
-        quota.tokens_used_today += (prompt_tokens or 0) + (completion_tokens or 0)
-    quota.updated_at = utc_now()
-    db.session.add(TokenUsageLog(
-        user_id=user_id, provider=provider, model=model, feature=feature,
-        prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+    """Record provider cost for a reserved, completed correction.
+
+    Completion count is owned by reserve_write_slot; this only logs usage.
+    """
+    record_feature_usage(
+        user_id,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        provider=provider,
+        model=model,
+        feature=feature,
         used_user_key=used_user_key,
-    ))
-    db.session.commit()
+    )
 
 
 def record_feature_usage(user_id, *, prompt_tokens, completion_tokens,
