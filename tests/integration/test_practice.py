@@ -97,6 +97,45 @@ def test_japanese_learner_sees_practice_start_with_eligible_count(
     assert 'data-practice-voice-locale="ja-JP"' in body
 
 
+def test_japanese_device_examples_open_start_and_session(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-device@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["学校", "コーヒー", "音楽", "電車", "友達"],
+        examples=[
+            "今日は学校に行きます。",
+            "朝にコーヒーを飲みます。",
+            "私は音楽を聞きます。",
+            "電車で東京へ行きます。",
+            "友達と映画を見ました。",
+        ],
+    )
+    login(client, "practice-ja-device@t.com", PW)
+
+    response = client.get("/practice")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Internal Server Error" not in body
+    assert "5 道题" in body
+    assert 'data-practice-voice-lang="ja"' in body
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    assert started.status_code == 303
+    assert "/practice/" in started.headers["Location"]
+    question = client.get(started.headers["Location"])
+    assert question.status_code == 200
+    assert "ja-JP" in question.get_data(as_text=True)
+
+
 def test_japanese_question_clozes_the_unique_substring(
     app, client, bypass_engine,
 ):
