@@ -1,7 +1,7 @@
 # Practice V2：日语优先听写与多语言扩展调研
 
-> 研究日期：2026-08-29。只读仓库现状与官方/一手来源。本文不含实现，不 commit。  
-> 仓库 HEAD：`fc4a19f`。`.reme/handoff.md` 锚点仍为 `2b737d4`（Practice 法语 MVP 上线后优化）；以 Git HEAD 为准。  
+> 研究日期：2026-08-29。只读仓库现状与官方/一手来源。本文不含实现，不 commit。
+> 仓库 HEAD：`fc4a19f`。`.reme/handoff.md` 锚点仍为 `2b737d4`（Practice 法语 MVP 上线后优化）；以 Git HEAD 为准。
 > 产品入口：[docs/BACKLOG.md](../BACKLOG.md) P0「语音质量与选择」「多语言扩展」；当前 Practice 仍严格限定法语。
 
 外部事实只引用规范、浏览器引擎源码、Unicode、官方文档和可核验的开源仓库。观测性语音清单（Readium）单独标明，不是 W3C 契约。
@@ -296,7 +296,7 @@ NFKC(value)
 → 返回
 ```
 
-正确：`normalized(answer) == normalized(target)`。  
+正确：`normalized(answer) == normalized(target)`。
 **不加**平片互转、**不加**长音展开、**不加**汉字→假名。
 
 ---

@@ -1,8 +1,8 @@
 # Practice V2 日语优先短计划
 
-> 日期：2026-08-29  
-> 分支：`feature/practice-v2-japanese`（从当前 `master` ahead 3 新建，不改写已有 commits）  
-> 状态：用户已确认 TDD seams 与切片路径，本文件是实施契约。  
+> 日期：2026-08-29
+> 分支：`feature/practice-v2-japanese`（从当前 `master` ahead 3 新建，不改写已有 commits）
+> 状态：用户已确认 TDD seams 与切片路径，本文件是实施契约。
 > 依据：[docs/research/2026-08-29-practice-v2-japanese-dictation.md](../research/2026-08-29-practice-v2-japanese-dictation.md)、[docs/BACKLOG.md](../BACKLOG.md)
 
 ## 目标
