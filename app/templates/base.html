@@ -23,13 +23,13 @@
 <body>
   <!-- 顶部：品牌头 + nav pill 栏 + 主题切换 -->
   <header class="app-header">
-    <div class="brand">
+    <a class="brand" href="{{ url_for('main.index') }}">
       <span class="brand-name">Reme<span class="brand-mate">Mate</span></span>
       <span class="brand-slogan">{{ _('app.slogan') }}</span>
       {% if current_user.is_authenticated %}
       <span class="brand-user">{{ current_user.display_name }}</span>
       {% endif %}
-    </div>
+    </a>
     <div class="theme-slot">
       {% if current_user.is_authenticated %}
       {% set _endpoint = request.endpoint or '' %}
@@ -38,7 +38,7 @@
       {% set _library_active = _endpoint.startswith('words.') or _endpoint.startswith('intake.') or _endpoint.startswith('reading.') %}
       {% set _account_active = _endpoint in ['main.settings', 'auth.logout'] or _endpoint.startswith('admin.') or _endpoint == 'words.stats' %}
       <nav class="app-nav">
-        <a class="nav-link nav-primary {% if _endpoint == 'main.index' %}active{% endif %}"
+        <a class="nav-link nav-primary nav-home {% if _endpoint == 'main.index' %}active{% endif %}"
            href="{{ url_for('main.index') }}" title="{{ _('nav.home') }}" aria-label="{{ _('nav.home') }}"
            {% if _endpoint == 'main.index' %}aria-current="page"{% endif %}>
           {{ nav_icon('home') }}<span class="nav-desktop-label">{{ _('nav.home') }}</span>
