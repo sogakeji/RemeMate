@@ -1,4 +1,94 @@
-(function () {
+(function (global) {
+  var voicesApi = {
+    langPrefix: function (value) {
+      return String(value || "").split(/[-_]/)[0].toLowerCase();
+    },
+    matchesLang: function (voiceLang, wanted) {
+      var prefix = voicesApi.langPrefix(wanted);
+      if (!prefix) return false;
+      return new RegExp("^" + prefix + "([-_]|$)", "i").test(voiceLang || "");
+    },
+    filterByLang: function (voices, wanted) {
+      return (voices || []).filter(function (voice) {
+        return voicesApi.matchesLang(voice.lang, wanted);
+      });
+    },
+    sortVoices: function (voices, wantedLocale) {
+      var wanted = String(wantedLocale || "").toLowerCase();
+      return (voices || []).slice().sort(function (left, right) {
+        var leftLang = String(left.lang || "").toLowerCase();
+        var rightLang = String(right.lang || "").toLowerCase();
+        var leftExact = leftLang === wanted ? 0 : 1;
+        var rightExact = rightLang === wanted ? 0 : 1;
+        if (leftExact !== rightExact) return leftExact - rightExact;
+        var leftLocal = left.localService ? 0 : 1;
+        var rightLocal = right.localService ? 0 : 1;
+        if (leftLocal !== rightLocal) return leftLocal - rightLocal;
+        return String(left.name || "").localeCompare(String(right.name || ""));
+      });
+    },
+    pickVoice: function (voices, stored, wanted) {
+      var filtered = voicesApi.sortVoices(
+        voicesApi.filterByLang(voices, wanted),
+        wanted
+      );
+      if (!filtered.length) return null;
+      if (stored) {
+        var byUri = filtered.filter(function (voice) {
+          return stored.voiceURI && voice.voiceURI === stored.voiceURI;
+        })[0];
+        if (byUri) return byUri;
+        var byNameLang = filtered.filter(function (voice) {
+          return voice.name === stored.name && (voice.lang || "") === (stored.lang || "");
+        })[0];
+        if (byNameLang) return byNameLang;
+        var byLang = filtered.filter(function (voice) {
+          return stored.lang && (voice.lang || "") === stored.lang;
+        })[0];
+        if (byLang) return byLang;
+      }
+      return filtered[0];
+    },
+    storageKey: function (wanted) {
+      var prefix = voicesApi.langPrefix(wanted) || "default";
+      return "rememate.practice.voice." + prefix;
+    },
+    readStoredVoice: function (storage, wanted) {
+      if (!storage) return null;
+      try {
+        var raw = storage.getItem(voicesApi.storageKey(wanted));
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return {
+          voiceURI: parsed.voiceURI || "",
+          name: parsed.name || "",
+          lang: parsed.lang || ""
+        };
+      } catch (err) {
+        return null;
+      }
+    },
+    writeStoredVoice: function (storage, wanted, voice) {
+      if (!storage || !voice) return;
+      try {
+        storage.setItem(voicesApi.storageKey(wanted), JSON.stringify({
+          voiceURI: voice.voiceURI || "",
+          name: voice.name || "",
+          lang: voice.lang || ""
+        }));
+      } catch (err) {
+        return;
+      }
+    }
+  };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = voicesApi;
+  }
+
+  if (typeof document === "undefined") return;
+
   var root = document.querySelector("[data-practice-root]");
   if (!root) return;
 
@@ -13,6 +103,10 @@
   var questionStartedAt = Date.now();
   var abandoning = root.getAttribute("data-practice-abandon-url");
   var voiceReportUrl = root.getAttribute("data-practice-voice-report-url");
+  var wantedLang = root.getAttribute("data-practice-voice-lang")
+    || root.getAttribute("data-practice-voice-locale")
+    || "fr";
+  var wantedLocale = root.getAttribute("data-practice-voice-locale") || wantedLang;
   var intentionalNavigation = false;
   var voiceFailureReported = false;
 
@@ -20,15 +114,20 @@
     return root.getAttribute("data-practice-" + name) || "";
   }
 
-  function frenchVoices() {
+  function matchingVoices() {
     if (!synth) return [];
-    return synth.getVoices().filter(function (voice) {
-      return /^fr([-_]|$)/i.test(voice.lang || "");
-    });
+    return voicesApi.filterByLang(synth.getVoices(), wantedLang);
   }
 
-  function setStatus(message) {
-    if (status) status.textContent = message;
+  function selectedVoice(voices) {
+    var stored = voicesApi.readStoredVoice(window.localStorage, wantedLang);
+    var picked = voicesApi.pickVoice(voices, stored, wantedLocale);
+    if (picked) voicesApi.writeStoredVoice(window.localStorage, wantedLang, picked);
+    return picked;
+  }
+
+  function setStatus(messageText) {
+    if (status) status.textContent = messageText;
   }
 
   function reportVoiceUnavailable() {
@@ -58,7 +157,7 @@
       if (retry) retry.hidden = false;
       return [];
     }
-    var voices = frenchVoices();
+    var voices = matchingVoices();
     if (!voices.length) {
       setStatus(message("voice-missing"));
       reportVoiceUnavailable();
@@ -125,12 +224,13 @@
   playButtons.forEach(function (button) {
     button.addEventListener("click", function () {
       var voices = updateVoiceState();
-      if (!voices.length) return;
+      var voice = selectedVoice(voices);
+      if (!voice) return;
       var utterance = new SpeechSynthesisUtterance(
         button.getAttribute("data-practice-sentence") || ""
       );
-      utterance.lang = voices[0].lang || "fr-FR";
-      utterance.voice = voices[0];
+      utterance.lang = voice.lang || wantedLocale;
+      utterance.voice = voice;
       var replayUrl = button.getAttribute("data-practice-replay-url");
       if (replayUrl) {
         var csrf = root.querySelector('[name="csrf_token"]');
@@ -143,4 +243,4 @@
       synth.speak(utterance);
     });
   });
-})();
+})(typeof globalThis !== "undefined" ? globalThis : this);
