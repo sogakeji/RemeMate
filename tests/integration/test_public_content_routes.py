@@ -30,8 +30,8 @@ def test_public_placeholder_pages_are_previewable_and_not_indexed(client):
     assert "这是" in zh_qa.get_data(as_text=True)
     assert "<strong>一句话结论</strong>" in zh_qa.get_data(as_text=True)
     assert "Article" in post.get_data(as_text=True)
-    assert "Why word lists fail" in listing.get_data(as_text=True)
-    assert "为什么背完词表还是不会用" in zh_listing.get_data(as_text=True)
+    assert "Why Word Lists Fail" in listing.get_data(as_text=True)
+    assert "为什么词表没用" in zh_listing.get_data(as_text=True)
     assert 'href="/zh/qa"' in qa_page
     assert 'href="/blog/why-word-lists-fail"' in listing.get_data(as_text=True)
 
