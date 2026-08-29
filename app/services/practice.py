@@ -17,6 +17,9 @@ MAX_SESSION_ITEMS = 5
 MAX_REPLAY_COUNT = 100
 MAX_ANSWER_DURATION_MS = 3_600_000
 VOICE_BLOCK_IDEMPOTENCY_WINDOW = timedelta(days=1)
+PRACTICE_LANGUAGES = frozenset({"fr", "ja"})
+VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP"}
+_JA_PUNCTUATION = re.compile(r"[。．、，・.,!！?？「」『』()（）\[\]【】…―—]")
 
 
 class EmptyAnswerError(ValueError):
@@ -31,11 +34,21 @@ class VoiceUnavailableError(ValueError):
     pass
 
 
+def voice_locale(language_code: str | None) -> str:
+    if not language_code:
+        return ""
+    return VOICE_LOCALES.get(language_code, language_code)
+
+
 def normalize_practice_text(value: str | None) -> str:
     return unicodedata.normalize("NFC", value or "").casefold()
 
 
-def normalize_answer(value: str | None) -> str:
+def normalize_answer(value: str | None, language_code: str = "fr") -> str:
+    if language_code == "ja":
+        normalized = unicodedata.normalize("NFKC", value or "")
+        normalized = _JA_PUNCTUATION.sub("", normalized)
+        return re.sub(r"\s+", "", normalized)
     normalized = unicodedata.normalize("NFC", value or "")
     return re.sub(r"\s+", " ", normalized).strip().casefold()
 
@@ -48,17 +61,34 @@ def bound_duration(value: str | int | None) -> int | None:
     return max(0, min(duration, MAX_ANSWER_DURATION_MS))
 
 
-def _contains_exactly_once(sentence: str | None, target: str | None) -> bool:
-    sentence = normalize_practice_text(sentence)
-    target = normalize_practice_text(target)
-    if not sentence or not target:
+def _japanese_unique_span(sentence: str, target: str) -> tuple[int, int] | None:
+    if not target:
+        return None
+    start = sentence.find(target)
+    if start < 0 or sentence.find(target, start + 1) >= 0:
+        return None
+    return start, start + len(target)
+
+
+def target_occurs_uniquely(
+    sentence: str | None,
+    target: str | None,
+    language_code: str = "fr",
+) -> bool:
+    if language_code == "ja":
+        sentence_nfc = unicodedata.normalize("NFC", sentence or "")
+        target_nfc = unicodedata.normalize("NFC", target or "")
+        return _japanese_unique_span(sentence_nfc, target_nfc) is not None
+    sentence_n = normalize_practice_text(sentence)
+    target_n = normalize_practice_text(target)
+    if not sentence_n or not target_n:
         return False
-    pattern = rf"(?<!\w){re.escape(target)}(?!\w)"
-    return len(re.findall(pattern, sentence, flags=re.UNICODE)) == 1
+    pattern = rf"(?<!\w){re.escape(target_n)}(?!\w)"
+    return len(re.findall(pattern, sentence_n, flags=re.UNICODE)) == 1
 
 
 def get_eligible_items(user_id: int, language_code: str) -> list[dict]:
-    if language_code != "fr":
+    if language_code not in PRACTICE_LANGUAGES:
         return []
     words = (
         Word.query
@@ -71,7 +101,7 @@ def get_eligible_items(user_id: int, language_code: str) -> list[dict]:
     items = []
     for word in words:
         for definition in sorted(word.definitions, key=lambda item: item.id):
-            if _contains_exactly_once(definition.example, word.word):
+            if target_occurs_uniquely(definition.example, word.word, language_code):
                 items.append({"word": word, "definition": definition})
                 break
     if not items:
@@ -146,7 +176,7 @@ def get_eligible_items(user_id: int, language_code: str) -> list[dict]:
 
 def get_start_state(user_id: int) -> tuple[str | None, int]:
     language_code = words_svc.get_current_language(user_id)
-    if language_code != "fr":
+    if language_code not in PRACTICE_LANGUAGES:
         return language_code, 0
     return language_code, min(
         MAX_SESSION_ITEMS,
@@ -170,7 +200,7 @@ def start_session(
     if voice_available is not True:
         raise VoiceUnavailableError
     language_code = words_svc.get_current_language(user_id)
-    if language_code != "fr":
+    if language_code not in PRACTICE_LANGUAGES:
         return None
     eligible = get_eligible_items(user_id, language_code)[:MAX_SESSION_ITEMS]
     if not eligible:
@@ -211,7 +241,7 @@ def record_voice_unavailable(
     user_id: int,
 ) -> PracticeSession | None:
     language_code = words_svc.get_current_language(user_id)
-    if language_code != "fr":
+    if language_code not in PRACTICE_LANGUAGES:
         return None
     now = utc_now()
     existing = (
@@ -296,12 +326,13 @@ def submit_answer(
     ):
         raise OutOfOrderAnswerError
     now = utc_now()
-    normalized = normalize_answer(submitted_answer)
+    language_code = practice_session.language_code
+    normalized = normalize_answer(submitted_answer, language_code)
     if not normalized:
         raise EmptyAnswerError
     item.submitted_answer = submitted_answer
     item.normalized_answer = normalized
-    item.is_correct = normalized == normalize_answer(item.target)
+    item.is_correct = normalized == normalize_answer(item.target, language_code)
     item.submitted_at = now
     item.answer_duration_ms = bound_duration(answer_duration_ms)
     item.updated_at = now
@@ -381,9 +412,17 @@ def abandon_session(user_id: int, session_id: int) -> bool:
     return True
 
 
-def prompt_parts(sentence: str, target: str) -> tuple[str, str]:
+def prompt_parts(
+    sentence: str, target: str, language_code: str = "fr",
+) -> tuple[str, str]:
     sentence = unicodedata.normalize("NFC", sentence)
     target = unicodedata.normalize("NFC", target)
+    if language_code == "ja":
+        span = _japanese_unique_span(sentence, target)
+        if span is None:
+            return sentence, ""
+        start, end = span
+        return sentence[:start], sentence[end:]
     pattern = rf"(?<!\w){re.escape(target)}(?!\w)"
     match = re.search(pattern, sentence, flags=re.IGNORECASE | re.UNICODE)
     if match is None:
