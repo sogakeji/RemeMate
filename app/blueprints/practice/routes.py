@@ -6,6 +6,10 @@ from app.services import practice as practice_svc
 from app.blueprints.practice import bp
 
 
+def _voice_locale(language_code):
+    return practice_svc.voice_locale(language_code)
+
+
 @bp.before_request
 def enforce_beta_gate():
     if not current_app.config.get("PRACTICE_ENABLED", False):
@@ -20,6 +24,7 @@ def index():
         "practice/start.html",
         question_count=question_count,
         language_code=language_code,
+        voice_locale=_voice_locale(language_code),
     )
 
 
@@ -74,17 +79,21 @@ def session_view(session_id):
         return render_template(
             "practice/complete.html",
             practice_session=practice_session,
+            voice_locale=_voice_locale(practice_session.language_code),
         )
     if practice_session.status in {"abandoned", "blocked"}:
         abort(404)
     item = practice_session.items[practice_session.current_position]
-    before, after = practice_svc.prompt_parts(item.sentence, item.target)
+    before, after = practice_svc.prompt_parts(
+        item.sentence, item.target, practice_session.language_code,
+    )
     return render_template(
         "practice/question.html",
         practice_session=practice_session,
         item=item,
         prompt_before=before,
         prompt_after=after,
+        voice_locale=_voice_locale(practice_session.language_code),
     )
 
 
@@ -111,6 +120,7 @@ def submit(session_id, item_id):
         "practice/feedback.html",
         practice_session=practice_session,
         item=item,
+        voice_locale=_voice_locale(practice_session.language_code),
     )
 
 
@@ -126,15 +136,19 @@ def continue_session(session_id):
         return render_template(
             "practice/complete.html",
             practice_session=practice_session,
+            voice_locale=_voice_locale(practice_session.language_code),
         )
     item = practice_session.items[practice_session.current_position]
-    before, after = practice_svc.prompt_parts(item.sentence, item.target)
+    before, after = practice_svc.prompt_parts(
+        item.sentence, item.target, practice_session.language_code,
+    )
     return render_template(
         "practice/question.html",
         practice_session=practice_session,
         item=item,
         prompt_before=before,
         prompt_after=after,
+        voice_locale=_voice_locale(practice_session.language_code),
     )
 
 

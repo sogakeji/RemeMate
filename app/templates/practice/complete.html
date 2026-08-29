@@ -16,7 +16,7 @@
           <article class="practice-wrong-item">
             <p><strong>{{ _('practice.your_answer') }}:</strong> {{ item.submitted_answer }}</p>
             <p><strong>{{ _('practice.correct') }}:</strong> {{ item.target }}</p>
-            <p lang="fr"><strong>{{ _('practice.sentence') }}:</strong> {{ item.sentence }}</p>
+            <p lang="{{ voice_locale }}"><strong>{{ _('practice.sentence') }}:</strong> {{ item.sentence }}</p>
           </article>
         {% endfor %}
       </div>

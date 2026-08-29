@@ -10,14 +10,17 @@ from tests.helpers import login, make_word, provision_user
 PW = "pw12345678"
 
 
-def _seed_examples(bypass_engine, user_id, count=None, words=None, examples=None):
+def _seed_examples(
+    bypass_engine, user_id, count=None, words=None, examples=None,
+    language_code="fr",
+):
     words = words or [f"mot{index}" for index in range(count)]
     examples = examples or [f"Je connais {word} aujourd'hui." for word in words]
     with bypass_engine.begin() as connection:
         list_id = connection.execute(text(
             "INSERT INTO word_lists(user_id, name, language_code, created_at) "
-            "VALUES (:user_id, 'Practice', 'fr', now()) RETURNING id"
-        ), {"user_id": user_id}).scalar_one()
+            "VALUES (:user_id, 'Practice', :language_code, now()) RETURNING id"
+        ), {"user_id": user_id, "language_code": language_code}).scalar_one()
         for index, word in enumerate(words):
             word_id = connection.execute(text(
                 "INSERT INTO words(list_id, word, marked, due_date, interval, ease, reps, lapses) "
@@ -59,9 +62,152 @@ def test_french_learner_sees_practice_start_with_eligible_count(
 
     assert response.status_code == 200
     body = response.get_data(as_text=True)
-    assert "法语听写" in body
+    assert "听写" in body
     assert "1 道题" in body
     assert 'data-practice-screen="start"' in body
+
+
+def test_japanese_learner_sees_practice_start_with_eligible_count(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-start@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["学校"],
+        examples=["今日は学校に行きます。"],
+    )
+    login(client, "practice-ja-start@t.com", PW)
+
+    response = client.get("/practice")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "1 道题" in body
+    assert 'data-practice-screen="start"' in body
+    assert "data-practice-start" in body
+    assert "法语" not in body
+    assert 'data-practice-voice-lang="ja"' in body
+    assert 'data-practice-voice-locale="ja-JP"' in body
+
+
+def test_japanese_question_clozes_the_unique_substring(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-cloze@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["学校"],
+        examples=["今日は学校に行きます。"],
+    )
+    login(client, "practice-ja-cloze@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    body = client.get(started.headers["Location"]).get_data(as_text=True)
+
+    assert started.status_code == 303
+    assert "今日は<span class=\"practice-blank\"" in body
+    assert "に行きます。" in body
+    assert 'data-practice-voice-lang="ja"' in body
+    assert 'data-practice-voice-locale="ja-JP"' in body
+
+
+def test_japanese_question_uses_japanese_html_lang(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-lang@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["学校"],
+        examples=["今日は学校に行きます。"],
+    )
+    login(client, "practice-ja-lang@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    body = client.get(started.headers["Location"]).get_data(as_text=True)
+
+    assert 'class="practice-prompt" lang="ja-JP"' in body
+    assert 'name="answer" type="text" lang="ja-JP"' in body
+
+
+def test_japanese_kana_reading_is_not_accepted_for_kanji_target(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-reading@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["学校"],
+        examples=["今日は学校に行きます。"],
+    )
+    login(client, "practice-ja-reading@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    question = client.get(started.headers["Location"])
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+
+    response = client.post(answer_url, data={"answer": "がっこう"})
+
+    assert response.status_code == 200
+    assert "不正确" in response.get_data(as_text=True)
+
+
+def test_japanese_halfwidth_katakana_answer_is_accepted(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-ja-halfwidth@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='ja', learning_languages='ja' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="ja",
+        words=["コーヒー"],
+        examples=["コーヒーを飲みます。"],
+    )
+    login(client, "practice-ja-halfwidth@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    question = client.get(started.headers["Location"])
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+
+    response = client.post(answer_url, data={"answer": "ｺｰﾋｰ"})
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "正确" in body
+    assert 'lang="ja-JP"' in body
 
 
 def test_start_creates_a_five_question_frozen_session(
@@ -499,7 +645,7 @@ def test_practice_templates_render_translated_copy(
     client.post("/ui-language", data={"ui_locale": "zh", "next": "/practice"})
 
     start = client.get("/practice").get_data(as_text=True)
-    assert "法语 · 听音填词" in start
+    assert "听音填词" in start
     assert "一次练习一个句子" in start
     assert ">开始</button>" in start
 

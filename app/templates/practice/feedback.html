@@ -6,6 +6,8 @@
 {% block content %}
 <main class="practice-page">
   <div data-practice-root data-practice-screen="feedback"
+       data-practice-voice-lang="{{ practice_session.language_code }}"
+       data-practice-voice-locale="{{ voice_locale }}"
        data-practice-voice-checking="{{ _('practice.voice_checking') }}"
        data-practice-voice-unsupported="{{ _('practice.voice_unsupported') }}"
        data-practice-voice-missing="{{ _('practice.voice_missing') }}"
@@ -22,7 +24,7 @@
     <dl class="practice-reveal">
       <div><dt>{{ _('practice.your_answer') }}</dt><dd>{{ item.submitted_answer or _('practice.not_answered') }}</dd></div>
       <div><dt>{{ _('practice.correct') }}</dt><dd>{{ item.target }}</dd></div>
-      <div><dt>{{ _('practice.full_sentence') }}</dt><dd lang="fr">{{ item.sentence }}</dd></div>
+      <div><dt>{{ _('practice.full_sentence') }}</dt><dd lang="{{ voice_locale }}">{{ item.sentence }}</dd></div>
       <div><dt>{{ _('practice.meaning') }}</dt><dd>{{ item.meaning or _('practice.not_answered') }}</dd></div>
     </dl>
     <form method="post" action="{{ url_for('practice.continue_session', session_id=practice_session.id) }}">

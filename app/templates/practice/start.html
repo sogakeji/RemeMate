@@ -6,16 +6,18 @@
 {% block content %}
 <main class="practice-page">
   <section class="practice-card" data-practice-root data-practice-screen="start"
+           data-practice-voice-lang="{{ language_code or '' }}"
+           data-practice-voice-locale="{{ voice_locale or '' }}"
            data-practice-voice-checking="{{ _('practice.voice_checking') }}"
            data-practice-voice-unsupported="{{ _('practice.voice_unsupported') }}"
            data-practice-voice-missing="{{ _('practice.voice_missing') }}"
            data-practice-voice-ready="{{ _('practice.voice_ready') }}"
-           {% if language_code == 'fr' and question_count > 0 %}
+           {% if language_code in ('fr', 'ja') and question_count > 0 %}
            data-practice-voice-report-url="{{ url_for('practice.voice_unavailable') }}"
            {% endif %}>
     <p class="practice-kicker">{{ _('practice.kicker') }}</p>
     <h1>{{ _('practice.title') }}</h1>
-    {% if language_code != 'fr' %}
+    {% if language_code not in ('fr', 'ja') %}
       <p class="practice-lead">{{ _('practice.available') }}</p>
     {% elif question_count == 0 %}
       <p class="practice-lead">{{ _('practice.empty') }}</p>

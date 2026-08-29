@@ -6,6 +6,8 @@
 {% block content %}
 <main class="practice-page">
   <div data-practice-root data-practice-screen="question"
+       data-practice-voice-lang="{{ practice_session.language_code }}"
+       data-practice-voice-locale="{{ voice_locale }}"
        data-practice-abandon-url="{{ url_for('practice.abandon', session_id=practice_session.id) }}"
        data-practice-voice-checking="{{ _('practice.voice_checking') }}"
        data-practice-voice-unsupported="{{ _('practice.voice_unsupported') }}"
@@ -21,7 +23,7 @@
       {{ _('practice.play') }}
     </button>
     <p class="practice-voice-status" data-practice-voice-status></p>
-    <p class="practice-prompt" lang="fr">
+    <p class="practice-prompt" lang="{{ voice_locale }}">
       {{ prompt_before }}<span class="practice-blank" aria-label="{{ _('practice.missing_word') }}">&nbsp;</span>{{ prompt_after }}
     </p>
     <form class="practice-form" method="post"
@@ -30,7 +32,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="answer_duration_ms" data-practice-duration value="">
       <label class="practice-sr" for="practice-input">{{ _('practice.missing_word_or_phrase') }}</label>
-      <input id="practice-input" name="answer" type="text" lang="fr"
+      <input id="practice-input" name="answer" type="text" lang="{{ voice_locale }}"
              spellcheck="false" autocapitalize="off" autocorrect="off"
              placeholder="{{ _('practice.type_missing_word') }}" required>
       <button type="submit" class="btn primary">{{ _('practice.submit') }}</button>
