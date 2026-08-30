@@ -124,6 +124,18 @@ def submit(session_id, item_id):
     )
 
 
+@bp.get("/practice/<int:session_id>/continue")
+@login_required
+def continue_via_get(session_id):
+    practice_session = practice_svc.get_session(current_user.id, session_id)
+    if practice_session is None or not practice_session.items:
+        abort(404)
+    return redirect(
+        url_for("practice.session_view", session_id=session_id),
+        code=303,
+    )
+
+
 @bp.post("/practice/<int:session_id>/continue")
 @login_required
 def continue_session(session_id):
@@ -132,23 +144,9 @@ def continue_session(session_id):
     )
     if practice_session is None:
         abort(404)
-    if practice_session.status == "completed":
-        return render_template(
-            "practice/complete.html",
-            practice_session=practice_session,
-            voice_locale=_voice_locale(practice_session.language_code),
-        )
-    item = practice_session.items[practice_session.current_position]
-    before, after = practice_svc.prompt_parts(
-        item.sentence, item.target, practice_session.language_code,
-    )
-    return render_template(
-        "practice/question.html",
-        practice_session=practice_session,
-        item=item,
-        prompt_before=before,
-        prompt_after=after,
-        voice_locale=_voice_locale(practice_session.language_code),
+    return redirect(
+        url_for("practice.session_view", session_id=session_id),
+        code=303,
     )
 
 

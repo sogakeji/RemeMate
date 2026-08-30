@@ -10,6 +10,19 @@ from tests.helpers import login, make_word, provision_user
 PW = "pw12345678"
 
 
+def _session_id_from_url(session_url):
+    return int(session_url.rstrip("/").split("/")[-1])
+
+
+def _post_continue(client, session_url):
+    session_id = _session_id_from_url(session_url)
+    response = client.post(session_url.rstrip("/") + "/continue")
+    assert response.status_code == 303
+    location = response.headers["Location"]
+    assert location.rstrip("/").endswith(f"/practice/{session_id}")
+    return client.get(location)
+
+
 def _seed_examples(
     bypass_engine, user_id, count=None, words=None, examples=None,
     language_code="fr",
@@ -461,7 +474,7 @@ def test_chinese_session_completes_after_correct_answer(
 
     assert feedback.status_code == 200
     assert "正确" in feedback.get_data(as_text=True)
-    completed = client.post(session_url + "/continue")
+    completed = _post_continue(client, session_url)
 
     assert completed.status_code == 200
     body = completed.get_data(as_text=True)
@@ -836,7 +849,7 @@ def test_continue_after_final_feedback_renders_completion_summary(
     feedback = client.post(answer_url, data={"answer": "café"})
 
     assert feedback.status_code == 200
-    completed = client.post(session_url + "/continue")
+    completed = _post_continue(client, session_url)
 
     assert completed.status_code == 200
     body = completed.get_data(as_text=True)
@@ -844,6 +857,144 @@ def test_continue_after_final_feedback_renders_completion_summary(
     assert "1 / 1" in body
     assert "再来一次" in body
     assert "返回首页" in body
+
+
+def test_get_continue_redirects_to_session_without_advancing(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-get-continue@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='fr', learning_languages='fr' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        words=["un", "deux"],
+        examples=["J'en ai un.", "J'en ai deux."],
+    )
+    login(client, "practice-get-continue@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    session_url = started.headers["Location"]
+    session_id = _session_id_from_url(session_url)
+    question = client.get(session_url)
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+    client.post(answer_url, data={"answer": "un"})
+    with bypass_engine.connect() as connection:
+        before = connection.execute(text(
+            "SELECT current_position, status FROM practice_sessions "
+            "WHERE id=:session_id"
+        ), {"session_id": session_id}).one()
+
+    response = client.get(f"/practice/{session_id}/continue")
+
+    assert response.status_code == 303
+    assert response.headers["Location"].rstrip("/").endswith(
+        f"/practice/{session_id}"
+    )
+    with bypass_engine.connect() as connection:
+        after = connection.execute(text(
+            "SELECT current_position, status FROM practice_sessions "
+            "WHERE id=:session_id"
+        ), {"session_id": session_id}).one()
+    assert after.current_position == before.current_position == 0
+    assert after.status == before.status == "active"
+
+
+def test_post_continue_uses_prg_and_advances_once(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-prg-continue@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='fr', learning_languages='fr' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        words=["un", "deux"],
+        examples=["J'en ai un.", "J'en ai deux."],
+    )
+    login(client, "practice-prg-continue@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    session_url = started.headers["Location"]
+    session_id = _session_id_from_url(session_url)
+    first_question = client.get(session_url)
+    first_answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        first_question.get_data(as_text=True),
+    ).group(1)
+    client.post(first_answer_url, data={"answer": "un"})
+
+    continued = client.post(session_url + "/continue")
+
+    assert continued.status_code == 303
+    assert continued.headers["Location"].rstrip("/").endswith(
+        f"/practice/{session_id}"
+    )
+    assert "practice-blank" not in continued.get_data(as_text=True)
+    with bypass_engine.connect() as connection:
+        position = connection.execute(text(
+            "SELECT current_position FROM practice_sessions WHERE id=:session_id"
+        ), {"session_id": session_id}).scalar_one()
+    assert position == 1
+    next_question = client.get(continued.headers["Location"])
+    next_body = next_question.get_data(as_text=True)
+    assert next_question.status_code == 200
+    assert "2 / 2" in next_body
+    assert "practice-blank" in next_body
+    assert "en ai" in next_body
+    second_answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        next_body,
+    ).group(1)
+    client.post(second_answer_url, data={"answer": "deux"})
+    completed = client.post(session_url + "/continue")
+    assert completed.status_code == 303
+    complete_page = client.get(completed.headers["Location"])
+    assert complete_page.status_code == 200
+    assert "练习完成" in complete_page.get_data(as_text=True)
+
+
+def test_english_feedback_continue_form_posts_to_continue(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-en-continue-form@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='fr', learning_languages='fr' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        words=["bonjour"],
+        examples=["Bonjour, madame."],
+    )
+    login(client, "practice-en-continue-form@t.com", PW)
+    client.post("/ui-language", data={"ui_locale": "en", "next": "/practice"})
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    session_url = started.headers["Location"]
+    session_id = _session_id_from_url(session_url)
+    question = client.get(session_url)
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+    feedback = client.post(answer_url, data={"answer": "bonjour"}).get_data(as_text=True)
+    form = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/continue)"[^>]*>',
+        feedback,
+    ).group(0)
+
+    assert 'method="post"' in form
+    assert f"/practice/{session_id}/continue" in form
+    assert ">Continue</button>" in feedback
 
 
 def test_authenticated_navigation_includes_practice_entry(app, client, bypass_engine):
@@ -927,7 +1078,7 @@ def test_practice_templates_render_translated_copy(
     assert "释义" in feedback_body
     assert ">继续</button>" in feedback_body
 
-    complete = client.post(session_url + "/continue")
+    complete = _post_continue(client, session_url)
     complete_body = complete.get_data(as_text=True)
     assert "练习完成" in complete_body
     assert "错题" in complete_body
@@ -973,14 +1124,14 @@ def test_completion_summary_lists_missed_items_after_explicit_continuation(
         first_question.get_data(as_text=True),
     ).group(1)
     client.post(first_answer_url, data={"answer": "mauvais"})
-    second_question = client.post(session_url + "/continue")
+    second_question = _post_continue(client, session_url)
     second_answer_url = re.search(
         r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
         second_question.get_data(as_text=True),
     ).group(1)
     client.post(second_answer_url, data={"answer": "voyage"})
 
-    completed = client.post(session_url + "/continue")
+    completed = _post_continue(client, session_url)
 
     assert completed.status_code == 200
     body = completed.get_data(as_text=True)
@@ -1351,7 +1502,7 @@ def test_refreshing_completed_session_keeps_completion_summary(
         question.get_data(as_text=True),
     ).group(1)
     client.post(answer_url, data={"answer": "finir"})
-    client.post(session_url + "/continue")
+    _post_continue(client, session_url)
 
     refreshed = client.get(session_url)
 
