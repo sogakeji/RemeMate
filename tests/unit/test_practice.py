@@ -81,6 +81,32 @@ def test_japanese_normalize_folds_halfwidth_katakana():
     assert normalize_answer("ｺｰﾋｰ", "ja") == "コーヒー"
 
 
+def test_chinese_normalize_folds_fullwidth_ascii():
+    assert normalize_answer("３Ａ", "zh") == "3A"
+
+
+def test_chinese_normalize_strips_whitespace():
+    assert normalize_answer("　学校 ", "zh") == "学校"
+
+
+def test_chinese_normalize_strips_punctuation():
+    assert normalize_answer("「学校」。", "zh") == "学校"
+    assert normalize_answer("学校，", "zh") == "学校"
+
+
+def test_chinese_normalize_does_not_accept_pinyin_or_variants():
+    assert normalize_answer("xuexiao", "zh") != normalize_answer("学校", "zh")
+    assert normalize_answer("xuéxiào", "zh") != normalize_answer("学校", "zh")
+    assert normalize_answer("學校", "zh") != normalize_answer("学校", "zh")
+    assert normalize_answer("花儿", "zh") != normalize_answer("花", "zh")
+    assert normalize_answer("三", "zh") != normalize_answer("3", "zh")
+
+
+def test_chinese_normalize_treats_punctuation_only_as_empty():
+    assert normalize_answer("。", "zh") == ""
+    assert normalize_answer("   ", "zh") == ""
+
+
 def test_japanese_normalize_strips_whitespace():
     assert normalize_answer("　コーヒー ", "ja") == "コーヒー"
 

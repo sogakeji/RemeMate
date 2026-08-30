@@ -20,6 +20,9 @@ VOICE_BLOCK_IDEMPOTENCY_WINDOW = timedelta(days=1)
 PRACTICE_LANGUAGES = frozenset({"fr", "ja", "zh"})
 VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP"}
 _JA_PUNCTUATION = re.compile(r"[。．、，・.,!！?？「」『』()（）\[\]【】…―—]")
+_ZH_PUNCTUATION = re.compile(
+    r"[。．、，·・.,!！?？：；「」『』\"'“”‘’（）()\[\]【】《》〈〉…―—～〜]"
+)
 _HAN_CHAR = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
 
 
@@ -46,6 +49,10 @@ def normalize_practice_text(value: str | None) -> str:
 
 
 def normalize_answer(value: str | None, language_code: str = "fr") -> str:
+    if language_code == "zh":
+        normalized = unicodedata.normalize("NFKC", value or "")
+        normalized = _ZH_PUNCTUATION.sub("", normalized)
+        return re.sub(r"\s+", "", normalized)
     if language_code == "ja":
         normalized = unicodedata.normalize("NFKC", value or "")
         normalized = _JA_PUNCTUATION.sub("", normalized)
