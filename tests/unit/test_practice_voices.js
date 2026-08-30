@@ -59,4 +59,70 @@ testFilterAcceptsHyphenAndUnderscore();
 testSortPrefersExactLocaleThenLocalService();
 testPickVoiceFallsBackFromUriToNameLangToLang();
 testStorageRoundTrip();
+
+const chinese = [
+  { name: "Google US English", lang: "en-US", voiceURI: "en-us", localService: false },
+  { name: "Huihui", lang: "zh-CN", voiceURI: "huihui", localService: true },
+  { name: "Android ZH", lang: "zh_CN", voiceURI: "zh_cn", localService: true },
+  { name: "Android Hans", lang: "zh_CN_#Hans", voiceURI: "zh_hans", localService: true },
+  { name: "Google 普通话", lang: "zh-CN", voiceURI: "google-zh", localService: false },
+  { name: "Yating", lang: "zh-TW", voiceURI: "yating", localService: true },
+  { name: "Kyoko", lang: "ja-JP", voiceURI: "kyoko", localService: true },
+];
+
+function testChineseFilterAcceptsHyphenUnderscoreAndBarePrefix() {
+  const zhFromLocale = voices.filterByLang(chinese, "zh-CN");
+  const zhFromUnderscore = voices.filterByLang(chinese, "zh_CN");
+  const zhFromPrefix = voices.filterByLang(chinese, "zh");
+  const names = ["Huihui", "Android ZH", "Android Hans", "Google 普通话", "Yating"];
+  assert.deepStrictEqual(zhFromLocale.map((voice) => voice.name), names);
+  assert.deepStrictEqual(zhFromUnderscore.map((voice) => voice.name), names);
+  assert.deepStrictEqual(zhFromPrefix.map((voice) => voice.name), names);
+}
+
+function testChineseSortPrefersExactZhCNThenLocalService() {
+  const sorted = voices.sortVoices(voices.filterByLang(chinese, "zh"), "zh-CN");
+  assert.strictEqual(sorted[0].name, "Huihui");
+  assert.strictEqual(sorted[0].lang, "zh-CN");
+  assert.strictEqual(sorted[0].localService, true);
+  assert.ok(sorted.findIndex((voice) => voice.lang === "zh-CN") <
+    sorted.findIndex((voice) => voice.lang === "zh-TW"));
+}
+
+function testChinesePickVoiceFallsBackFromUriToNameLangToLang() {
+  const zh = voices.filterByLang(chinese, "zh");
+  const byUri = voices.pickVoice(zh, { voiceURI: "google-zh", name: "x", lang: "x" }, "zh-CN");
+  assert.strictEqual(byUri.name, "Google 普通话");
+  const byNameLang = voices.pickVoice(
+    zh,
+    { voiceURI: "missing", name: "Yating", lang: "zh-TW" },
+    "zh-CN",
+  );
+  assert.strictEqual(byNameLang.name, "Yating");
+  const byLang = voices.pickVoice(
+    zh,
+    { voiceURI: "missing", name: "gone", lang: "zh_CN" },
+    "zh-CN",
+  );
+  assert.strictEqual(byLang.name, "Android ZH");
+  const first = voices.pickVoice(zh, null, "zh-CN");
+  assert.strictEqual(first.name, "Huihui");
+}
+
+function testChineseStorageRoundTrip() {
+  const store = {
+    data: {},
+    getItem(key) { return this.data[key] || null; },
+    setItem(key, value) { this.data[key] = value; }
+  };
+  voices.writeStoredVoice(store, "zh", { voiceURI: "huihui", name: "Huihui", lang: "zh-CN" });
+  assert.strictEqual(store.getItem("rememate.practice.voice.zh").includes("Huihui"), true);
+  const stored = voices.readStoredVoice(store, "zh-CN");
+  assert.deepStrictEqual(stored, { voiceURI: "huihui", name: "Huihui", lang: "zh-CN" });
+}
+
+testChineseFilterAcceptsHyphenUnderscoreAndBarePrefix();
+testChineseSortPrefersExactZhCNThenLocalService();
+testChinesePickVoiceFallsBackFromUriToNameLangToLang();
+testChineseStorageRoundTrip();
 console.log("ok");
