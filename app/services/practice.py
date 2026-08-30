@@ -17,9 +17,10 @@ MAX_SESSION_ITEMS = 5
 MAX_REPLAY_COUNT = 100
 MAX_ANSWER_DURATION_MS = 3_600_000
 VOICE_BLOCK_IDEMPOTENCY_WINDOW = timedelta(days=1)
-PRACTICE_LANGUAGES = frozenset({"fr", "ja"})
+PRACTICE_LANGUAGES = frozenset({"fr", "ja", "zh"})
 VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP"}
 _JA_PUNCTUATION = re.compile(r"[。．、，・.,!！?？「」『』()（）\[\]【】…―—]")
+_HAN_CHAR = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
 
 
 class EmptyAnswerError(ValueError):
@@ -70,11 +71,33 @@ def _japanese_unique_span(sentence: str, target: str) -> tuple[int, int] | None:
     return start, start + len(target)
 
 
+def _has_han_neighbor(sentence: str, start: int, end: int) -> bool:
+    if start > 0 and _HAN_CHAR.match(sentence[start - 1]):
+        return True
+    if end < len(sentence) and _HAN_CHAR.match(sentence[end]):
+        return True
+    return False
+
+
+def _chinese_unique_span(sentence: str, target: str) -> tuple[int, int] | None:
+    span = _japanese_unique_span(sentence, target)
+    if span is None:
+        return None
+    start, end = span
+    if len(target) == 1 and _has_han_neighbor(sentence, start, end):
+        return None
+    return span
+
+
 def target_occurs_uniquely(
     sentence: str | None,
     target: str | None,
     language_code: str = "fr",
 ) -> bool:
+    if language_code == "zh":
+        sentence_nfc = unicodedata.normalize("NFC", sentence or "")
+        target_nfc = unicodedata.normalize("NFC", target or "")
+        return _chinese_unique_span(sentence_nfc, target_nfc) is not None
     if language_code == "ja":
         sentence_nfc = unicodedata.normalize("NFC", sentence or "")
         target_nfc = unicodedata.normalize("NFC", target or "")
@@ -417,6 +440,12 @@ def prompt_parts(
 ) -> tuple[str, str]:
     sentence = unicodedata.normalize("NFC", sentence)
     target = unicodedata.normalize("NFC", target)
+    if language_code == "zh":
+        span = _chinese_unique_span(sentence, target)
+        if span is None:
+            return sentence, ""
+        start, end = span
+        return sentence[:start], sentence[end:]
     if language_code == "ja":
         span = _japanese_unique_span(sentence, target)
         if span is None:

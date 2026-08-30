@@ -1,4 +1,5 @@
 from app.services.practice import (
+    PRACTICE_LANGUAGES,
     normalize_answer,
     prompt_parts,
     target_occurs_uniquely,
@@ -20,6 +21,29 @@ def test_prompt_parts_splits_japanese_on_unique_substring():
     assert after == "に行きます。"
 
 
+def test_prompt_parts_splits_chinese_on_unique_substring():
+    before, after = prompt_parts("今天我去学校上课。", "学校", "zh")
+
+    assert before == "今天我去"
+    assert after == "上课。"
+
+
+def test_prompt_parts_does_not_cloze_repeated_chinese_substring():
+    sentence = "学校的附近还有一所学校。"
+    before, after = prompt_parts(sentence, "学校", "zh")
+
+    assert before == sentence
+    assert after == ""
+
+
+def test_prompt_parts_rejects_obvious_chinese_true_substring():
+    sentence = "今天我去学校上课。"
+    before, after = prompt_parts(sentence, "校", "zh")
+
+    assert before == sentence
+    assert after == ""
+
+
 def test_prompt_parts_does_not_cloze_repeated_japanese_substring():
     sentence = "学校の近くに別の学校があります。"
     before, after = prompt_parts(sentence, "学校", "ja")
@@ -39,6 +63,18 @@ def test_prompt_parts_keeps_french_boundaries_in_unspaced_japanese_text():
 def test_japanese_unique_substring_counts_as_one_occurrence():
     assert target_occurs_uniquely("今日は学校に行きます。", "学校", "ja") is True
     assert target_occurs_uniquely("学校の近くに別の学校があります。", "学校", "ja") is False
+
+
+def test_chinese_unique_substring_counts_as_one_occurrence():
+    assert target_occurs_uniquely("今天我去学校上课。", "学校", "zh") is True
+    assert target_occurs_uniquely("学校的附近还有一所学校。", "学校", "zh") is False
+    assert target_occurs_uniquely("今天我去学校上课。", "校", "zh") is False
+
+
+def test_practice_languages_include_chinese():
+    assert "zh" in PRACTICE_LANGUAGES
+    assert "ja" in PRACTICE_LANGUAGES
+    assert "fr" in PRACTICE_LANGUAGES
 
 
 def test_japanese_normalize_folds_halfwidth_katakana():
