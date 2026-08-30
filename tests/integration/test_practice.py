@@ -249,6 +249,226 @@ def test_japanese_halfwidth_katakana_answer_is_accepted(
     assert 'lang="ja-JP"' in body
 
 
+def test_chinese_learner_sees_practice_start_with_eligible_count(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-start@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, "practice-zh-start@t.com", PW)
+
+    response = client.get("/practice")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "1 道题" in body
+    assert 'data-practice-screen="start"' in body
+    assert "data-practice-start" in body
+    assert "暂未开放" not in body
+    assert 'data-practice-voice-lang="zh"' in body
+    assert 'data-practice-voice-locale="zh-CN"' in body
+
+
+def test_chinese_device_examples_open_start_and_session(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-device@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校", "咖啡", "音乐", "火车", "朋友"],
+        examples=[
+            "今天我去学校上课。",
+            "早上喝了一杯咖啡。",
+            "她喜欢听音乐。",
+            "我们坐火车去北京。",
+            "我和朋友看电影。",
+        ],
+    )
+    login(client, "practice-zh-device@t.com", PW)
+
+    response = client.get("/practice")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Internal Server Error" not in body
+    assert "5 道题" in body
+    assert 'data-practice-voice-lang="zh"' in body
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    assert started.status_code == 303
+    assert "/practice/" in started.headers["Location"]
+    question = client.get(started.headers["Location"])
+    assert question.status_code == 200
+    assert "zh-CN" in question.get_data(as_text=True)
+
+
+def test_chinese_question_clozes_the_unique_substring(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-cloze@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, "practice-zh-cloze@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    body = client.get(started.headers["Location"]).get_data(as_text=True)
+
+    assert started.status_code == 303
+    assert "今天我去<span class=\"practice-blank\"" in body
+    assert "上课。" in body
+    assert 'data-practice-voice-lang="zh"' in body
+    assert 'data-practice-voice-locale="zh-CN"' in body
+
+
+def test_chinese_question_uses_chinese_html_lang(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-lang@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, "practice-zh-lang@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    body = client.get(started.headers["Location"]).get_data(as_text=True)
+
+    assert 'class="practice-prompt" lang="zh-CN"' in body
+    assert 'name="answer" type="text" lang="zh-CN"' in body
+
+
+def test_chinese_pinyin_is_not_accepted_for_hanzi_target(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-pinyin@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, "practice-zh-pinyin@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    question = client.get(started.headers["Location"])
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+
+    response = client.post(answer_url, data={"answer": "xuexiao"})
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "不正确" in body
+    assert 'lang="zh-CN"' in body
+
+
+def test_chinese_fullwidth_digit_answer_is_accepted(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-fullwidth@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["3号"],
+        examples=["我们在3号门口见。"],
+    )
+    login(client, "practice-zh-fullwidth@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    question = client.get(started.headers["Location"])
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+
+    response = client.post(answer_url, data={"answer": "３号"})
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "正确" in body
+    assert 'lang="zh-CN"' in body
+
+
+def test_chinese_session_completes_after_correct_answer(
+    app, client, bypass_engine,
+):
+    user_id = provision_user(app, "practice-zh-complete@t.com", PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages='zh' "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, "practice-zh-complete@t.com", PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    session_url = started.headers["Location"]
+    question = client.get(session_url)
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+    feedback = client.post(answer_url, data={"answer": "学校"})
+
+    assert feedback.status_code == 200
+    assert "正确" in feedback.get_data(as_text=True)
+    completed = client.post(session_url + "/continue")
+
+    assert completed.status_code == 200
+    body = completed.get_data(as_text=True)
+    assert "练习完成" in body
+    assert "1 / 1" in body
+
+
 def test_start_creates_a_five_question_frozen_session(
     app, client, bypass_engine,
 ):

@@ -18,7 +18,7 @@ MAX_REPLAY_COUNT = 100
 MAX_ANSWER_DURATION_MS = 3_600_000
 VOICE_BLOCK_IDEMPOTENCY_WINDOW = timedelta(days=1)
 PRACTICE_LANGUAGES = frozenset({"fr", "ja", "zh"})
-VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP"}
+VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP", "zh": "zh-CN"}
 _JA_PUNCTUATION = re.compile(r"[。．、，・.,!！?？「」『』()（）\[\]【】…―—]")
 _ZH_PUNCTUATION = re.compile(
     r"[。．、，·・.,!！?？：；「」『』\"'“”‘’（）()\[\]【】《》〈〉…―—～〜]"

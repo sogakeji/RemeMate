@@ -118,6 +118,7 @@ def test_japanese_normalize_strips_punctuation_but_keeps_choonpu():
 def test_voice_locale_uses_bcp47_defaults():
     assert voice_locale("ja") == "ja-JP"
     assert voice_locale("fr") == "fr-FR"
+    assert voice_locale("zh") == "zh-CN"
 
 
 def test_japanese_normalize_does_not_loosen_script_or_mora():
