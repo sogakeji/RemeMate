@@ -5,6 +5,7 @@
 - /settings 最小版只做「正在学哪种语言」选择（= set_current_language 闭环建词表）。
   Bark/播客/per-user key 等阶段八再补。
 """
+import re
 from urllib.parse import urlsplit
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
@@ -20,6 +21,22 @@ from app.services import review_stories as review_stories_svc
 
 bp = Blueprint("main", __name__)
 
+_PRACTICE_POST_ONLY_PATH = re.compile(
+    r"^/practice/(?:start|(?P<sid>\d+)/"
+    r"(?:continue|abandon|items/\d+/(?:answer|replay)))/?$"
+)
+
+
+def _gettable_practice_next(path: str) -> str:
+    """Map Practice POST-only paths to a GET session/start URL."""
+    match = _PRACTICE_POST_ONLY_PATH.match(path)
+    if not match:
+        return path
+    session_id = match.group("sid")
+    if session_id:
+        return f"/practice/{session_id}"
+    return "/practice"
+
 
 def _safe_next_target(target: str) -> str | None:
     if not target:
@@ -32,10 +49,13 @@ def _safe_next_target(target: str) -> str | None:
         path = parts.path or "/"
         if not path.startswith("/"):
             return None
+        path = _gettable_practice_next(path)
         return path + (f"?{parts.query}" if parts.query else "")
     if not normalized.startswith("/") or normalized.startswith("//"):
         return None
-    return normalized
+    path, sep, query = normalized.partition("?")
+    path = _gettable_practice_next(path)
+    return path + (sep + query if query else "")
 
 
 def _has_previous_review_word(user_id, language_code, current_word=None):

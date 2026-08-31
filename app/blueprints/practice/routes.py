@@ -84,6 +84,13 @@ def session_view(session_id):
     if practice_session.status in {"abandoned", "blocked"}:
         abort(404)
     item = practice_session.items[practice_session.current_position]
+    if item.submitted_at is not None:
+        return render_template(
+            "practice/feedback.html",
+            practice_session=practice_session,
+            item=item,
+            voice_locale=_voice_locale(practice_session.language_code),
+        )
     before, after = practice_svc.prompt_parts(
         item.sentence, item.target, practice_session.language_code,
     )

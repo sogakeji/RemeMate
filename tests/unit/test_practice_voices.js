@@ -125,4 +125,36 @@ testChineseFilterAcceptsHyphenUnderscoreAndBarePrefix();
 testChineseSortPrefersExactZhCNThenLocalService();
 testChinesePickVoiceFallsBackFromUriToNameLangToLang();
 testChineseStorageRoundTrip();
+
+function testLanguageSwitchFormsMarkIntentionalNavigation() {
+  var marked = false;
+  var bound = [];
+  var uiForm = {
+    addEventListener: function (type, fn) {
+      bound.push({ form: "ui", type: type, fn: fn });
+    },
+  };
+  var langForm = {
+    addEventListener: function (type, fn) {
+      bound.push({ form: "lang", type: type, fn: fn });
+    },
+  };
+  var documentRef = {
+    querySelectorAll: function (selector) {
+      assert.ok(selector.indexOf("ui-locale-form") !== -1);
+      assert.ok(selector.indexOf("langSwitchForm") !== -1);
+      return [uiForm, langForm];
+    },
+  };
+  voices.bindIntentionalNavigation(documentRef, function () {
+    marked = true;
+  });
+  assert.strictEqual(bound.length, 2);
+  assert.strictEqual(bound[0].type, "submit");
+  assert.strictEqual(bound[1].type, "submit");
+  bound[0].fn();
+  assert.strictEqual(marked, true);
+}
+
+testLanguageSwitchFormsMarkIntentionalNavigation();
 console.log("ok");

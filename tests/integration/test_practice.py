@@ -23,6 +23,45 @@ def _post_continue(client, session_url):
     return client.get(location)
 
 
+_UI_SWITCH_FORM = re.compile(
+    r'<form[^>]*class="ui-locale-form"[^>]*>.*?'
+    r'name="ui_locale" value="(?P<locale>[^"]*)".*?'
+    r'name="next" value="(?P<next>[^"]*)"',
+    re.S,
+)
+
+
+def _ui_switch_fields(html):
+    match = _UI_SWITCH_FORM.search(html)
+    assert match is not None
+    return match.group("locale"), match.group("next")
+
+
+def _follow_redirect(client, response):
+    assert response.status_code in {301, 302, 303, 307, 308}
+    return client.get(response.headers["Location"])
+
+
+def _start_zh_practice(app, client, bypass_engine, email, learning="zh"):
+    user_id = provision_user(app, email, PW)
+    with bypass_engine.begin() as connection:
+        connection.execute(text(
+            "UPDATE users SET current_language='zh', learning_languages=:learning "
+            "WHERE id=:user_id"
+        ), {"user_id": user_id, "learning": learning})
+    _seed_examples(
+        bypass_engine,
+        user_id,
+        language_code="zh",
+        words=["学校"],
+        examples=["今天我去学校上课。"],
+    )
+    login(client, email, PW)
+    started = client.post("/practice/start", data={"voice_available": "1"})
+    assert started.status_code == 303
+    return user_id, started.headers["Location"]
+
+
 def _seed_examples(
     bypass_engine, user_id, count=None, words=None, examples=None,
     language_code="fr",
@@ -1508,3 +1547,123 @@ def test_refreshing_completed_session_keeps_completion_summary(
 
     assert refreshed.status_code == 200
     assert "练习完成" in refreshed.get_data(as_text=True)
+
+
+def test_ui_language_switch_from_chinese_question_does_not_404(
+    app, client, bypass_engine,
+):
+    user_id, session_url = _start_zh_practice(
+        app, client, bypass_engine, "practice-zh-ui-question@t.com",
+    )
+    session_id = _session_id_from_url(session_url)
+    question = client.get(session_url)
+    assert question.status_code == 200
+    locale, nxt = _ui_switch_fields(question.get_data(as_text=True))
+    assert locale == "en"
+    assert nxt == f"/practice/{session_id}"
+
+    switched = client.post("/ui-language", data={"ui_locale": locale, "next": nxt})
+    landed = _follow_redirect(client, switched)
+
+    assert landed.status_code == 200
+    assert b"Not Found" not in landed.data
+    body = landed.get_data(as_text=True)
+    assert '<html lang="en">' in body
+    with bypass_engine.connect() as connection:
+        state = connection.execute(text(
+            "SELECT status, language_code FROM practice_sessions WHERE id=:id"
+        ), {"id": session_id}).one()
+        ui_locale = connection.execute(text(
+            "SELECT ui_locale FROM user_settings WHERE user_id=:uid"
+        ), {"uid": user_id}).scalar()
+    assert tuple(state) == ("active", "zh")
+    assert ui_locale == "en"
+
+
+def test_ui_language_switch_from_feedback_does_not_404(
+    app, client, bypass_engine,
+):
+    _, session_url = _start_zh_practice(
+        app, client, bypass_engine, "practice-zh-ui-feedback@t.com",
+    )
+    question = client.get(session_url)
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+    feedback = client.post(answer_url, data={"answer": "学校"})
+    assert feedback.status_code == 200
+    locale, nxt = _ui_switch_fields(feedback.get_data(as_text=True))
+    assert locale == "en"
+    assert nxt == answer_url
+
+    switched = client.post("/ui-language", data={"ui_locale": locale, "next": nxt})
+    landed = _follow_redirect(client, switched)
+
+    assert landed.status_code == 200
+    assert b"Not Found" not in landed.data
+    assert landed.status_code != 405
+    body = landed.get_data(as_text=True)
+    assert '<html lang="en">' in body
+    assert 'data-practice-screen="feedback"' in body
+
+
+def test_ui_language_switch_from_complete_does_not_404(
+    app, client, bypass_engine,
+):
+    _, session_url = _start_zh_practice(
+        app, client, bypass_engine, "practice-zh-ui-complete@t.com",
+    )
+    question = client.get(session_url)
+    answer_url = re.search(
+        r'<form[^>]+action="(/practice/[^"]+/items/[^"]+/answer)"',
+        question.get_data(as_text=True),
+    ).group(1)
+    client.post(answer_url, data={"answer": "学校"})
+    complete = _post_continue(client, session_url)
+    assert complete.status_code == 200
+    locale, nxt = _ui_switch_fields(complete.get_data(as_text=True))
+    assert locale == "en"
+    assert nxt == session_url or nxt.rstrip("/") == session_url.rstrip("/")
+
+    switched = client.post("/ui-language", data={"ui_locale": locale, "next": nxt})
+    landed = _follow_redirect(client, switched)
+
+    assert landed.status_code == 200
+    assert b"Not Found" not in landed.data
+    assert "Session complete" in landed.get_data(as_text=True)
+
+
+def test_learning_language_switch_to_en_keeps_frozen_zh_session(
+    app, client, bypass_engine,
+):
+    user_id, session_url = _start_zh_practice(
+        app, client, bypass_engine, "practice-zh-learn-en@t.com",
+        learning="zh,en",
+    )
+    session_id = _session_id_from_url(session_url)
+    question = client.get(session_url)
+    assert question.status_code == 200
+
+    switched = client.post(
+        "/language/switch",
+        data={"language_code": "en", "next": question.request.path},
+    )
+    landed = _follow_redirect(client, switched)
+
+    assert landed.status_code == 200
+    assert b"Not Found" not in landed.data
+    with bypass_engine.connect() as connection:
+        state = connection.execute(text(
+            "SELECT status, language_code FROM practice_sessions WHERE id=:id"
+        ), {"id": session_id}).one()
+        current = connection.execute(text(
+            "SELECT current_language FROM users WHERE id=:uid"
+        ), {"uid": user_id}).scalar()
+    assert tuple(state) == ("active", "zh")
+    assert current == "en"
+    original = client.get(session_url)
+    assert original.status_code == 200
+    start = client.get("/practice")
+    assert start.status_code == 200
+    assert "暂未开放" in start.get_data(as_text=True)

@@ -80,6 +80,16 @@
       } catch (err) {
         return;
       }
+    },
+    bindIntentionalNavigation: function (documentRef, mark) {
+      if (!documentRef || typeof mark !== "function") return;
+      if (typeof documentRef.querySelectorAll !== "function") return;
+      var forms = documentRef.querySelectorAll(".ui-locale-form, #langSwitchForm");
+      Array.prototype.forEach.call(forms, function (form) {
+        if (form && form.addEventListener) {
+          form.addEventListener("submit", mark);
+        }
+      });
     }
   };
 
@@ -204,12 +214,17 @@
   if (synth) synth.addEventListener("voiceschanged", updateVoiceState);
   checkVoices();
 
+  function markIntentionalNavigation() {
+    intentionalNavigation = true;
+  }
+
   if (answerForm && durationInput) {
     answerForm.addEventListener("submit", function () {
-      intentionalNavigation = true;
+      markIntentionalNavigation();
       durationInput.value = Math.max(0, Date.now() - questionStartedAt);
     });
   }
+  voicesApi.bindIntentionalNavigation(document, markIntentionalNavigation);
 
   if (abandoning && navigator.sendBeacon) {
     window.addEventListener("pagehide", function () {
