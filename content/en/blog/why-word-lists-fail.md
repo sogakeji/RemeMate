@@ -5,7 +5,7 @@ description: Memorizing the 2,000 most common words rarely becomes vocabulary yo
 keywords: why word lists fail, vocabulary learning, spaced repetition, retrieval practice, learning vocabulary in context, word frequency lists
 date: 2026-08-17
 published: true
-indexable: false
+indexable: true
 image: public/blog/why-word-lists-fail/why-word-lists-fail.jpg
 image_alt: An editorial illustration of a long printed word list crumpled at the edge of a desk, next to an open notebook where a few words are copied with short context lines.
 ---

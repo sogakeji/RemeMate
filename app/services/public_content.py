@@ -201,6 +201,7 @@ def iter_indexable_urls(*, registration_enabled: bool) -> list[IndexableUrl]:
                 )
             )
 
+    indexable_slugs: set[str] = set()
     seen_slugs: set[str] = set()
     for (_locale, slug), post in _catalog().posts.items():
         if slug in seen_slugs or not _is_visible(post) or not post.indexable:
@@ -215,6 +216,7 @@ def iter_indexable_urls(*, registration_enabled: bool) -> list[IndexableUrl]:
         ):
             continue
         seen_slugs.add(slug)
+        indexable_slugs.add(slug)
         for locale in LOCALES:
             other = "zh" if locale == "en" else "en"
             urls.append(
@@ -222,6 +224,17 @@ def iter_indexable_urls(*, registration_enabled: bool) -> list[IndexableUrl]:
                     path=public_path("post", locale, slug),
                     locale=locale,
                     alternate_path=public_path("post", other, slug),
+                )
+            )
+
+    if indexable_slugs:
+        for locale in LOCALES:
+            other = "zh" if locale == "en" else "en"
+            urls.append(
+                IndexableUrl(
+                    path=public_path("blog", locale),
+                    locale=locale,
+                    alternate_path=public_path("blog", other),
                 )
             )
     return urls

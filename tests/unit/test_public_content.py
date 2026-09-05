@@ -125,6 +125,8 @@ def test_indexable_pair_enters_sitemap(tmp_path):
         paths = [item.path for item in content.iter_indexable_urls(registration_enabled=False)]
         assert "/qa" in paths
         assert "/zh/qa" in paths
+        assert "/blog" in paths
+        assert "/zh/blog" in paths
         assert "/blog/ready-post" in paths
         assert "/zh/blog/ready-post" in paths
         assert "/blog/why-word-lists-fail" not in paths

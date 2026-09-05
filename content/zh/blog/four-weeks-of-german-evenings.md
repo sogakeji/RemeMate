@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 德语 B1, 强化课程, 全
 date: 2026-08-16
 visible_from: 2026-08-26
 published: true
-indexable: false
+indexable: true
 image: public/blog/four-weeks-of-german-evenings/four-weeks-of-german-evenings.jpg
 image_alt: 黄昏教室的窗，书桌上有慢速音频播放器和一份云端文档，窗外只有冬日的光。
 ---

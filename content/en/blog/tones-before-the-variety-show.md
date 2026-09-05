@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, self-taught Mandar
 date: 2026-08-16
 visible_from: 2026-08-20
 published: true
-indexable: false
+indexable: true
 image: public/blog/tones-before-the-variety-show/tones-before-the-variety-show.jpg
 image_alt: An editorial illustration of a dim room lit by a television, with tone marks floating like musical notes above a remote.
 ---

@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, German B1, intensi
 date: 2026-08-16
 visible_from: 2026-08-26
 published: true
-indexable: false
+indexable: true
 image: public/blog/four-weeks-of-german-evenings/four-weeks-of-german-evenings.jpg
 image_alt: An editorial illustration of an evening classroom window seen from a desk with a slow-audio player and a cloud document, suggested only as winter light.
 ---

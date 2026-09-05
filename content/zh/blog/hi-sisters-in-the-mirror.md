@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 自学英语, 输出练习, 
 date: 2026-08-16
 visible_from: 2026-08-24
 published: true
-indexable: false
+indexable: true
 image: public/blog/hi-sisters-in-the-mirror/hi-sisters-in-the-mirror.jpg
 image_alt: 边缘起雾的浴室镜，洗手台上放着化妆品，手机里播着一支 vlog。
 ---

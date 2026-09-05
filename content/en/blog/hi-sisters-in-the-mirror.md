@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, self-taught Englis
 date: 2026-08-16
 visible_from: 2026-08-24
 published: true
-indexable: false
+indexable: true
 image: public/blog/hi-sisters-in-the-mirror/hi-sisters-in-the-mirror.jpg
 image_alt: An editorial illustration of a bathroom mirror fogged at the edges, makeup on the sink, and a phone playing a vlog.
 ---

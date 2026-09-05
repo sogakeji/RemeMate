@@ -5,7 +5,7 @@ description: Save the vocabulary, mistakes, and natural rewrites from real ChatG
 keywords: ChatGPT speaking practice, AI language partner, French speaking practice, Notion language learning, retrieval practice, distributed practice
 date: 2026-09-05
 published: true
-indexable: false
+indexable: true
 ---
 
 Lately, I have been opening ChatGPT every evening for fifteen minutes of French conversation. For the first few weeks, having a language partner available at any time felt great. There was no appointment to make, and it did not mind my accent. After a while, though, I noticed a problem: when I closed the window, almost nothing remained. Speaking felt a little smoother in the moment, but the verb form that stopped me two days ago stopped me again today. Yesterday's wrong preposition returned unchanged.

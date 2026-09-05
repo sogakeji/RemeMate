@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 用 YouTube 学英语, 旅�
 date: 2026-08-16
 visible_from: 2026-08-25
 published: true
-indexable: false
+indexable: true
 image: public/blog/school-failed-me-on-the-road/school-failed-me-on-the-road.jpg
 image_alt: 黄昏的火车窗，手机里一张失焦的说话面孔，空座位上放着一本合上的课本。
 ---

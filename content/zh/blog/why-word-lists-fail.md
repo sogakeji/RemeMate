@@ -5,7 +5,7 @@ description: 背熟两千个常用词，很少能变成阅读和听力里用得�
 keywords: 词表没用, 背单词, 间隔复习, 提取练习, 语境学习, 词频表
 date: 2026-08-17
 published: true
-indexable: false
+indexable: true
 image: public/blog/why-word-lists-fail/why-word-lists-fail.jpg
 image_alt: 一幅编辑风格插画：书桌边角放着一张揉皱的打印词表，旁边是一本笔记本，上面抄着几个词并配了简短语境。
 ---

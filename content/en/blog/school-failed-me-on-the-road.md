@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, learning English o
 date: 2026-08-16
 visible_from: 2026-08-25
 published: true
-indexable: false
+indexable: true
 image: public/blog/school-failed-me-on-the-road/school-failed-me-on-the-road.jpg
 image_alt: An editorial illustration of a train window at dusk, a phone showing a talking head out of focus, and a closed textbook on the empty seat.
 ---

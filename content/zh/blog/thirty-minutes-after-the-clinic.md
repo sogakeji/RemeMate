@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 韩语学习, 全职工作�
 date: 2026-08-16
 visible_from: 2026-08-19
 published: true
-indexable: false
+indexable: true
 image: public/blog/thirty-minutes-after-the-clinic/thirty-minutes-after-the-clinic.jpg
 image_alt: 下班后的厨房桌：计时器、闪卡、耳机，以及一块钉满词的板。
 ---

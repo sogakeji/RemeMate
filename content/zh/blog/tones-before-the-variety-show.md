@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 自学普通话, 中文声�
 date: 2026-08-16
 visible_from: 2026-08-20
 published: true
-indexable: false
+indexable: true
 image: public/blog/tones-before-the-variety-show/tones-before-the-variety-show.jpg
 image_alt: 昏暗房间被电视照亮，声调符号像音符一样浮在遥控器上方。
 ---

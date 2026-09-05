@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, lazy language lear
 date: 2026-08-16
 visible_from: 2026-08-21
 published: true
-indexable: false
+indexable: true
 image: public/blog/zero-stress-in-six-rooms/zero-stress-in-six-rooms.jpg
 image_alt: An editorial illustration of six adjoining rooms lit at different warmths, with a paused video on a laptop in the first room.
 ---

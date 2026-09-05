@@ -68,21 +68,53 @@ def test_unknown_and_draft_slugs_are_404(client, tmp_path):
         content.configure_content_root(None)
 
 
-def test_sitemap_and_robots_omit_placeholders(app, client):
+def test_sitemap_and_robots_include_indexable_public_content(app, client, tmp_path):
+    from app.services import public_content as content
+
+    for locale, title in (("en", "Public article"), ("zh", "公开文章")):
+        blog = tmp_path / locale / "blog"
+        blog.mkdir(parents=True)
+        (tmp_path / locale / "qa.yaml").write_text(
+            f"title: {title} FAQ\ndescription: Public FAQ\nindexable: true\n"
+            "items:\n  - question: Public question?\n    answer: Public answer.\n",
+            encoding="utf-8",
+        )
+        (blog / "public-article.md").write_text(
+            f"---\ntitle: {title}\nslug: public-article\ndescription: Public article\n"
+            "date: 2026-09-05\npublished: true\nindexable: true\n---\n\nPublic body.\n",
+            encoding="utf-8",
+        )
+
+    content.configure_content_root(tmp_path)
     app.config["PUBLIC_BASE_URL"] = "https://rememate.com"
     app.config["OPEN_REGISTRATION_ENABLED"] = False
-    closed = client.get("/sitemap.xml")
-    assert closed.status_code == 200
-    closed_body = closed.get_data(as_text=True)
-    assert "<loc>https://rememate.com/</loc>" in closed_body
-    assert "<loc>https://rememate.com/login</loc>" in closed_body
-    assert "/register" not in closed_body
-    assert "/qa" not in closed_body
-    assert PLACEHOLDER not in closed_body
+    try:
+        public_paths = (
+            "/qa",
+            "/zh/qa",
+            "/blog",
+            "/zh/blog",
+            "/blog/public-article",
+            "/zh/blog/public-article",
+        )
+        for path in public_paths:
+            page = client.get(path).get_data(as_text=True)
+            assert 'name="robots" content="noindex,follow"' not in page
 
-    app.config["OPEN_REGISTRATION_ENABLED"] = True
-    opened = client.get("/sitemap.xml").get_data(as_text=True)
-    assert "<loc>https://rememate.com/register</loc>" in opened
+        closed = client.get("/sitemap.xml")
+        assert closed.status_code == 200
+        closed_body = closed.get_data(as_text=True)
+        assert "<loc>https://rememate.com/</loc>" in closed_body
+        assert "<loc>https://rememate.com/login</loc>" in closed_body
+        assert "/register" not in closed_body
+        for path in public_paths:
+            assert f"<loc>https://rememate.com{path}</loc>" in closed_body
+
+        app.config["OPEN_REGISTRATION_ENABLED"] = True
+        opened = client.get("/sitemap.xml").get_data(as_text=True)
+        assert "<loc>https://rememate.com/register</loc>" in opened
+    finally:
+        content.configure_content_root(None)
 
     robots = client.get("/robots.txt")
     assert robots.status_code == 200

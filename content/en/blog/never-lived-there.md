@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, learning from TV s
 date: 2026-08-16
 visible_from: 2026-08-28
 published: true
-indexable: false
+indexable: true
 image: public/blog/never-lived-there/never-lived-there.jpg
 image_alt: An editorial illustration of a television paused on a blurred street scene, with a script page and headphones on a low table.
 ---

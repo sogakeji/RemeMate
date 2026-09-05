@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 用剧学语言, 影子跟�
 date: 2026-08-16
 visible_from: 2026-08-28
 published: true
-indexable: false
+indexable: true
 image: public/blog/never-lived-there/never-lived-there.jpg
 image_alt: 电视停在模糊的街景上，矮桌上放着剧本页和耳机。
 ---

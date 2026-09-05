@@ -1,6 +1,6 @@
 title: RemeMate 常见问题
 description: RemeMate 怎么用：从收词、复习到输出，每一步怎么操作、出问题怎么办，给新用户的图文版常见问题。
-indexable: false
+indexable: true
 items:
   - question: 1.1 RemeMate 是什么？适合谁？
     answer: |

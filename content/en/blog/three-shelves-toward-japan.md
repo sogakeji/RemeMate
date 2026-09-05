@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, self-taught Englis
 date: 2026-08-16
 visible_from: 2026-08-18
 published: true
-indexable: false
+indexable: true
 image: public/blog/three-shelves-toward-japan/three-shelves-toward-japan.jpg
 image_alt: An editorial illustration of three wooden shelves holding a grammar book, loose cards, and a window open onto an unnamed city at dusk.
 ---

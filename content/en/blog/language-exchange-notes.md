@@ -5,7 +5,7 @@ description: Language exchange notes only help if you reopen them. Take a few th
 keywords: language exchange notes, how to take notes during a language exchange, language exchange tips, language partner notes, review after a language exchange
 date: 2026-08-17
 published: true
-indexable: false
+indexable: true
 image: public/blog/language-exchange-notes/language-exchange-notes.jpg
 image_alt: An editorial illustration of a small desk with a phone in a video call, a small card with a few scribbled words, and an open notebook with short tidy lines.
 ---

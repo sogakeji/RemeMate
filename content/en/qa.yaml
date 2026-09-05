@@ -1,6 +1,6 @@
 title: RemeMate FAQ
 description: How RemeMate works, feature by feature: collect the words you meet, review them, and use them in your own writing. Illustrated answers for new users.
-indexable: false
+indexable: true
 items:
   - question: 1.1 What is RemeMate, and who is it for?
     answer: |

@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 自学日语, 汉字, 语言
 date: 2026-08-16
 visible_from: 2026-08-31
 published: true
-indexable: false
+indexable: true
 image: public/blog/keep-a-schedule-in-japan/keep-a-schedule-in-japan.jpg
 image_alt: 日本公寓里一张小书桌，放着课本、汉字卡片和墙上的日历。
 ---

@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, learning languages
 date: 2026-08-16
 visible_from: 2026-08-27
 published: true
-indexable: false
+indexable: true
 image: public/blog/pockets-in-a-nine-to-five/pockets-in-a-nine-to-five.jpg
 image_alt: An editorial illustration of a gym bag, a coffee cup, and a phone of flashcards on an office desk at dusk.
 ---

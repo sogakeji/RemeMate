@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 语言学习习惯, 全职�
 date: 2026-08-16
 visible_from: 2026-08-17
 published: true
-indexable: false
+indexable: true
 image: public/blog/between-the-sink-and-the-page/between-the-sink-and-the-page.jpg
 image_alt: 黄昏时分，厨房水槽旁摊开着一本笔记本的编辑插画。
 ---

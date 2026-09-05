@@ -73,7 +73,7 @@ def _blog_index(locale: str):
         posts=posts,
         title=title,
         description=description,
-        indexable=False,
+        indexable=any(post.indexable for post in posts),
         og_type="website",
         nav=_nav(locale),
         **urls,

@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 轻松学语言, 零压力�
 date: 2026-08-16
 visible_from: 2026-08-21
 published: true
-indexable: false
+indexable: true
 image: public/blog/zero-stress-in-six-rooms/zero-stress-in-six-rooms.jpg
 image_alt: 六间相连的房间被不同温度的光照着，第一间房的笔记本上停着一支视频。
 ---

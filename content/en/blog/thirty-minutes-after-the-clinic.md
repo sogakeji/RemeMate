@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, Korean study, lear
 date: 2026-08-16
 visible_from: 2026-08-19
 published: true
-indexable: false
+indexable: true
 image: public/blog/thirty-minutes-after-the-clinic/thirty-minutes-after-the-clinic.jpg
 image_alt: An editorial illustration of a kitchen table after work, with a timer, flashcards, headphones, and a pinboard of words.
 ---

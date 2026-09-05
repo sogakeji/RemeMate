@@ -5,7 +5,7 @@ description: 语言交换笔记只有被重新翻开才有用。会中只抓少�
 keywords: 语言交换笔记, 语言交换, 语伴, 怎么记笔记, 外语学习, 复习
 date: 2026-08-17
 published: true
-indexable: false
+indexable: true
 image: public/blog/language-exchange-notes/language-exchange-notes.jpg
 image_alt: 一幅编辑风格插画：小书桌上放着正在视频通话的手机、写了几行字的小卡片，和一本写着整齐短句的笔记本。
 ---

@@ -7,7 +7,7 @@ keywords: 语言学习, 多语言学习, 多语者, 自学英语, 留学, 语法
 date: 2026-08-16
 visible_from: 2026-08-18
 published: true
-indexable: false
+indexable: true
 image: public/blog/three-shelves-toward-japan/three-shelves-toward-japan.jpg
 image_alt: 三层木架上放着语法书和散开的卡片，最下一层是一扇开向无名城市黄昏的窗。
 ---

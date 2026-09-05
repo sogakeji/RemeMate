@@ -7,7 +7,7 @@ keywords: language learning, multilingual learning, polyglot, self-study Japanes
 date: 2026-08-16
 visible_from: 2026-08-31
 published: true
-indexable: false
+indexable: true
 image: public/blog/keep-a-schedule-in-japan/keep-a-schedule-in-japan.jpg
 image_alt: An editorial illustration of a small apartment desk in Japan with a textbook, kanji cards, and a wall calendar.
 ---
