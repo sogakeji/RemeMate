@@ -25,6 +25,27 @@
       <p class="practice-lead">{{ _('practice.lead') }}</p>
       <p class="practice-meta">{{ _('practice.question_count_one' if question_count == 1 else 'practice.question_count_many', count=question_count) }} · {{ _('practice.browser_voice') }}</p>
       <p class="practice-voice-status" data-practice-voice-status>{{ _('practice.voice_checking') }}</p>
+      <div class="practice-audio-settings" data-practice-audio-settings hidden>
+        <label>
+          <span>{{ _('practice.voice_label') }}</span>
+          <select data-practice-voice-select aria-label="{{ _('practice.voice_label') }}"></select>
+        </label>
+        <label>
+          <span>{{ _('practice.rate_label') }}</span>
+          <select data-practice-rate-select aria-label="{{ _('practice.rate_label') }}">
+            <option value="0.7">0.7×</option>
+            <option value="0.8">0.8×</option>
+            <option value="0.9">0.9×</option>
+            <option value="1">1.0×</option>
+            <option value="1.1">1.1×</option>
+            <option value="1.2">1.2×</option>
+          </select>
+        </label>
+        <button type="button" class="btn default" data-practice-preview
+                data-practice-sentence="{{ voice_preview_sentence }}">
+          {{ _('practice.preview') }}
+        </button>
+      </div>
       <button type="button" class="btn default practice-retry" data-practice-retry hidden>{{ _('practice.try_again') }}</button>
       <form method="post" action="{{ url_for('practice.start') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

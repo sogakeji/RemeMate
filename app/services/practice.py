@@ -19,6 +19,11 @@ MAX_ANSWER_DURATION_MS = 3_600_000
 VOICE_BLOCK_IDEMPOTENCY_WINDOW = timedelta(days=1)
 PRACTICE_LANGUAGES = frozenset({"fr", "ja", "zh"})
 VOICE_LOCALES = {"fr": "fr-FR", "ja": "ja-JP", "zh": "zh-CN"}
+VOICE_PREVIEW_SENTENCES = {
+    "fr": "Bonjour, voici un aperçu de la voix.",
+    "ja": "こんにちは。音声を試しています。",
+    "zh": "你好，这是语音试听。",
+}
 _JA_PUNCTUATION = re.compile(r"[。．、，・.,!！?？「」『』()（）\[\]【】…―—]")
 _ZH_PUNCTUATION = re.compile(
     r"[。．、，·・.,!！?？：；「」『』\"'“”‘’（）()\[\]【】《》〈〉…―—～〜]"
@@ -42,6 +47,10 @@ def voice_locale(language_code: str | None) -> str:
     if not language_code:
         return ""
     return VOICE_LOCALES.get(language_code, language_code)
+
+
+def voice_preview_sentence(language_code: str | None) -> str:
+    return VOICE_PREVIEW_SENTENCES.get(language_code or "", "")
 
 
 def normalize_practice_text(value: str | None) -> str:

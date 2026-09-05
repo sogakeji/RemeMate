@@ -117,6 +117,9 @@ def test_french_learner_sees_practice_start_with_eligible_count(
     assert "听写" in body
     assert "1 道题" in body
     assert 'data-practice-screen="start"' in body
+    assert 'data-practice-voice-select' in body
+    assert 'data-practice-rate-select' in body
+    assert 'data-practice-preview' in body
 
 
 def test_japanese_learner_sees_practice_start_with_eligible_count(

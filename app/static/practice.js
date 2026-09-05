@@ -81,6 +81,42 @@
         return;
       }
     },
+    rateStorageKey: function (wanted) {
+      var prefix = voicesApi.langPrefix(wanted) || "default";
+      return "rememate.practice.rate." + prefix;
+    },
+    normalizeRate: function (value) {
+      var rate = Number(value);
+      if (!Number.isFinite(rate)) return 1;
+      return Math.min(1.2, Math.max(0.7, rate));
+    },
+    readStoredRate: function (storage, wanted) {
+      if (!storage) return 1;
+      try {
+        var raw = storage.getItem(voicesApi.rateStorageKey(wanted));
+        if (raw === null || raw === "") return 1;
+        return voicesApi.normalizeRate(raw);
+      } catch (err) {
+        return 1;
+      }
+    },
+    writeStoredRate: function (storage, wanted, rate) {
+      if (!storage) return;
+      try {
+        storage.setItem(
+          voicesApi.rateStorageKey(wanted),
+          String(voicesApi.normalizeRate(rate))
+        );
+      } catch (err) {
+        return;
+      }
+    },
+    applySpeechPreferences: function (utterance, voice, rate, fallbackLocale) {
+      utterance.lang = voice.lang || fallbackLocale;
+      utterance.voice = voice;
+      utterance.rate = voicesApi.normalizeRate(rate);
+      return utterance;
+    },
     bindIntentionalNavigation: function (documentRef, mark) {
       if (!documentRef || typeof mark !== "function") return;
       if (typeof documentRef.querySelectorAll !== "function") return;
@@ -107,6 +143,10 @@
   var retry = root.querySelector("[data-practice-retry]");
   var status = root.querySelector("[data-practice-voice-status]");
   var voiceInput = root.querySelector("[data-practice-voice-input]");
+  var audioSettings = root.querySelector("[data-practice-audio-settings]");
+  var voiceSelect = root.querySelector("[data-practice-voice-select]");
+  var rateSelect = root.querySelector("[data-practice-rate-select]");
+  var preview = root.querySelector("[data-practice-preview]");
   var playButtons = root.querySelectorAll("[data-practice-play]");
   var answerForm = root.querySelector(".practice-form");
   var durationInput = root.querySelector("[data-practice-duration]");
@@ -130,10 +170,54 @@
   }
 
   function selectedVoice(voices) {
+    if (voiceSelect && voiceSelect.value) {
+      var selected = voices.filter(function (voice) {
+        return voice.voiceURI === voiceSelect.value;
+      })[0];
+      if (selected) return selected;
+    }
     var stored = voicesApi.readStoredVoice(window.localStorage, wantedLang);
     var picked = voicesApi.pickVoice(voices, stored, wantedLocale);
     if (picked) voicesApi.writeStoredVoice(window.localStorage, wantedLang, picked);
     return picked;
+  }
+
+  function selectedRate() {
+    if (rateSelect) return voicesApi.normalizeRate(rateSelect.value);
+    return voicesApi.readStoredRate(window.localStorage, wantedLang);
+  }
+
+  function populateAudioSettings(voices) {
+    var sorted = voicesApi.sortVoices(voices, wantedLocale);
+    var picked = selectedVoice(sorted);
+    if (voiceSelect) {
+      voiceSelect.textContent = "";
+      sorted.forEach(function (voice) {
+        var option = document.createElement("option");
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + " (" + voice.lang + ")";
+        voiceSelect.appendChild(option);
+      });
+      if (picked) voiceSelect.value = picked.voiceURI;
+    }
+    if (rateSelect) rateSelect.value = String(
+      voicesApi.readStoredRate(window.localStorage, wantedLang)
+    );
+    if (audioSettings) audioSettings.hidden = false;
+  }
+
+  function speak(button) {
+    var voices = updateVoiceState();
+    var voice = selectedVoice(voices);
+    if (!voice) return;
+    var utterance = new SpeechSynthesisUtterance(
+      button.getAttribute("data-practice-sentence") || ""
+    );
+    voicesApi.applySpeechPreferences(
+      utterance, voice, selectedRate(), wantedLocale
+    );
+    synth.cancel();
+    synth.speak(utterance);
   }
 
   function setStatus(messageText) {
@@ -165,6 +249,7 @@
       if (start) start.disabled = true;
       if (voiceInput) voiceInput.value = "0";
       if (retry) retry.hidden = false;
+      if (audioSettings) audioSettings.hidden = true;
       return [];
     }
     var voices = matchingVoices();
@@ -177,6 +262,7 @@
         button.disabled = true;
       });
       if (retry) retry.hidden = false;
+      if (audioSettings) audioSettings.hidden = true;
       return [];
     }
     setStatus(message("voice-ready"));
@@ -186,6 +272,7 @@
       button.disabled = false;
     });
     if (retry) retry.hidden = true;
+    populateAudioSettings(voices);
     return voices;
   }
 
@@ -211,6 +298,18 @@
   }
 
   if (retry) retry.addEventListener("click", checkVoices);
+  if (voiceSelect) voiceSelect.addEventListener("change", function () {
+    var voice = selectedVoice(matchingVoices());
+    if (voice) voicesApi.writeStoredVoice(window.localStorage, wantedLang, voice);
+  });
+  if (rateSelect) rateSelect.addEventListener("change", function () {
+    var rate = voicesApi.normalizeRate(rateSelect.value);
+    rateSelect.value = String(rate);
+    voicesApi.writeStoredRate(window.localStorage, wantedLang, rate);
+  });
+  if (preview) preview.addEventListener("click", function () {
+    speak(preview);
+  });
   if (synth) synth.addEventListener("voiceschanged", updateVoiceState);
   checkVoices();
 
@@ -238,14 +337,6 @@
 
   playButtons.forEach(function (button) {
     button.addEventListener("click", function () {
-      var voices = updateVoiceState();
-      var voice = selectedVoice(voices);
-      if (!voice) return;
-      var utterance = new SpeechSynthesisUtterance(
-        button.getAttribute("data-practice-sentence") || ""
-      );
-      utterance.lang = voice.lang || wantedLocale;
-      utterance.voice = voice;
       var replayUrl = button.getAttribute("data-practice-replay-url");
       if (replayUrl) {
         var csrf = root.querySelector('[name="csrf_token"]');
@@ -254,8 +345,7 @@
           headers: csrf ? {"X-CSRFToken": csrf.value} : {}
         });
       }
-      synth.cancel();
-      synth.speak(utterance);
+      speak(button);
     });
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

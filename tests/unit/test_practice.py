@@ -4,6 +4,7 @@ from app.services.practice import (
     prompt_parts,
     target_occurs_uniquely,
     voice_locale,
+    voice_preview_sentence,
 )
 
 
@@ -119,6 +120,12 @@ def test_voice_locale_uses_bcp47_defaults():
     assert voice_locale("ja") == "ja-JP"
     assert voice_locale("fr") == "fr-FR"
     assert voice_locale("zh") == "zh-CN"
+
+
+def test_voice_preview_sentence_uses_the_learning_language():
+    assert voice_preview_sentence("fr") == "Bonjour, voici un aperçu de la voix."
+    assert voice_preview_sentence("ja") == "こんにちは。音声を試しています。"
+    assert voice_preview_sentence("zh") == "你好，这是语音试听。"
 
 
 def test_japanese_normalize_does_not_loosen_script_or_mora():

@@ -35,6 +35,28 @@
 .practice-lead { margin-bottom: 14px; }
 .practice-meta { margin-bottom: 14px; }
 .practice-voice-status { min-height: 1.4em; font-size: 13px; }
+.practice-audio-settings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 0.45fr) auto;
+    gap: 10px;
+    margin: 14px 0;
+    text-align: left;
+}
+.practice-audio-settings[hidden] { display: none; }
+.practice-audio-settings label { display: grid; gap: 5px; }
+.practice-audio-settings label span {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+.practice-audio-settings select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-color);
+}
+.practice-audio-settings .btn { align-self: end; }
 .practice-cta { min-width: 160px; margin-top: 8px; }
 .practice-retry { margin-bottom: 8px; }
 
@@ -145,5 +167,7 @@
 @media (max-width: 640px) {
     .practice-page { padding: 12px 12px 120px; }
     .practice-card { padding: 28px 20px; }
+    .practice-audio-settings { grid-template-columns: 1fr 1fr; }
+    .practice-audio-settings .btn { grid-column: 1 / -1; }
     .practice-prompt { font-size: 22px; }
 }

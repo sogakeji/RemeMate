@@ -60,6 +60,42 @@ testSortPrefersExactLocaleThenLocalService();
 testPickVoiceFallsBackFromUriToNameLangToLang();
 testStorageRoundTrip();
 
+function testRateStorageIsLanguageScopedAndSafe() {
+  const store = {
+    data: {},
+    getItem(key) { return this.data[key] || null; },
+    setItem(key, value) { this.data[key] = value; }
+  };
+
+  assert.strictEqual(voices.readStoredRate(store, "fr-FR"), 1);
+  voices.writeStoredRate(store, "fr", 0.8);
+  voices.writeStoredRate(store, "ja", 1.1);
+  assert.strictEqual(store.getItem("rememate.practice.rate.fr"), "0.8");
+  assert.strictEqual(voices.readStoredRate(store, "fr-FR"), 0.8);
+  assert.strictEqual(voices.readStoredRate(store, "ja-JP"), 1.1);
+  assert.strictEqual(voices.readStoredRate(store, "zh-CN"), 1);
+
+  store.data["rememate.practice.rate.fr"] = "broken";
+  assert.strictEqual(voices.readStoredRate(store, "fr"), 1);
+  voices.writeStoredRate(store, "fr", 2);
+  assert.strictEqual(voices.readStoredRate(store, "fr"), 1.2);
+  voices.writeStoredRate(store, "fr", 0.2);
+  assert.strictEqual(voices.readStoredRate(store, "fr"), 0.7);
+}
+
+testRateStorageIsLanguageScopedAndSafe();
+
+function testSpeechPreferencesApplyVoiceLocaleAndSafeRate() {
+  const utterance = {};
+  const voice = { name: "Kyoko", lang: "ja-JP", voiceURI: "kyoko" };
+  voices.applySpeechPreferences(utterance, voice, 2, "ja-JP");
+  assert.strictEqual(utterance.voice, voice);
+  assert.strictEqual(utterance.lang, "ja-JP");
+  assert.strictEqual(utterance.rate, 1.2);
+}
+
+testSpeechPreferencesApplyVoiceLocaleAndSafeRate();
+
 const chinese = [
   { name: "Google US English", lang: "en-US", voiceURI: "en-us", localService: false },
   { name: "Huihui", lang: "zh-CN", voiceURI: "huihui", localService: true },

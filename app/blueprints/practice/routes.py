@@ -25,6 +25,7 @@ def index():
         question_count=question_count,
         language_code=language_code,
         voice_locale=_voice_locale(language_code),
+        voice_preview_sentence=practice_svc.voice_preview_sentence(language_code),
     )
 
 
