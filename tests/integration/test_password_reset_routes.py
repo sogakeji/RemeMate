@@ -1,4 +1,5 @@
 """OR3 Slice C: password-reset request and completion routes."""
+from datetime import timedelta
 from hashlib import sha256
 from urllib.parse import unquote, urlsplit
 
@@ -6,6 +7,7 @@ from sqlalchemy import text
 from werkzeug.security import check_password_hash
 
 from app.services.account_access import reset_password
+from app.services.timeutil import utc_now
 from tests.helpers import provision_user
 
 
@@ -210,9 +212,12 @@ def test_invalid_expired_and_consumed_reset_tokens_are_uniform(
     with bypass_engine.begin() as conn:
         conn.execute(text("""
             UPDATE auth_challenges
-            SET expires_at = now() - interval '1 second'
+            SET expires_at = :expired_at
             WHERE token_digest = :digest
-        """), {"digest": sha256(expired_token.encode()).hexdigest()})
+        """), {
+            "digest": sha256(expired_token.encode()).hexdigest(),
+            "expired_at": utc_now() - timedelta(seconds=1),
+        })
     with app.app_context():
         reset_password(consumed_token, "consumed-password-123")
 

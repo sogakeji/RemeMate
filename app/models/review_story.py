@@ -1,4 +1,5 @@
 """Private review-story cache and privacy-safe funnel events."""
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.extensions import db
@@ -87,9 +88,16 @@ class ReviewStoryRun(db.Model):
     term_snapshot = db.Column(JSONB, nullable=True)
     term_word_ids = db.Column(JSONB, nullable=True)
     result_json = db.Column(JSONB, nullable=True)
-    status = db.Column(db.String(20), default="pending", nullable=False)
-    attempt_count = db.Column(db.Integer, default=0, nullable=False)
-    attempt_version = db.Column(db.Integer, default=0, nullable=False)
+    status = db.Column(
+        db.String(20), default="pending", server_default=text("'pending'"),
+        nullable=False,
+    )
+    attempt_count = db.Column(
+        db.Integer, default=0, server_default=text("0"), nullable=False,
+    )
+    attempt_version = db.Column(
+        db.Integer, default=0, server_default=text("0"), nullable=False,
+    )
     lease_expires_at = db.Column(db.DateTime, nullable=True)
     error_code = db.Column(db.String(50), nullable=True)
     content_expires_at = db.Column(db.DateTime, nullable=True)

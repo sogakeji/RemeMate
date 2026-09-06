@@ -18,6 +18,7 @@ class PartnerRecap(db.Model):
             "ix_partner_recaps_user_partner_date",
             "user_id", "partner_id", "session_date",
         ),
+        db.Index("ix_partner_recaps_intake_source_id", "intake_source_id"),
         db.ForeignKeyConstraint(
             ["partner_id", "user_id"],
             ["language_partners.id", "language_partners.user_id"],
@@ -26,6 +27,8 @@ class PartnerRecap(db.Model):
         db.ForeignKeyConstraint(
             ["intake_source_id", "user_id"],
             ["intake_sources.id", "intake_sources.user_id"],
+            name="fk_partner_recaps_intake_source_owner",
+            ondelete="SET NULL (intake_source_id)",
         ),
     )
 
@@ -60,6 +63,7 @@ class PartnerRecapItem(db.Model):
             "ix_partner_recap_items_user_recap",
             "user_id", "recap_id", "created_at",
         ),
+        db.Index("ix_partner_recap_items_candidate_id", "candidate_id"),
         db.CheckConstraint(
             "side IN ('for_me','for_partner')",
             name="ck_partner_recap_items_side",
@@ -85,6 +89,8 @@ class PartnerRecapItem(db.Model):
         db.ForeignKeyConstraint(
             ["candidate_id", "user_id"],
             ["word_candidates.id", "word_candidates.user_id"],
+            name="fk_partner_recap_items_candidate_owner",
+            ondelete="SET NULL (candidate_id)",
         ),
     )
 

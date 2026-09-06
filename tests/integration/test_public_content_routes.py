@@ -5,7 +5,7 @@ PW = "pw12345678"
 PLACEHOLDER = "why-word-lists-fail"
 
 
-def test_public_placeholder_pages_are_previewable_and_not_indexed(client):
+def test_repo_public_pages_are_indexable_and_localized(client):
     qa = client.get("/qa")
     zh_qa = client.get("/zh/qa")
     post = client.get(f"/blog/{PLACEHOLDER}")
@@ -16,7 +16,7 @@ def test_public_placeholder_pages_are_previewable_and_not_indexed(client):
     for resp in (qa, zh_qa, post, zh_post, listing, zh_listing):
         assert resp.status_code == 200
         page = resp.get_data(as_text=True)
-        assert 'name="robots" content="noindex,follow"' in page
+        assert 'name="robots" content="noindex,follow"' not in page
         assert 'rel="canonical"' in page
         assert 'hreflang="en"' in page
         assert 'hreflang="zh-Hans"' in page

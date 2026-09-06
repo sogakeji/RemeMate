@@ -87,14 +87,42 @@ cd ~/rememate && . .venv/bin/activate
 
 ## 测试库（独立于 dev，pytest 会清空它）
 
+日常测试统一使用可销毁 PostgreSQL 16 容器运行器；宿主机需要 Python 3.12、Docker 和 Node。运行器生成临时角色/密码、只发布随机回环端口、在 tmpfs 中建库，并在成功、失败或可捕获中断后按准确容器 ID 清理：
+
 ```bash
-# 首次建测试库 + 迁移：
-sudo -u postgres psql -f scripts/dev/init-test-db.sql
-MIGRATE_DATABASE_URL=postgresql://rememate_owner:dev_owner_pw@127.0.0.1:5432/rememate_test \
-  flask db upgrade
-# 跑测试（conftest 强制连 rememate_test，缺 TEST_* 直接报错）：
-python -m pytest -q
+python scripts/run_isolated_tests.py -- -q
+python scripts/run_isolated_tests.py --migration-check
 ```
+
+迁移检查要求单一 Alembic head，执行 fresh upgrade、最后一版 downgrade/upgrade，并比较模型 metadata。认证过期时区回归可用：
+
+```bash
+python scripts/run_isolated_tests.py --database-timezone Asia/Shanghai -- -q \
+  tests/integration/test_account_access.py \
+  tests/integration/test_password_reset_routes.py \
+  tests/integration/test_registration_activation_routes.py
+```
+
+不要把旧 `init-test-db.sql` 用于云机共享集群；它会 DROP 数据库，不是日常测试启动命令。
+
+底层 pytest 入口不自动读取 `.env`；绕过运行器时必须显式传入：
+
+- `TEST_DATABASE_HOST`：确认过的专用测试实例回环地址（127.0.0.1 / localhost / ::1）。
+- `TEST_DATABASE_PORT`：该实例明确的端口；没有默认端口。
+- `TEST_DATABASE_URL`：PostgreSQL / psycopg2，角色 rememate，确切库名 rememate_test。
+- `TEST_DISPATCH_DATABASE_URL`：同一 host/port/database，角色 rememate_dispatch。
+
+两个 URL 都必须显式带密码，禁止 URL query 连接覆盖项及非空 `PG*` 环境覆盖。URL 一致性检查不能证明数据库可销毁，仍须由运行器/操作者确认实例归属；不要把已共享的 55432 填进去绕过隔离准备。
+
+只有在操作者已确认实例可销毁时，才可显式配置上述变量直接运行 pytest。迁移必须另用 owner 连接；不得用 app/dispatch 角色跑迁移。共享 55432 不属于可销毁实例。
+
+无需数据库的入口安全测试：
+
+```bash
+python -m pytest tests/unit/test_test_database_config.py --noconftest -q
+```
+
+错误只报告无敏感值的字段类别；不要将真实 URL 用作 pytest 参数 ID 或打印到日志。
 
 ## 仍缺 / 待补
 

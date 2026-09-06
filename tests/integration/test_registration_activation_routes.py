@@ -1,9 +1,11 @@
 """OR3 Slice B: registration activation and initial-password routes."""
+from datetime import timedelta
 from hashlib import sha256
 from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import text
 
+from app.services.timeutil import utc_now
 from tests.helpers import provision_user
 
 
@@ -170,9 +172,12 @@ def test_registration_verify_invalid_expired_and_logged_in_are_safe(
     with bypass_engine.begin() as conn:
         conn.execute(text("""
             UPDATE auth_challenges
-            SET expires_at = now() - interval '1 second'
+            SET expires_at = :expired_at
             WHERE token_digest = :digest
-        """), {"digest": sha256(expired_token.encode()).hexdigest()})
+        """), {
+            "digest": sha256(expired_token.encode()).hexdigest(),
+            "expired_at": utc_now() - timedelta(seconds=1),
+        })
 
     invalid_client = app.test_client()
     invalid = invalid_client.get("/verify-email/not-a-real-token")

@@ -10,6 +10,7 @@ from werkzeug.security import check_password_hash
 
 from app import create_app
 from app.services.provisioning import create_user_with_defaults
+from app.services.timeutil import utc_now
 from app.services.account_access import (
     AuthMailDeliveryError,
     ActivatedAccount,
@@ -680,10 +681,10 @@ def test_expired_and_missing_challenges_use_one_invalid_error_without_mutation(
     with bypass_engine.begin() as conn:
         conn.execute(text("""
             UPDATE auth_challenges
-            SET expires_at = now() - interval '1 second'
+            SET expires_at = :expired_at
             WHERE (email = 'new@example.com' AND purpose = 'registration')
                OR (email = 'alice@example.com' AND purpose = 'password_reset')
-        """))
+        """), {"expired_at": utc_now() - timedelta(seconds=1)})
         before_user = conn.execute(text("""
             SELECT password_hash, password_setup_required
             FROM users

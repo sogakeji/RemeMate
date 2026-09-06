@@ -15,33 +15,33 @@
 - 当前代码支持法语、日语、中文 Practice；开始页可选择声音、0.7–1.2× 语速并试听；按语言本地记忆，答题/反馈播放复用，不自动播放。
 - AI 未完成批改不扣完成额度已在 `2b3d327` 合入；包含 provider 成本分离、内部重试、并发额度与脱敏测试。重复用户提交仍被视作新完成，不代表 HTTP 请求级幂等已实现。
 - 已验收契约：[语音控制短计划](./plans/2026-09-05-practice-voice-controls.md)。
-- 当前工作分支 `chore/pre-d01-repo-pruning@0fc53f4`；此前交接文档与本轮修剪均未提交。已删 55 张重复图片和 13 个历史脚本及配套 PDF；运行时 app/content、tests、migrations 未改。详情见 [修剪计划](./plans/2026-09-05-pre-d01-pruning.md)。
+- 修剪及交接已按用户批准独立提交 `12ad2e5`，未合并 master；删除 55 张重复图片和 13 个历史脚本及配套 PDF，修剪提交不改 app/content/tests/migrations。
+- 当前分支 `feature/d01-test-release-guards@12ad2e5`，D01 实现与验证完成但尚未提交：隔离容器运行器、配置/凭据护栏、基线失败分类、迁移/metadata 守卫和最小权限 CI 均在工作区。
 
-## 新云机测试与预览
+## 测试云机
 
-- 主机：`tencent-new`；功能目录：`/home/ubuntu/rememate-practice-voice-controls`。
-- 干净基线目录：`/home/ubuntu/rememate-83fc2b5-baseline`（Git archive `83fc2b5`）。
-- 自动化测试只使用 `127.0.0.1:55432/rememate_test`，夹具会清库。
-- Practice 集成：49 passed；相关单元：24 passed；Node voice 测试及 JS 语法检查通过。
-- 全量：功能版本 871 passed / 8 failed；基线 870 passed / 相同 8 failed。未新增失败，但不得宣称全量全绿。
-- 8894 预览：`rememate-practice-voice-preview.service`，临时 systemd unit，仅监听回环；最后检查 active，登录页 HTTP 200。
-- 8894 使用现有 staging 环境配置和 **共享 `rememate_staging` 数据库**，与 8892 只隔离代码/进程，不隔离数据。原 `rememate-staging.service` / 8892 保持运行。
-- Python 环境复用 `/home/ubuntu/rememate-test/.venv`，未安装或升级依赖；后续不要修改共享环境。
-- 验收账号：`voice-preview@rememate.test`，普通用户，法/日/中文各 5 个例句，默认法语；密码已在会话交付，不记录到仓库。已验证登录 302、Practice 200、语音控件存在，用户反馈“没问题”。
-- 隧道：`ssh -N -L 8894:127.0.0.1:8894 tencent-new`，访问 `http://127.0.0.1:8894`。临时服务存活状态须使用前重查。
+- 当前主机：`onlytest`；公网 `118.25.16.25`，Tailnet `100.120.97.112`；本机 SSH 别名走 Tailnet。
+- 活跃测试栈已从 `tencent-new`（159.75.35.39）迁移：`/home/ubuntu/rememate-test`、独立 Python 3.12 venv、PostgreSQL 16 的 `rememate_staging` / `rememate_test` 与角色、`rememate-staging.service` / 8892。
+- 新机 8892、PG 55432、tailscaled 均 active 且开机启动；服务仅监听回环。隧道：`ssh -N -L 8892:127.0.0.1:8892 onlytest`。
+- 迁移后两库各 34 张 public 表的逐表行数与旧机一致；登录页和首页 HTTP 200，app/dispatch/migrate 三连接及密钥、管理员、字典检查通过。
+- `flask doctor --strict` 在新旧机均只报同一迁移基线差异：数据库 `e9f0a1b2c3d4`，代码 head `c1d2e3f4a5b6`；因此不得宣称 strict doctor 全绿。
+- 旧机 8892、临时 8894 和 PG 55432 已停止，数据未删除；8894 临时预览和历史测试目录未迁移。
+- 用户要求继续 D01 后，`onlytest` 已安装 Docker 29.1.3、腾讯云 registry mirror 和 Node 12；D01 使用独立目录 `/home/ubuntu/rememate-d01` 与独立 venv，不修改迁入的 staging venv。
+- D01 最终验证：配置/CLI 单元 22 passed；原 8 个失败节点 8 passed；Asia/Shanghai 认证过期 3 passed；迁移检查通过；全量 `902 passed, 16 warnings`。容器和 volume 均清理为零。
 
-## 尚未解决的基线失败
+## D01 基线失败结论
 
-- 3 个认证 challenge 过期相关：account_access、password_reset_routes、registration_activation_routes。
-- 2 个 Review Story receipt 相关。
-- 3 个公开内容 SEO 旧 noindex 断言相关。
-- 已观察测试库时区为 Asia/Shanghai，应用使用 naive UTC，部分测试用 `now()` 写入 naive 列；这是时间失败的候选解释，尚未完成对照复现，不能认定认证逻辑有漏洞或根因已确认。
+- 3 个认证 challenge 失败是测试夹具时区错误：SQL `now()` 把 session 本地时间写入 naive UTC 列；改为绑定 `utc_now()` 后 UTC 与 Asia/Shanghai 均通过，未发现认证逻辑漏洞。
+- 2 个 Review Story receipt 在新隔离环境直接通过，无产品改动。
+- 3 个 SEO 失败是正式内容已从 placeholder 改为 `indexable: true` 后遗留的旧断言；只更新正式内容和 sitemap 预期，临时 catalog noindex、草稿隐藏和私有产品页 noindex 合同仍有测试。
 
 ## 下一阶段
 
 - 用户已批准推荐顺序：仓库修剪 → D01 最小测试/发布收口 → D02 私有学习观察 → 再按使用情况选 D03/D04。
-- D01 包含测试隔离、基线失败分类与迁移守卫；尚未编码。修剪结束后细化实施计划与测试 seam，不在本轮清理中修改测试断言。
-- 本地内容单测 10 passed / 2 failed，失败仍为既有 indexable/noindex 旧断言；71 处修改文档图片引用有效。完整运行记录见修剪计划。
+- [D01 计划](./plans/2026-09-05-d01-test-release-guards.md) 的三条 seam 已完成；工作区未提交，等待用户决定提交/合并。
+- 下一产品阶段按已批准顺序为 D02 私有学习观察；开始前仍应确认短计划与范围。
+- 迁入的共享 PG 55432 只承载 staging/test 历史栈；D01 pytest 一律使用运行器拥有的随机回环端口和 tmpfs，不连接共享数据库。
+- 修剪相关本地内容单测的旧 SEO 失败已在 D01 按正式内容合同修正；71 处修改文档图片引用仍有效。完整运行记录见修剪与 D01 计划。
 - Review Story 多语言、云端 TTS、新语言扩展仍不在当前实施范围。
 - 合并批准不包含 push 或生产部署批准。
 
@@ -53,4 +53,4 @@
 - `practice_sessions` 含 blocked 数据时，downgrade 须先临时取消 FORCE RLS、转换状态，再恢复 FORCE。
 - `ProductionConfig` 显式读取 `PRACTICE_ENABLED`，默认关闭。
 - 已删除的旧 FAQ 截图/探测脚本含硬编码测试凭据；删除当前文件不清除 Git 历史，是否轮换需另获批准。禁止恢复旧脚本后直接运行。`.pi/quiet-tools/` 已忽略，防止工具输出误入提交。
-- 本轮修剪未连接云机或数据库，未改生产；保留用户“先不动生产”的边界。
+- D01 在 `onlytest` 安装了 Docker/Node，并只操作自身临时容器；未对共享 55432 执行 pytest、改角色或改数据，未连接或改动生产。保留用户“先不动生产”的边界。

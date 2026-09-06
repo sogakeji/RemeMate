@@ -197,7 +197,7 @@ def test_qa_images_load_from_nested_items(tmp_path):
         content.configure_static_root(None)
 
 
-def test_repo_placeholders_load():
+def test_repo_published_content_loads_as_indexable():
     content.configure_content_root(None)
     content.reset_content_cache()
     qa = content.get_qa_page("en")
@@ -205,7 +205,7 @@ def test_repo_placeholders_load():
     assert qa.title.startswith("RemeMate")
     assert post is not None
     assert post.date == date(2026, 8, 17)
-    assert post.indexable is False
+    assert post.indexable is True
 
 
 @pytest.fixture
@@ -228,7 +228,7 @@ def public_client():
         config.TestingConfig.SQLALCHEMY_DATABASE_URI = previous
 
 
-def test_public_routes_render_placeholders(public_client):
+def test_public_routes_render_published_repo_content(public_client):
     qa = public_client.get("/qa")
     zh_post = public_client.get("/zh/blog/why-word-lists-fail")
     listing = public_client.get("/blog")
@@ -240,14 +240,15 @@ def test_public_routes_render_placeholders(public_client):
 
     assert qa.status_code == 200
     assert "FAQPage" in qa.get_data(as_text=True)
-    assert 'name="robots" content="noindex,follow"' in qa.get_data(as_text=True)
+    assert 'name="robots" content="noindex,follow"' not in qa.get_data(as_text=True)
     assert zh_post.status_code == 200
     assert "Article" in zh_post.get_data(as_text=True)
     assert listing.status_code == 200
     assert "why-word-lists-fail" in listing.get_data(as_text=True)
     assert missing.status_code == 404
     assert 'data-href-en="/qa"' in landing.get_data(as_text=True)
-    assert "/qa" not in sitemap.get_data(as_text=True)
+    assert "<loc>https://rememate.com/qa</loc>" in sitemap.get_data(as_text=True)
+    assert "<loc>https://rememate.com/zh/blog/why-word-lists-fail</loc>" in sitemap.get_data(as_text=True)
     assert "Disallow: /words" in robots.get_data(as_text=True)
     assert 'name="robots" content="noindex"' not in login_page.get_data(as_text=True)
 

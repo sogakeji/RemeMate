@@ -1,4 +1,28 @@
 evidence:
+- claim: D01 可信测试与发布守卫在 onlytest 的独立 PostgreSQL 16 环境完成；全量 902 passed，原 8 失败已分类收口，迁移与资源清理守卫通过
+  status: verified
+  verified_at_head: 12ad2e58d5d00679faae982856a5e0dbcb707f38
+  verified_on_branch: feature/d01-test-release-guards
+  source: docs/plans/2026-09-05-d01-test-release-guards.md
+  command: 配置/CLI 单元；原 8 节点；Asia/Shanghai 认证 3 节点；run_isolated_tests.py --migration-check；run_isolated_tests.py -- -q；故意 pytest 失败清理检查
+  result: uncommitted_worktree_902_passed_16_warnings_migrations_clean_resources_zero
+  supports: docs/HANDOFF.md
+- claim: 活跃测试栈已从 159.75.35.39 迁到 onlytest；Tailscale、8892 与 PG 55432 active，旧机服务停止且数据保留
+  status: verified
+  verified_at_head: 12ad2e58d5d00679faae982856a5e0dbcb707f38
+  verified_on_branch: feature/d01-test-release-guards
+  source: docs/HANDOFF.md
+  command: Tailscale 直连；PG dump/restore；两库各 34 张 public 表逐表行数对照；HTTP smoke；flask doctor --strict；systemd 状态核对
+  result: migration_verified_doctor_retains_known_single_revision_failure
+  supports: .reme/handoff.md
+- claim: D01-A 在初始停点经独立 pytest collection 子进程验证 16 passed；后续完成状态见本文件首条证据
+  status: verified
+  verified_at_head: 12ad2e58d5d00679faae982856a5e0dbcb707f38
+  verified_on_branch: feature/d01-test-release-guards
+  source: docs/plans/2026-09-05-d01-test-release-guards.md
+  command: python -m pytest tests/unit/test_test_database_config.py --noconftest -q
+  result: uncommitted_worktree_16_passed_no_database_tests
+  supports: docs/HANDOFF.md
 - claim: 首轮仓库修剪删除 55 张哈希相同图片及 14 个一次性脚本或配套文件，71 处图片引用有效；运行时代码、资源、测试和迁移未改变
   status: verified
   verified_at_head: 0fc53f4a830eb29858b200384b779e6e2d7fdd24

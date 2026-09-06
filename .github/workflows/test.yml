@@ -1,0 +1,36 @@
+name: test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test startup guard without a database
+        run: python -m pytest tests/unit/test_test_database_config.py tests/unit/test_isolated_test_runner.py --noconftest -q
+      - name: Verify migrations in disposable PostgreSQL
+        run: python scripts/run_isolated_tests.py --migration-check
+      - name: Verify expiry behavior outside UTC
+        run: >-
+          python scripts/run_isolated_tests.py --database-timezone Asia/Shanghai -- -q
+          tests/integration/test_account_access.py::test_expired_and_missing_challenges_use_one_invalid_error_without_mutation
+          tests/integration/test_password_reset_routes.py::test_invalid_expired_and_consumed_reset_tokens_are_uniform
+          tests/integration/test_registration_activation_routes.py::test_registration_verify_invalid_expired_and_logged_in_are_safe
+      - name: Run full suite in disposable PostgreSQL
+        run: python scripts/run_isolated_tests.py -- -q

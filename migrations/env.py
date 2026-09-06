@@ -102,7 +102,11 @@ def run_migrations_online():
 
     # 手写管理的 DB 对象不让 autogenerate 碰（否则会误删，如 lower(email) 函数唯一索引、
     # RLS 相关）。这些对象不在 model metadata 里，autogenerate 会判定为「多余」而 DROP。
-    _HAND_MANAGED_INDEXES = {"uq_users_email_lower"}
+    _HAND_MANAGED_INDEXES = {
+        "ix_output_entries_writerecent",
+        "uq_users_email_lower",
+        "uq_words_list_normalized_word",
+    }
 
     def include_object(obj, name, type_, reflected, compare_to):
         if type_ == "index" and name in _HAND_MANAGED_INDEXES:

@@ -12,7 +12,15 @@ class ReadingDocument(db.Model):
         db.UniqueConstraint("user_id", "content_hash", name="uq_reading_documents_user_content_hash"),
         db.CheckConstraint("language_code IN ('zh', 'en', 'ja', 'fr')", name="ck_reading_documents_language_code"),
         db.CheckConstraint("page_count >= 0", name="ck_reading_documents_page_count_nonnegative"),
-        ForeignKeyConstraint(["intake_source_id", "user_id"], ["intake_sources.id", "intake_sources.user_id"]),
+        db.Index("ix_reading_documents_user_id", "user_id"),
+        db.Index("ix_reading_documents_user_language", "user_id", "language_code"),
+        db.Index("ix_reading_documents_intake_source_id", "intake_source_id"),
+        ForeignKeyConstraint(
+            ["intake_source_id", "user_id"],
+            ["intake_sources.id", "intake_sources.user_id"],
+            name="fk_reading_documents_intake_source_owner",
+            ondelete="SET NULL (intake_source_id)",
+        ),
     )
 
     id               = db.Column(db.Integer, primary_key=True)
@@ -47,8 +55,19 @@ class ReadingLookup(db.Model):
             "context_start IS NULL OR context_end IS NULL OR context_start < context_end",
             name="ck_reading_lookups_context_order",
         ),
+        db.Index("ix_reading_lookups_user_document", "user_id", "document_id"),
+        db.Index(
+            "ix_reading_lookups_user_normalized_term",
+            "user_id", "normalized_term",
+        ),
+        db.Index("ix_reading_lookups_candidate_id", "candidate_id"),
         ForeignKeyConstraint(["document_id", "user_id"], ["reading_documents.id", "reading_documents.user_id"]),
-        ForeignKeyConstraint(["candidate_id", "user_id"], ["word_candidates.id", "word_candidates.user_id"]),
+        ForeignKeyConstraint(
+            ["candidate_id", "user_id"],
+            ["word_candidates.id", "word_candidates.user_id"],
+            name="fk_reading_lookups_candidate_owner",
+            ondelete="SET NULL (candidate_id)",
+        ),
     )
 
     id                     = db.Column(db.Integer, primary_key=True)
