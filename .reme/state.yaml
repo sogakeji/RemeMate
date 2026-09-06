@@ -2,41 +2,33 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: 12ad2e58d5d00679faae982856a5e0dbcb707f38
-  recorded_at_branch: feature/d01-test-release-guards
+  recorded_at_head: bf256d4
+  recorded_at_branch: feature/d02-learning-observation
   worktree_fingerprint: null
-  phase: D01 实现与验证完成，待提交决策
+  phase: D02 实现与验证完成，待提交决策
 
 maintenance:
-  status: pending_d01_commit
+  status: pending_d02_commit
   reasons:
-    - 修剪已独立提交 12ad2e5，D01 工作区代码和文档未提交
-    - onlytest 隔离 PostgreSQL 16 全量 902 passed；迁移、时区、负例与资源清理守卫通过
+    - D01 已提交 bf256d4，尚未合并或 push
+    - D02 已按确认的 Practice、独立 admin 页面与 UTC 滚动窗口口径实现
+    - onlytest 隔离 PostgreSQL 16 全量 910 passed；Asia/Shanghai、迁移与隐私失败降级守卫通过
+    - Flask 页面 HTML 经 Chromium/Playwright 1536×900 与 390×844 目检通过
     - 未运行 fingerprint 生成器，不伪造工作区指纹
   changed_paths:
-    - .github/workflows/test.yml
     - .reme/evidence.yaml
     - .reme/handoff.md
     - .reme/navigation.yaml
     - .reme/state.yaml
-    - app/models/reading.py
-    - app/models/recap.py
-    - app/models/review_story.py
-    - app/models/user.py
+    - app/blueprints/admin/routes.py
+    - app/services/closed_beta_observation.py
+    - app/static/style.css
+    - app/templates/admin/index.html
+    - app/templates/admin/observation.html
+    - app/translations/en.json
+    - app/translations/zh.json
     - docs/BACKLOG.md
     - docs/HANDOFF.md
-    - docs/dev-setup.md
-    - docs/plans/2026-09-05-d01-test-release-guards.md
-    - migrations/env.py
-    - scripts/check_migration_metadata.py
-    - scripts/run_isolated_tests.py
-    - tests/conftest.py
-    - tests/database_config.py
-    - tests/integration/test_account_access.py
-    - tests/integration/test_migration_metadata_guard.py
-    - tests/integration/test_password_reset_routes.py
-    - tests/integration/test_public_content_routes.py
-    - tests/integration/test_registration_activation_routes.py
-    - tests/unit/test_isolated_test_runner.py
-    - tests/unit/test_public_content.py
-    - tests/unit/test_test_database_config.py
+    - docs/plans/2026-09-06-d02-learning-observation.md
+    - tests/integration/test_admin_observation.py
+    - tests/integration/test_closed_beta_observation.py

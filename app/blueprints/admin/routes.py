@@ -1,12 +1,15 @@
 """管理员闭测运营页：邀请账号创建与账号概览。"""
 from functools import wraps
 
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import (
+    abort, current_app, flash, redirect, render_template, request, url_for,
+)
 from flask_login import current_user, login_required
 
 from app.i18n import translate as _
 from app.models.user import User
-from app.services import provisioning
+from app.services import closed_beta_observation, provisioning
+from app.services.timeutil import utc_now
 
 
 from . import bp
@@ -58,3 +61,19 @@ def index():
         created=created,
         users=users,
     )
+
+
+@bp.get("/observation")
+@admin_required
+def observation():
+    report = None
+    try:
+        report = closed_beta_observation.build_report(
+            current_app.config["DISPATCH_DATABASE_URL"],
+            now=utc_now(),
+        )
+    except Exception:
+        # This page is operationally useful only when the narrow aggregate
+        # connection works. Never expose connection or query details here.
+        current_app.logger.warning("Closed-beta observation is unavailable")
+    return render_template("admin/observation.html", report=report)

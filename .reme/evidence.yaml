@@ -1,4 +1,12 @@
 evidence:
+- claim: D02 私有学习闭环观察按确认口径完成；固定 dispatch 聚合与独立 admin 页面不返回身份/正文，两个 UTC 滚动窗口及失败降级通过验证
+  status: verified
+  verified_at_head: bf256d4
+  verified_on_branch: feature/d02-learning-observation
+  source: docs/plans/2026-09-06-d02-learning-observation.md
+  command: D02/admin 目标测试；Asia/Shanghai D02 测试；run_isolated_tests.py --migration-check；run_isolated_tests.py -- -q；Chromium/Playwright 1536×900 与 390×844 目检；git diff --check
+  result: uncommitted_worktree_910_passed_16_warnings_migrations_clean_privacy_negative_visual_passed
+  supports: docs/HANDOFF.md
 - claim: D01 可信测试与发布守卫在 onlytest 的独立 PostgreSQL 16 环境完成；全量 902 passed，原 8 失败已分类收口，迁移与资源清理守卫通过
   status: verified
   verified_at_head: 12ad2e58d5d00679faae982856a5e0dbcb707f38

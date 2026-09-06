@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ _('observation.title') }} · RemeMate{% endblock %}
+{% block content %}
+{% macro count_row(label, field) -%}
+<tr>
+  <th scope="row">{{ label }}</th>
+  <td>{{ report.current|attr(field) }}</td>
+  <td>{{ report.previous|attr(field) }}</td>
+</tr>
+{%- endmacro %}
+{% macro rate_value(metric) -%}
+{{ metric.numerator }} / {{ metric.denominator }}
+{% if metric.percent is not none %} ({{ metric.percent }}%){% else %} (—){% endif %}
+{%- endmacro %}
+{% macro rate_row(label, field) -%}
+<tr>
+  <th scope="row">{{ label }}</th>
+  <td>{{ rate_value(report.current|attr(field)) }}</td>
+  <td>{{ rate_value(report.previous|attr(field)) }}</td>
+</tr>
+{%- endmacro %}
+<div class="container observation-page">
+  <div class="header-section">
+    <div>
+      <h1>{{ _('observation.title') }}</h1>
+      <p class="subtitle">{{ _('observation.subtitle') }}</p>
+    </div>
+    <a class="btn default" href="{{ url_for('admin.index') }}">{{ _('observation.back') }}</a>
+  </div>
+
+  {% if report is none %}
+  <div class="form-card observation-unavailable" role="status">
+    {{ _('observation.unavailable') }}
+  </div>
+  {% else %}
+  <div class="form-card observation-table-wrap">
+    <table class="word-table observation-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ _('observation.metric') }}</th>
+          <th scope="col">
+            {{ _('observation.current') }}
+            <small>{{ report.current.start.strftime('%Y-%m-%d %H:%M') }}–{{ report.current.end.strftime('%Y-%m-%d %H:%M') }} UTC</small>
+          </th>
+          <th scope="col">
+            {{ _('observation.previous') }}
+            <small>{{ report.previous.start.strftime('%Y-%m-%d %H:%M') }}–{{ report.previous.end.strftime('%Y-%m-%d %H:%M') }} UTC</small>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="observation-section"><th colspan="3">{{ _('observation.core') }}</th></tr>
+        {{ count_row(_('observation.active_users'), 'active_users') }}
+        {{ count_row(_('observation.repeat_active_users'), 'repeat_active_users') }}
+        {{ count_row(_('observation.active_user_days'), 'active_user_days') }}
+
+        <tr class="observation-section"><th colspan="3">{{ _('observation.learning') }}</th></tr>
+        {{ count_row(_('observation.review_users'), 'review_users') }}
+        {{ count_row(_('observation.output_users'), 'output_users') }}
+        {{ rate_row(_('observation.review_to_output'), 'review_to_output') }}
+
+        <tr class="observation-section"><th colspan="3">Review Story</th></tr>
+        {{ count_row(_('observation.story_eligible'), 'story_eligible_users') }}
+        {{ count_row(_('observation.story_started'), 'story_started_users') }}
+        {{ count_row(_('observation.story_ready'), 'story_ready_users') }}
+        {{ count_row(_('observation.story_handoff'), 'story_handoff_users') }}
+        {{ count_row(_('observation.story_saved'), 'story_saved_users') }}
+
+        <tr class="observation-section"><th colspan="3">SessionPad</th></tr>
+        {{ count_row(_('observation.recap_users'), 'recap_users') }}
+        {{ count_row(_('observation.packet_users'), 'packet_sent_users') }}
+        {{ count_row(_('observation.thank_users'), 'thank_users') }}
+        {{ count_row(_('observation.adoption_users'), 'adoption_users') }}
+
+        <tr class="observation-section"><th colspan="3">Practice</th></tr>
+        {{ count_row(_('observation.practice_completed'), 'practice_completed_users') }}
+        {{ rate_row(_('observation.practice_repeat'), 'practice_repeat') }}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

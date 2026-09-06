@@ -1,21 +1,21 @@
 # Current handoff
 
-> handoff@12ad2e5 · phase: D01 实现与验证完成，待提交决策 · checked: 2026-09-06
+> handoff@bf256d4 · phase: D02 实现与验证完成，待提交决策 · checked: 2026-09-06
 
-- 当前状态：`feature/d01-test-release-guards@12ad2e5`；修剪已单独提交，未合并 master（仍为 0fc53f4）、未 push。D01 改动未提交，不要丢弃。
-- 已完成：Practice 法/日/中文代码已合入；声音选择、语速记忆与试听在新云机验收通过。AI 失败批改不扣完成额度已由 `2b3d327` 实现。
-- D01 验证：onlytest/Python 3.12 上配置与 CLI 单元共 22 passed；原 8 个基线节点 8 passed；Asia/Shanghai 认证 3 passed；迁移 fresh/往返/metadata 通过；全量 902 passed / 16 warnings。临时容器和 volume 清理为零。
-- 发布边界：`0fc53f4` 仅本地合并，未 push、未部署生产；远端跟踪引用不是生产运行版本的实时证明。
-- 测试云机：活跃测试栈已从 `tencent-new`（159.75.35.39）迁到 `onlytest`（Tailnet 100.120.97.112，公网 118.25.16.25）；8892 与 PG 55432 在新机 active，旧机对应服务已停止但数据保留。8894 临时预览未迁移。
-- 已批准顺序：先仓库修剪 → D01 最小收口 → D02 观察面板 → 按实际使用选 D03/D04。推荐修剪边界已获确认。
-- 用户最新指令：继续完成 D01；实现和验证已完成，未提交、未合并、未 push。
-- 下一动作：检查最终 diff 后由用户决定是否提交/合并；之后按已批准顺序为 D02 短计划，不应直接扩展产品范围。
-- D01 实现：双 URL fail-closed/脱敏/禁隐式 `.env`；一次性 PostgreSQL 16 tmpfs 运行器；UTC/Asia-Shanghai 回归；single-head、fresh upgrade、最后一版往返、metadata drift 与 CI 守卫。
-- 原 8 失败结论：2 个 Receipt 直接通过；3 个认证为 SQL `now()` 测试夹具时区错误，改绑定 `utc_now()`；3 个 SEO 为正式内容 indexable 后的旧断言，只修测试合同。
+- 当前状态：`feature/d02-learning-observation@bf256d4`；D01 已提交 `bf256d4`，D02 改动未提交，不要丢弃。未 merge、push 或部署。
+- D02 已按用户确认口径实现：Practice completed + 跨 UTC 日 repeat；独立 `/admin/observation`；两个相邻 UTC 滚动 7×24 小时窗口。
+- D02 隐私边界：固定 dispatch 聚合只返回日期、整数和可空比率；页面不返回身份、正文、个人轨迹或钻取；匿名重定向、普通用户 403；dispatch 失败安全降级。
+- D02 验证：onlytest 独立 PostgreSQL 16 目标 14 passed；Asia/Shanghai D02 8 passed；迁移 fresh/往返/metadata clean；全量 910 passed / 16 warnings；Chromium/Playwright 1536×900 与 390×844 目检通过；无 migration。
+- D01 验证：配置与 CLI 22 passed；原 8 节点 8 passed；Asia/Shanghai 认证 3 passed；全量 902 passed / 16 warnings；临时容器与 volume 清理为零。
+- 测试云机：`onlytest`（Tailnet `100.120.97.112`，公网 `118.25.16.25`）；staging 8892 与 PG 55432 active。D01/D02 测试均使用自有随机端口 tmpfs PostgreSQL，不连接共享 staging 数据库。
+- 旧机 `159.75.35.39` 的 8892、8894 与 PG 55432 已停止，数据保留；8894 preview 未迁移。
+- 已知 staging doctor 差异仍是数据库 `e9f0a1b2c3d4`、staging 代码 head `c1d2e3f4a5b6`，不得宣称 staging strict doctor 全绿。
+- 用户最新指令：继续下一步；D02 短计划三项选择均按推荐项确认，随后完成实现与验证。
+- 下一动作：检查 D02 最终 diff，由用户决定是否提交/合并。没有部署与真实数据前，不选择 D03/D04。
 - 权威规格：[AGENTS.md](../AGENTS.md)
+- 当前计划：[D02](../docs/plans/2026-09-06-d02-learning-observation.md)
+- 已提交前序：[D01](../docs/plans/2026-09-05-d01-test-release-guards.md)
 - 待办：[docs/BACKLOG.md](../docs/BACKLOG.md)
-- 已完成待提交：[D01](../docs/plans/2026-09-05-d01-test-release-guards.md)；[修剪记录](../docs/plans/2026-09-05-pre-d01-pruning.md)；[产品决策票](../docs/plans/2026-09-05-product-decision-tickets.md)。
-- 已验收计划：[Practice voice controls](../docs/plans/2026-09-05-practice-voice-controls.md)
 - 详细交接：[docs/HANDOFF.md](../docs/HANDOFF.md)
 - 文档导航：[navigation.yaml](./navigation.yaml)
 - 证据账本：[evidence.yaml](./evidence.yaml)

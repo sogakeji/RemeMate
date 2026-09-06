@@ -1,6 +1,6 @@
 # RemeMate HANDOFF
 
-> 当前代码锚点：2026-09-05 · 本地 `master@0fc53f4` · 未 push / 未部署本次语音控制
+> 当前代码锚点：2026-09-06 · `feature/d02-learning-observation@bf256d4` + 未提交 D02 工作区 · 未 push / 未部署
 
 ## 读取规则
 
@@ -16,7 +16,8 @@
 - AI 未完成批改不扣完成额度已在 `2b3d327` 合入；包含 provider 成本分离、内部重试、并发额度与脱敏测试。重复用户提交仍被视作新完成，不代表 HTTP 请求级幂等已实现。
 - 已验收契约：[语音控制短计划](./plans/2026-09-05-practice-voice-controls.md)。
 - 修剪及交接已按用户批准独立提交 `12ad2e5`，未合并 master；删除 55 张重复图片和 13 个历史脚本及配套 PDF，修剪提交不改 app/content/tests/migrations。
-- 当前分支 `feature/d01-test-release-guards@12ad2e5`，D01 实现与验证完成但尚未提交：隔离容器运行器、配置/凭据护栏、基线失败分类、迁移/metadata 守卫和最小权限 CI 均在工作区。
+- D01 已在 `feature/d01-test-release-guards` 提交为 `bf256d4`，尚未合并或 push：隔离容器运行器、配置/凭据护栏、基线失败分类、迁移/metadata 守卫和最小权限 CI 均已验证。
+- 当前分支 `feature/d02-learning-observation@bf256d4`；D02 未提交工作区已实现固定 dispatch 聚合、独立 admin 观察页、双 UTC 滚动 7 日窗口和 Practice 跨日重复口径。未新增 migration、埋点、个人明细或导出。
 
 ## 测试云机
 
@@ -28,6 +29,7 @@
 - 旧机 8892、临时 8894 和 PG 55432 已停止，数据未删除；8894 临时预览和历史测试目录未迁移。
 - 用户要求继续 D01 后，`onlytest` 已安装 Docker 29.1.3、腾讯云 registry mirror 和 Node 12；D01 使用独立目录 `/home/ubuntu/rememate-d01` 与独立 venv，不修改迁入的 staging venv。
 - D01 最终验证：配置/CLI 单元 22 passed；原 8 个失败节点 8 passed；Asia/Shanghai 认证过期 3 passed；迁移检查通过；全量 `902 passed, 16 warnings`。容器和 volume 均清理为零。
+- D02 使用独立目录 `/home/ubuntu/rememate-d02` 和独立 venv；目标 14 passed，Asia/Shanghai D02 8 passed，迁移 fresh/往返/metadata clean，全量 `910 passed, 16 warnings`。Flask 精确 HTML 经 Chromium/Playwright 在 1536×900 与 390×844 目检通过；390px body 无横向溢出，统计表在自身容器内滚动。
 
 ## D01 基线失败结论
 
@@ -38,8 +40,9 @@
 ## 下一阶段
 
 - 用户已批准推荐顺序：仓库修剪 → D01 最小测试/发布收口 → D02 私有学习观察 → 再按使用情况选 D03/D04。
-- [D01 计划](./plans/2026-09-05-d01-test-release-guards.md) 的三条 seam 已完成；工作区未提交，等待用户决定提交/合并。
-- 下一产品阶段按已批准顺序为 D02 私有学习观察；开始前仍应确认短计划与范围。
+- [D01 计划](./plans/2026-09-05-d01-test-release-guards.md) 已完成并提交 `bf256d4`，等待合并决定。
+- [D02 计划](./plans/2026-09-06-d02-learning-observation.md) 的 Practice、独立页面与 UTC 窗口三项口径已由用户确认，实现和验证完成但尚未提交。
+- 下一步先决定 D02 提交/合并；未部署且没有真实观察数据前，不提前选择 D03/D04。
 - 迁入的共享 PG 55432 只承载 staging/test 历史栈；D01 pytest 一律使用运行器拥有的随机回环端口和 tmpfs，不连接共享数据库。
 - 修剪相关本地内容单测的旧 SEO 失败已在 D01 按正式内容合同修正；71 处修改文档图片引用仍有效。完整运行记录见修剪与 D01 计划。
 - Review Story 多语言、云端 TTS、新语言扩展仍不在当前实施范围。

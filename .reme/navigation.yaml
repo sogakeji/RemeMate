@@ -1,8 +1,13 @@
 documents:
-  - path: docs/plans/2026-09-05-d01-test-release-guards.md
-    read_when: 需要核对已完成但未提交的 D01、验证命令、失败分类或发布守卫时
+  - path: docs/plans/2026-09-06-d02-learning-observation.md
+    read_when: 需要核对当前 D02 聚合口径、隐私边界、验证证据或未提交实现时
     role: plan
     status: implemented_verified_pending_commit
+
+  - path: docs/plans/2026-09-05-d01-test-release-guards.md
+    read_when: 需要核对已提交 D01 的验证命令、失败分类或发布守卫时
+    role: plan
+    status: committed_bf256d4
 
   - path: docs/plans/2026-09-05-pre-d01-pruning.md
     read_when: 需要恢复当前修剪工作、核对删除依据和测试保留决定时
