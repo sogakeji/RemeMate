@@ -21,4 +21,4 @@ By the time she filmed the update she was using English for more than a beauty c
 
 This column stays in that room. It does not follow her into later products, later branding, later advice sold as a course. Those things happened, and they are why she cannot be introduced as a permanent amateur. They are not why the 2021 and 2022 films are worth telling. Those films are about a student who was failed by a certain kind of school English, who wanted a YouTuber to make sense, who talked to her own reflection until the reflection began to answer.
 
-![Editorial illustration of a bathroom mirror fogged at the edges, makeup things on the sink, a phone playing a vlog, figure only as a silhouette](images/hi-sisters-in-the-mirror.jpg)
+![Editorial illustration of a bathroom mirror fogged at the edges, makeup things on the sink, a phone playing a vlog, figure only as a silhouette](../../../app/static/public/blog/hi-sisters-in-the-mirror/hi-sisters-in-the-mirror.jpg)

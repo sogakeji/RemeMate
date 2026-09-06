@@ -1,5 +1,7 @@
 # bark dispatch runner — tencent-new test report
 
+> 历史证据（2026-08-20），不是当前执行手册。旧同步脚本已移除；下列命令可能覆盖共享测试目录或输出敏感配置，不要直接运行。当前环境与测试边界见 `docs/HANDOFF.md`。
+
 - local HEAD: `f1b2f82`
 - branch: `feat/bark-scheduled-push`
 - remote: `tencent-new:/home/ubuntu/rememate-test`

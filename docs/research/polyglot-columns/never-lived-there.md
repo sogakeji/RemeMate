@@ -23,4 +23,4 @@ He asks, if the videos help, for a coffee. The ask is the ask of a maker, not of
 
 The present tense of Taiwanese Mandarin keeps the story from closing like a success memoir. He is not only a person who acquired English on a sofa. He is a person who has begun again, with the same cheap instruments, in a third weather. Hong Kong, in that telling, is a place he lived for ten months, not a method he cites. Korean is a course he took and a speech he will not pretend to own. The map is honest because of what it refuses to inflate. The method, as far as the page will let us write it, is still the show, the choice, the review, the shadow, and the chapter for the minutes that do not resolve.
 
-![Editorial illustration of a television paused on a blurred street scene, a script page and headphones on a low table, no recognizable face](images/never-lived-there.jpg)
+![Editorial illustration of a television paused on a blurred street scene, a script page and headphones on a low table, no recognizable face](../../../app/static/public/blog/never-lived-there/never-lived-there.jpg)

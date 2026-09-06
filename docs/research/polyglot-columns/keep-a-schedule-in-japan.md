@@ -25,4 +25,4 @@ The aftertaste is domestic. A desk in a country she already films for other reas
 
 Living in Japan, in her About line, is the fact that makes the cafés and the travel videos possible. It is not, in the beginner film, offered as a magic substitute for Genki. The country can put hiragana on a station wall. The schedule is what makes the wall readable twice. She does not ask a viewer to move first. She asks a viewer, if we stay inside her chapter list, to learn the writing, then the words and the grammar, then the ear and the mouth, then the page, and to keep doing it on a clock. The surprise at the end of the video remains hers. The clock is the part she was willing to name.
 
-![Editorial illustration of a small apartment desk in Japan with a textbook, kanji cards, and a wall calendar, figure absent or only a drawing hand](images/keep-a-schedule-in-japan.jpg)
+![Editorial illustration of a small apartment desk in Japan with a textbook, kanji cards, and a wall calendar, figure absent or only a drawing hand](../../../app/static/public/blog/keep-a-schedule-in-japan/keep-a-schedule-in-japan.jpg)

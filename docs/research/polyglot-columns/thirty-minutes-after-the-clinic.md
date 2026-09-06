@@ -25,4 +25,4 @@ There is no verified scene of the boyfriend speaking Mandarin at the table, and 
 
 The aftertaste is the timer. Not a transformation. A dietitian closing a door, opening Anki or a pin or a playlist, giving Korean half an hour she could have given to the couch, then going back to the life that pays the rent. The next day she has to do it again. That repetition is the method, and she said so by making the method a challenge.
 
-![Editorial illustration of a kitchen table after work: a timer, flashcards, headphones, and a pinboard of words, figure seen only from behind](images/thirty-minutes-after-the-clinic.jpg)
+![Editorial illustration of a kitchen table after work: a timer, flashcards, headphones, and a pinboard of words, figure seen only from behind](../../../app/static/public/blog/thirty-minutes-after-the-clinic/thirty-minutes-after-the-clinic.jpg)

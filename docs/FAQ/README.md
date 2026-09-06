@@ -1,39 +1,24 @@
-# RemeMate FAQ 图文文档（工作区）
+# FAQ 内容与历史制作材料
 
-> 日期：2026-08-17 · 状态：草稿待审（定稿后正文与图片将按线上呈现方式落位，见文末）
+## 当前维护入口
 
-## 内容
+- 公开 FAQ 正文：`content/en/qa.yaml`、`content/zh/qa.yaml`。
+- 运行时截图：`app/static/public/qa/en/`、`app/static/public/qa/zh/`。
+- 渲染与内容校验：`app/services/public_content.py`，`app/blueprints/public/routes.py`。
+- 不要重新从本目录草稿覆盖公开 YAML；是否收录以内容配置与路由实现为准。
 
-| 文件 | 说明 |
-|---|---|
-| `outline.md` | FAQ 大纲：8 节 40 问，四段式（一句话结论/功能解释/注意事项/故障怎么办）+ 截图清单 + 写作约束 |
-| `faq.zh.md` | 中文 FAQ 全文（grok 按大纲撰写，含全部截图引用） |
-| `faq.en.md` | 英文 FAQ 全文（与中文成对） |
-| `images/` | 40 张截图：`faq-<编号>-<页面>-<语言>.png`（zh 20 张 + en 20 张），全部来自测试新云机 staging |
-| `scripts/` | 截图与 PDF 生成脚本（可复现） |
+## 本目录保留什么
 
-## 截图来源
+- `faq.en.md`、`faq.zh.md`：2026-08-17 制作时的历史正文，非当前产品规格；图片链接复用正式静态资源。
+- `outline.md`：当时的内容组织和写作约束参考，不作为未完成待办。
+- 已移除与正式资源逐字节一致的 44 张截图副本。
 
-- 环境：测试新云机 `staging.rememate.com`（159.75.35.39 上的 `rememate-staging.service`，独立 staging 库，**非生产**）
-- 截图方式：SSH 隧道 → 本地 headless Chrome（playwright），1440×900，zh/en 双界面
-- 测试账号：`faq-test@example.com`（staging 独立库内创建；数据：法语 11 词、1 位语伴、1 份阅读文档）
-- 注册页截图期间临时打开过 staging 的 `OPEN_REGISTRATION_ENABLED`，拍完已恢复 `false` 并重启验证（服务正常、/register 回 404）
-- 生产机（`/srv/rememate`）全程未动
+## 截图重制边界
 
-## 复现
+旧截图来自新云机 staging，并非生产。这是历史来源记录，不代表当前配置或账号仍有效。
 
-```bash
-# 1) 建隧道
-ssh -N -L 8892:127.0.0.1:8892 tencent-new
-# 2) 截图（zh 全流程 + en 全流程）
-python docs/FAQ/scripts/capture3.py      # zh，含数据流（quick-add→候选→入库→复习→故事）
-python docs/FAQ/scripts/story_capture.py # 补拍故事（需当天复习 ≥10 词）
-python docs/FAQ/scripts/en_capture.py    # en（复用已造数据；注册页需临时开注册开关）
-python docs/FAQ/scripts/make_pdf.py      # 阅读用测试 PDF（pypdf 本地验证）
-```
+一次性的 capture/probe 脚本、生成样例 PDF 及 YAML 转换脚本已移除：它们绑定旧机器路径/账号、会修改测试数据，部分包含硬编码测试凭据；旧转换脚本还会覆盖正式 YAML 并写入过时的 indexable 设置。不能将其作为当前维护入口。
 
-## 定稿落位（待与用户确认呈现形态）
+将来需要重拍时，另行指定隔离预览、临时账号和输出目录；凭据通过环境传入，不写入仓库或日志。截图先在临时目录验收后再替换正式文件，不自动开关注册或修改共享数据。
 
-- 图片最终移到 `app/static/public/qa/<stable-key>/`（若进公开 `/qa` 页，代码强制该 scope；blog 才用 `public/blog/<slug>/`）
-- 正文最终形态二选一：进 `content/en/qa.yaml` + `content/zh/qa.yaml`（公开 FAQ 页，可收录），或作为站内帮助文档
-- 本目录仅作草稿工作区，不入生产服务
+历史脚本仍可在 Git `0fc53f4` 追溯，但不是可直接运行的指引；本轮不改写 Git 历史，历史凭据是否仍有效及是否轮换需另行批准。

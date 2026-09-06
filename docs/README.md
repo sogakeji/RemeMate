@@ -1,6 +1,6 @@
 # RemeMate 文档地图
 
-本目录同时保留当前参考文档和历史文档。整理时只修剪内容，不移动文件。
+本目录区分当前维护入口、已实现契约和历史资料。历史文件不因篇幅长就删除；重复资源仅保留正式副本，无复用价值的一次性脚本不再作为运行入口。
 
 ## Agent 读取规则
 
@@ -21,6 +21,9 @@
 - [`dev-setup.md`](./dev-setup.md)：本地开发与测试环境说明。
 - [`THIRD_PARTY.md`](./THIRD_PARTY.md)：第三方依赖和许可记录。
 - `arch/`、`design/`、`strategy/`、`wayfinder/`：架构、设计、策略和路径参考。
+- [产品决策票](./plans/2026-09-05-product-decision-tickets.md)：用户已同意推荐顺序，先修剪、再 D01 最小收口、D02，后续按观察选择。
+- [D01 前修剪](./plans/2026-09-05-pre-d01-pruning.md)：本轮清理范围与验证。
+- [FAQ 维护入口](./FAQ/README.md)：公开正文以 `content/*/qa.yaml` 为准，图片复用 `app/static/public/`。
 - `research/`：研究资料；结论是否仍适用需结合当前代码和日期判断。
 - [`PROGRESS.md`](./PROGRESS.md)：仅在需要追溯历史时读取。
 

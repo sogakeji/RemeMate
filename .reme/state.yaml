@@ -2,12 +2,30 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: 2b737d49e0b1d0b803e924fea0cce721628a7b36
-  recorded_at_branch: master
-  worktree_fingerprint: e433d35526b9f6d132bd4eb02d2745e38d15cceba877eb9d4e8e4fdb4a36eeeb
-  phase: Practice 法语 MVP 已发布，进入 Practice 与 AI 稳定性优化阶段
+  recorded_at_head: 0fc53f4a830eb29858b200384b779e6e2d7fdd24
+  recorded_at_branch: chore/pre-d01-repo-pruning
+  worktree_fingerprint: null
+  phase: D01 前首轮修剪完成，含此前交接变更，尚未提交
 
 maintenance:
-  status: current
-  reasons: []
-  changed_paths: []
+  status: pending_pruning_commit
+  reasons:
+    - 首轮修剪及此前交接文档均未提交，代码锚点为 0fc53f4
+    - changed_paths 记录变更文件或目录；精确删除清单见 git diff，范围见修剪计划
+    - 未运行既有 fingerprint/checkpoint 生成器，不沿用旧指纹
+  changed_paths:
+    - .reme/handoff.md
+    - .reme/state.yaml
+    - .reme/navigation.yaml
+    - .reme/evidence.yaml
+    - .reme/evidence/voice-controls-20260905.md
+    - docs/HANDOFF.md
+    - docs/BACKLOG.md
+    - docs/plans/2026-09-05-practice-voice-controls.md
+    - docs/plans/2026-09-05-pre-d01-pruning.md
+    - docs/plans/2026-09-05-product-decision-tickets.md
+    - docs/README.md
+    - docs/FAQ
+    - docs/research/polyglot-columns
+    - .gitignore
+    - .pi

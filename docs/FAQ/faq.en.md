@@ -20,7 +20,7 @@ It fits people who already read, listen, or speak, but lose words and cannot bri
 
 The public intro is on the [home page](/).
 
-![RemeMate English landing page describing collect, review, and output](images/faq-01-landing-en.png)
+![RemeMate English landing page describing collect, review, and output](../../app/static/public/qa/en/faq-01-landing-en.png)
 
 **Things to know**
 
@@ -42,9 +42,9 @@ Create an account with email, confirm the message, then sign in; use the reset f
 2. Open the confirmation link in your inbox.
 3. Sign in on the login page with the same email.
 
-![English register page with email, password, and submit](images/faq-03-register-en.png)
+![English register page with email, password, and submit](../../app/static/public/qa/en/faq-03-register-en.png)
 
-![English login page with email, password, and a forgot-password link](images/faq-02-login-en.png)
+![English login page with email, password, and a forgot-password link](../../app/static/public/qa/en/faq-02-login-en.png)
 
 **Things to know**
 
@@ -67,7 +67,7 @@ The interface is Chinese or English; learning languages are chosen in Settings a
 - AI: Chinese, English, French, Japanese, Korean, Spanish.
 - Reader: Chinese, English, French, Japanese.
 
-![Settings language section showing UI language and learning languages](images/faq-04-settings-language-en.png)
+![Settings language section showing UI language and learning languages](../../app/static/public/qa/en/faq-04-settings-language-en.png)
 
 **Things to know**
 
@@ -133,7 +133,7 @@ Add a word by hand, let AI fill fields, import from text / CSV / PDF reading, or
 - Reading: open a PDF, look up a word, add it to study.
 - Recap “for me” items and incoming partner packets: review as candidates, then keep them.
 
-![Vocabulary list with routes into add, import, and reading](images/faq-05-word-list-en.png)
+![Vocabulary list with routes into add, import, and reading](../../app/static/public/qa/en/faq-05-word-list-en.png)
 
 **Things to know**
 
@@ -153,7 +153,7 @@ You need the word plus at least a part of speech or a meaning; example and note 
 
 Open Vocabulary → Add word. Pick a language, type the word, and add one or more senses. You can run AI fill on the whole entry or generate an example or note on one sense. Save writes the word into the list and makes it reviewable. There is no candidate step.
 
-![Add-word form with term, senses, and AI fill](images/faq-06-add-word-en.png)
+![Add-word form with term, senses, and AI fill](../../app/static/public/qa/en/faq-06-add-word-en.png)
 
 **Things to know**
 
@@ -177,9 +177,9 @@ Choose a language and a file or passage, review the extracted candidates, then c
 
 After upload or extract you get a processing page, then candidates. Nothing sits in the vocabulary list until you commit.
 
-![CSV import page with language select and file upload](images/faq-08-import-en.png)
+![CSV import page with language select and file upload](../../app/static/public/qa/en/faq-08-import-en.png)
 
-![Candidate review page with accept and ignore actions](images/faq-09-candidates-en.png)
+![Candidate review page with accept and ignore actions](../../app/static/public/qa/en/faq-09-candidates-en.png)
 
 **Things to know**
 
@@ -202,9 +202,9 @@ Upload a PDF, tap an unknown word for a local lookup, add it to study, then acce
 
 Vocabulary → Reading. Upload the file, select a word in the text, read the gloss, and add it to study. Those items belong to that document’s candidate set until you accept them. The reader supports Chinese, English, French, and Japanese.
 
-![Reading upload form: choose a language and a PDF](images/faq-10-reading-new-en.png)
+![Reading upload form: choose a language and a PDF](../../app/static/public/qa/en/faq-10-reading-new-en.png)
 
-![Reading page with article text and a lookup card](images/faq-10-reading-en.png)
+![Reading page with article text and a lookup card](../../app/static/public/qa/en/faq-10-reading-en.png)
 
 **Things to know**
 
@@ -224,7 +224,7 @@ A candidate is pending. It enters the list and the review queue only after you a
 
 CSV, text extract, reading, recaps, and partner packets create candidates. On the review page you accept or ignore. Manual add skips this step.
 
-![Candidate list showing pending terms](images/faq-09-candidates-en.png)
+![Candidate list showing pending terms](../../app/static/public/qa/en/faq-09-candidates-en.png)
 
 **Things to know**
 
@@ -244,7 +244,7 @@ The recap sheet you keep around one language partner: “for me” can become yo
 
 Open a partner, start a recap, and jot expressions during or after the exchange. Words and natural phrases in For me can go to candidate review. For them is sent only after you tick items. The other person must sign in and bind the relationship before they can receive a packet.
 
-![SessionPad candidate page showing expressions from a recap](images/faq-11-sessionpad-candidates-en.png)
+![SessionPad candidate page showing expressions from a recap](../../app/static/public/qa/en/faq-11-sessionpad-candidates-en.png)
 
 **Things to know**
 
@@ -264,9 +264,9 @@ Browse words by language, edit or delete them, star them, and open a card for se
 
 The list can search, sort by due / recent / lapses, and filter to starred items. Open a word for detail; edit if a gloss is wrong. Deleting a word also deletes its review log.
 
-![Vocabulary list with search, language, and entries](images/faq-05-word-list-en.png)
+![Vocabulary list with search, language, and entries](../../app/static/public/qa/en/faq-05-word-list-en.png)
 
-![Word detail showing definition, example, and note](images/faq-07-word-detail-en.png)
+![Word detail showing definition, example, and note](../../app/static/public/qa/en/faq-07-word-detail-en.png)
 
 **Things to know**
 
@@ -290,7 +290,7 @@ Words appear when they are due. Spaced repetition (SRS) uses your last grade. Ho
 
 After login, Home is the review card, not a dashboard. A dedicated review URL still exists. Newly added or newly committed words are usually due right away.
 
-![Home task card showing how many words are due today](images/faq-00-home-task-en.png)
+![Home task card showing how many words are due today](../../app/static/public/qa/en/faq-00-home-task-en.png)
 
 **Things to know**
 
@@ -314,7 +314,7 @@ See the form first, open the definition, example, and note, then choose:
 - **Not quite** — recalled with effort. It still counts as a pass; ease drops a little.
 - **Got it** — easy recall. The interval grows.
 
-![Review card with Forgot, Not quite, and Got it](images/faq-12-review-en.png)
+![Review card with Forgot, Not quite, and Got it](../../app/static/public/qa/en/faq-12-review-en.png)
 
 **Things to know**
 
@@ -334,7 +334,7 @@ A short passage built from words you reviewed today — especially the shaky one
 
 The entry appears after enough valid reviews in that language for the day. The story uses your terms. You can retry a failed generation and jump from a target word into writing.
 
-![Review story page with a short text and target words](images/faq-13-story-en.png)
+![Review story page with a short text and target words](../../app/static/public/qa/en/faq-13-story-en.png)
 
 **Things to know**
 
@@ -354,7 +354,7 @@ Optional daily review pushes. You paste a Bark key in Settings and can send a te
 
 Settings → Bark. Save the key or URL, then send a test. A live notification opens a single-card review page.
 
-![Settings Bark fields and test-send button](images/faq-04-settings-language-en.png)
+![Settings Bark fields and test-send button](../../app/static/public/qa/en/faq-04-settings-language-en.png)
 
 **Things to know**
 
@@ -374,7 +374,7 @@ They stay in the vocabulary list with a later due date. Progress lives on the st
 
 Me → Stats shows review volume and other activity by language. You can still open any word in Vocabulary.
 
-![Stats page with review progress by language](images/faq-20-stats-en.png)
+![Stats page with review progress by language](../../app/static/public/qa/en/faq-20-stats-en.png)
 
 **Things to know**
 
@@ -398,7 +398,7 @@ Write one sentence around a target word, let AI comment, then save if you want; 
 
 Writing → Sentence. The page suggests a due or related word. Submit only requests a correction. The result sits in that session until you save or discard. Saved items can be published from history.
 
-![Sentence page with target word, input, and submit](images/faq-14-write-en.png)
+![Sentence page with target word, input, and submit](../../app/static/public/qa/en/faq-14-write-en.png)
 
 **Things to know**
 
@@ -418,7 +418,7 @@ Three short lines that use recent words, with the same optional AI correction.
 
 Switch Writing to diary mode, fill three lines, submit for comments, then save or discard. It is a smaller output than a single polished sentence.
 
-![Three-line diary with prompts](images/faq-15-diary-en.png)
+![Three-line diary with prompts](../../app/static/public/qa/en/faq-15-diary-en.png)
 
 **Things to know**
 
@@ -438,7 +438,7 @@ Correction is advice. It does not rewrite your library, and your original line s
 
 After submit you see comments, a translation, or error notes. Only an explicit save keeps the piece. The call spends quota.
 
-![Correction result with original text and suggestions](images/faq-14-write-en.png)
+![Correction result with original text and suggestions](../../app/static/public/qa/en/faq-14-write-en.png)
 
 **Things to know**
 
@@ -458,7 +458,7 @@ A board of published sentences and diaries that signed-in users can filter by la
 
 Publish from Writing → History, or open the square to browse. Authors can take their own posts down.
 
-![Sentence square with language filters and likes](images/faq-16-square-en.png)
+![Sentence square with language filters and likes](../../app/static/public/qa/en/faq-16-square-en.png)
 
 **Things to know**
 
@@ -500,7 +500,7 @@ A private one-to-one language-partner relationship for recaps and feedback, not 
 
 Language partners lists people you created. You recap around one person and send packets. They do not see your vocabulary or past recaps by default.
 
-![Language partner list](images/faq-17-partners-en.png)
+![Language partner list](../../app/static/public/qa/en/faq-17-partners-en.png)
 
 **Things to know**
 
@@ -541,7 +541,7 @@ A learning sheet for that partner: For me stays private by default; For them is 
 
 You can jot during the talk or tidy it afterwards. Only For me words/phrases and sentences/natural lines can become your candidates.
 
-![Recap form switching between For me and For them](images/faq-18-recap-en.png)
+![Recap form switching between For me and For them](../../app/static/public/qa/en/faq-18-recap-en.png)
 
 **Things to know**
 
@@ -561,7 +561,7 @@ The other person gets a snapshot. They can thank you once and may pull expressio
 
 The sender ticks For them lines on the current recap and sends. The recipient opens Received feedback. Adoption is the recipient’s choice; you never write into their list.
 
-![Inbox of received partner packets](images/faq-19-packets-en.png)
+![Inbox of received partner packets](../../app/static/public/qa/en/faq-19-packets-en.png)
 
 **Things to know**
 
@@ -581,7 +581,7 @@ Private partner notes never go to the AI; a partner cannot see your word list or
 
 Only For them items you select travel in a packet. Binding names a future recipient; it is not permission to browse the past. Recap summaries omit private notes.
 
-![Recap privacy note stating private notes are not sent](images/faq-18-recap-en.png)
+![Recap privacy note stating private notes are not sent](../../app/static/public/qa/en/faq-18-recap-en.png)
 
 **Things to know**
 
@@ -605,7 +605,7 @@ UI: Chinese and English. AI: Chinese, English, French, Japanese, Korean, Spanish
 
 Tick learning languages in Settings. The explanation language is what corrections are written in. The UI language only changes menus and buttons.
 
-![Settings language options](images/faq-04-settings-language-en.png)
+![Settings language options](../../app/static/public/qa/en/faq-04-settings-language-en.png)
 
 **Things to know**
 
@@ -625,7 +625,7 @@ No. Words are stored per language. Switching only changes which door you walk th
 
 Each learning language has its own list and review queue. The language control on Home or Vocabulary chooses which set you see.
 
-![Vocabulary list filtered by language](images/faq-05-word-list-en.png)
+![Vocabulary list filtered by language](../../app/static/public/qa/en/faq-05-word-list-en.png)
 
 **Things to know**
 
@@ -779,7 +779,7 @@ Check spam, wait and resend, confirm the address; then ask an admin.
 
 Register and password reset both send mail. A success message on the page means the request was accepted, not that the inbox exists.
 
-![Register page hint to open the confirmation email](images/faq-03-register-en.png)
+![Register page hint to open the confirmation email](../../app/static/public/qa/en/faq-03-register-en.png)
 
 **Things to know**
 

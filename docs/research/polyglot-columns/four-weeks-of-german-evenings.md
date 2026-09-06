@@ -25,4 +25,4 @@ The aftertaste is the spreadsheet energy of the notes link. A finance person tre
 
 There is a temptation to turn her into a symbol of immigrant grit. The checked text is smaller and better. Hong Kong, then Switzerland, then work, then a month of two-hour days, then a pass. The rest of her channel goes back to money. This one film stays behind like a form she filled and kept.
 
-![Editorial illustration of an evening classroom window seen from a desk with a slow-audio player and a cloud document, Zurich suggested only as winter light, no recognizable face](images/four-weeks-of-german-evenings.jpg)
+![Editorial illustration of an evening classroom window seen from a desk with a slow-audio player and a cloud document, Zurich suggested only as winter light, no recognizable face](../../../app/static/public/blog/four-weeks-of-german-evenings/four-weeks-of-german-evenings.jpg)

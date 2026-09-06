@@ -23,4 +23,4 @@ The accidental breakthrough, if we stay inside what she wrote, is not a lightnin
 
 Later viewers will want a fourth shelf, a tool, a hack. She does not, in the verified text, give them one. She gives them the order she actually used, and she gives them the reason she needed the order: not to become a person who collects languages, but to become a person who could leave, study, and live in the work she already loved.
 
-![Editorial illustration of three wooden shelves holding a grammar book, loose word cards, and a window open onto an unnamed city, no recognizable face](images/three-shelves-toward-japan.jpg)
+![Editorial illustration of three wooden shelves holding a grammar book, loose word cards, and a window open onto an unnamed city, no recognizable face](../../../app/static/public/blog/three-shelves-toward-japan/three-shelves-toward-japan.jpg)

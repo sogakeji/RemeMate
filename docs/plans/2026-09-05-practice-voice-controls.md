@@ -2,7 +2,14 @@
 
 > 日期：2026-09-05
 > 分支：`feature/practice-voice-controls`（从 `master@83fc2b5` 新建）
-> 状态：用户已确认范围、TDD seams 与切片；本文件是实施契约。
+> 状态：用户已验收，`0fc53f4` 已合并本地 master；未 push、未部署生产。
+
+## 验证记录（2026-09-05）
+
+- 新云机 Practice 集成 49 passed，相关单元 24 passed，Node voice 与 JS 语法检查通过。
+- 功能全量 871 passed / 8 failed；基线 `83fc2b5` 为 870 passed / 相同 8 failed；不是全绿。
+- 用户使用 8894 预览验收通过。该预览与 8892 共享 staging 数据库，只隔离代码和进程。
+- 操作遗留、测试账号及后续边界见 [HANDOFF](../HANDOFF.md)。
 
 ## 目标
 

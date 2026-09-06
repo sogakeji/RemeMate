@@ -41,6 +41,8 @@ desktop.ini
 # Logs
 *.log
 logs/
+# Agent tool output can contain private runtime details; never commit it.
+.pi/quiet-tools/
 
 # Media / uploads
 uploads/

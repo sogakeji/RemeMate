@@ -1,4 +1,20 @@
 evidence:
+- claim: 首轮仓库修剪删除 55 张哈希相同图片及 14 个一次性脚本或配套文件，71 处图片引用有效；运行时代码、资源、测试和迁移未改变
+  status: verified
+  verified_at_head: 0fc53f4a830eb29858b200384b779e6e2d7fdd24
+  verified_on_branch: chore/pre-d01-repo-pruning
+  source: docs/plans/2026-09-05-pre-d01-pruning.md
+  command: SHA-256 对照；Markdown 图片引用检查；git diff HEAD；public_content 单测
+  result: uncommitted_pruning_10_passed_2_known_failures
+  supports: docs/HANDOFF.md
+- claim: Practice 语音控制通过新云机目标测试与用户验收，已本地合并，未 push 或部署；全量存在与基线相同的 8 个失败
+  status: verified
+  verified_at_head: 0fc53f4a830eb29858b200384b779e6e2d7fdd24
+  verified_on_branch: master
+  source: .reme/evidence/voice-controls-20260905.md
+  command: pytest 目标及全量对照；Node 检查；用户验收；git merge --ff-only
+  result: targeted_passed_full_suite_8_baseline_failures
+  supports: docs/HANDOFF.md
 - claim: Bark 四小时间隔 REME checkpoint 确定性检查通过
   status: claim
   source: .reme/evidence/checkpoint-bark-four-hour-20260826.txt

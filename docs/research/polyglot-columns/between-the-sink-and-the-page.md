@@ -25,4 +25,4 @@ The first video is dated November 2021. She calls it her first on the channel. B
 
 What remains, after the hours are named and the books are cited, is a kind of aftertaste rather than a lesson. A language does not need a throne in the day. It needs a place to sit down, even if the chair is the walk home, even if the table is still wet from the dishes. Zoe’s public account is not that anyone can do this easily. It is that she did it unevenly, on purpose, and that she will keep calling herself a learner while she does.
 
-![Editorial illustration of a kitchen sink and an open notebook at dusk, steam and a walking path suggested in the window, no recognizable face](images/between-the-sink-and-the-page.jpg)
+![Editorial illustration of a kitchen sink and an open notebook at dusk, steam and a walking path suggested in the window, no recognizable face](../../../app/static/public/blog/between-the-sink-and-the-page/between-the-sink-and-the-page.jpg)

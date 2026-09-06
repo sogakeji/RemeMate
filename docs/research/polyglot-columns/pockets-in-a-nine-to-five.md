@@ -21,4 +21,4 @@ Hesitation, in his public text, is the fear he writes toward: if you have a job 
 
 The aftertaste is the coffee. Not the exam. Not the flag count. A person between home and the office, headphones in, a language riding the same route as the commute. The gym podcast is still a podcast. The flashcard is still a flashcard. The Cantonese hour is still an appointment he has to keep after the other appointment of employment. Six languages, he says. A nine-to-five, he says. The two sentences are allowed to sit in the same paragraph because he made them sit in the same day.
 
-![Editorial illustration of a gym bag, a coffee cup, and a phone of flashcards on an office desk at dusk, commuter figure only as a coat on a chair](images/pockets-in-a-nine-to-five.jpg)
+![Editorial illustration of a gym bag, a coffee cup, and a phone of flashcards on an office desk at dusk, commuter figure only as a coat on a chair](../../../app/static/public/blog/pockets-in-a-nine-to-five/pockets-in-a-nine-to-five.jpg)

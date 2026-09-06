@@ -23,4 +23,4 @@ What remains is the permission she gave herself in public. Start without stress.
 
 The word *lazy* in her title is a kind of shield. It keeps the English story from becoming a performance of suffering. A person who is still figuring it out, which is the sentence on her channel, does not owe the internet a monastery. She owes it, if she posts at all, the temperature that actually worked. Zero stress at the start. Entertainment as a method with a name. A question about dictionaries. Then the walk through six rooms, not as a scoreboard, as a journey she was willing to film.
 
-![Editorial illustration of six adjoining rooms lit at different warmths, a paused video on a laptop in the first room, no recognizable face](images/zero-stress-in-six-rooms.jpg)
+![Editorial illustration of six adjoining rooms lit at different warmths, a paused video on a laptop in the first room, no recognizable face](../../../app/static/public/blog/zero-stress-in-six-rooms/zero-stress-in-six-rooms.jpg)

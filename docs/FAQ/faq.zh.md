@@ -20,7 +20,7 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 
 公开介绍见 [首页](/)。
 
-![RemeMate 中文首页，标题说明收词、复习、输出闭环](images/faq-01-landing-zh.png)
+![RemeMate 中文首页，标题说明收词、复习、输出闭环](../../app/static/public/qa/zh/faq-01-landing-zh.png)
 
 **注意事项**
 
@@ -42,9 +42,9 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 2. 到邮箱点开验证链接。
 3. 回到登录页用同一邮箱登录。
 
-![中文注册页，含邮箱、密码和提交按钮](images/faq-03-register-zh.png)
+![中文注册页，含邮箱、密码和提交按钮](../../app/static/public/qa/zh/faq-03-register-zh.png)
 
-![中文登录页，含邮箱、密码和忘记密码链接](images/faq-02-login-zh.png)
+![中文登录页，含邮箱、密码和忘记密码链接](../../app/static/public/qa/zh/faq-02-login-zh.png)
 
 **注意事项**
 
@@ -67,7 +67,7 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 - AI 可用：中文、英语、法语、日语、韩语、西班牙语。
 - 阅读器可用：中文、英语、法语、日语。
 
-![设置页语言区，显示界面语言与正在学的语言](images/faq-04-settings-language-zh.png)
+![设置页语言区，显示界面语言与正在学的语言](../../app/static/public/qa/zh/faq-04-settings-language-zh.png)
 
 **注意事项**
 
@@ -133,7 +133,7 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 - 阅读：打开 PDF，点生词查询并加入学习。
 - 复盘「帮自己记」、以及对方发来的反馈包：审核后进自己的词库。
 
-![词库列表页，可进入手动加词、导入和阅读](images/faq-05-word-list-zh.png)
+![词库列表页，可进入手动加词、导入和阅读](../../app/static/public/qa/zh/faq-05-word-list-zh.png)
 
 **注意事项**
 
@@ -153,7 +153,7 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 
 打开词库 → 手动加词。选择语言，填写词，可加多条释义（词性、释义、例句、笔记）。可用「AI 填充」整词，或单独生成例句、笔记。保存后直接进生词本并可以复习，不经过候选审核。
 
-![手动加词页，含词条、释义和 AI 填充按钮](images/faq-06-add-word-zh.png)
+![手动加词页，含词条、释义和 AI 填充按钮](../../app/static/public/qa/zh/faq-06-add-word-zh.png)
 
 **注意事项**
 
@@ -177,9 +177,9 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 
 上传或抽词后会进入处理页，然后到候选审核。只有你提交入库，词才会进生词本。
 
-![CSV 导入页，含语言选择和上传按钮](images/faq-08-import-zh.png)
+![CSV 导入页，含语言选择和上传按钮](../../app/static/public/qa/zh/faq-08-import-zh.png)
 
-![候选审核页，可逐条接受或忽略](images/faq-09-candidates-zh.png)
+![候选审核页，可逐条接受或忽略](../../app/static/public/qa/zh/faq-09-candidates-zh.png)
 
 **注意事项**
 
@@ -202,9 +202,9 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 
 词库 → 阅读收词，上传文章。在正文里点选生词，查看释义，点加入学习。这些词先进入该文档的候选，接受后才进生词本。阅读器支持中文、英语、法语、日语。
 
-![上传阅读材料表单，选择语言并上传 PDF](images/faq-10-reading-new-zh.png)
+![上传阅读材料表单，选择语言并上传 PDF](../../app/static/public/qa/zh/faq-10-reading-new-zh.png)
 
-![阅读页正文与生词查询卡片](images/faq-10-reading-zh.png)
+![阅读页正文与生词查询卡片](../../app/static/public/qa/zh/faq-10-reading-zh.png)
 
 **注意事项**
 
@@ -224,7 +224,7 @@ RemeMate 帮你把真实遇到的词留下来、记住、并真正用出去—�
 
 CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。在候选页可以接受、忽略。手动加词不走这一步。
 
-![候选审核列表，显示待审核词条](images/faq-09-candidates-zh.png)
+![候选审核列表，显示待审核词条](../../app/static/public/qa/zh/faq-09-candidates-zh.png)
 
 **注意事项**
 
@@ -244,7 +244,7 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 
 先在语言伙伴里选一位语伴，打开一张复盘。会中或会后写下想记住的表达。帮自己记里的词语和自然说法可以加入候选；帮他记需要你勾选后才发送。对方登录并绑定后，才能收到反馈包。
 
-![SessionPad 候选审核页，显示来自复盘的待审表达](images/faq-11-sessionpad-candidates-zh.png)
+![SessionPad 候选审核页，显示来自复盘的待审表达](../../app/static/public/qa/zh/faq-11-sessionpad-candidates-zh.png)
 
 **注意事项**
 
@@ -264,9 +264,9 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 
 词库列表可搜索、按到期/最近/遗忘次数排序，也可只看已标记。点开词条看详情，需要改释义就编辑。删除会一并去掉该词的复习记录。
 
-![词库列表，含搜索、语言和词条](images/faq-05-word-list-zh.png)
+![词库列表，含搜索、语言和词条](../../app/static/public/qa/zh/faq-05-word-list-zh.png)
 
-![词条详情，显示释义、例句和笔记](images/faq-07-word-detail-zh.png)
+![词条详情，显示释义、例句和笔记](../../app/static/public/qa/zh/faq-07-word-detail-zh.png)
 
 **注意事项**
 
@@ -290,7 +290,7 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 
 登录后的首页就是当前学习语言的复习卡片，不是仪表盘。独立复习页也还在。新收下或刚入库的词通常马上可以复习。
 
-![登录后首页的任务卡，显示今天到期的复习数量](images/faq-00-home-task-zh.png)
+![登录后首页的任务卡，显示今天到期的复习数量](../../app/static/public/qa/zh/faq-00-home-task-zh.png)
 
 **注意事项**
 
@@ -314,7 +314,7 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 - **有点模糊**：想起来但费劲。算通过，间隔照常递推，熟练度略降。
 - **秒记起**：轻松想起。间隔拉长。
 
-![复习卡片上的三个打分按钮：没记住、有点模糊、秒记起](images/faq-12-review-zh.png)
+![复习卡片上的三个打分按钮：没记住、有点模糊、秒记起](../../app/static/public/qa/zh/faq-12-review-zh.png)
 
 **注意事项**
 
@@ -334,7 +334,7 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 
 当天该语言有效复习满一定数量后，才出现短故事入口。故事用你的词写成短文，失败可以重试。可以从故事里的目标词跳到造句。
 
-![复习短故事页，展示含目标词的短文](images/faq-13-story-zh.png)
+![复习短故事页，展示含目标词的短文](../../app/static/public/qa/zh/faq-13-story-zh.png)
 
 **注意事项**
 
@@ -354,7 +354,7 @@ CSV、文本抽词、阅读收词、复盘和反馈包都会先变成候选。�
 
 打开设置 → Bark 推送，填入你的 Bark key / 地址，可用测试发送确认。推送打开后是一张单卡复习页。
 
-![设置页中的 Bark 推送填写区和测试按钮](images/faq-04-settings-language-zh.png)
+![设置页中的 Bark 推送填写区和测试按钮](../../app/static/public/qa/zh/faq-04-settings-language-zh.png)
 
 **注意事项**
 
@@ -374,7 +374,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 我的 → 统计，查看各语言的复习量和其他学习记录。词本身仍可在词库打开、编辑。
 
-![统计页，显示各语言复习进度](images/faq-20-stats-zh.png)
+![统计页，显示各语言复习进度](../../app/static/public/qa/zh/faq-20-stats-zh.png)
 
 **注意事项**
 
@@ -398,7 +398,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 写一写 → 造句。系统会推荐待复习或相关的词。提交后只批改，结果先放在当次会话里。你显式保存才会进历史；也可以丢弃。已保存的句子可从历史发布到广场。
 
-![造句页，含目标词、输入框和提交](images/faq-14-write-zh.png)
+![造句页，含目标词、输入框和提交](../../app/static/public/qa/zh/faq-14-write-zh.png)
 
 **注意事项**
 
@@ -418,7 +418,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 写一写里切换到三行日记。按提示写三行，提交批改，再选择保存或丢弃。节奏比造句更短。
 
-![三行日记页，三个输入行和提示](images/faq-15-diary-zh.png)
+![三行日记页，三个输入行和提示](../../app/static/public/qa/zh/faq-15-diary-zh.png)
 
 **注意事项**
 
@@ -438,7 +438,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 提交后会看到反馈、翻译或错误提示。保存的是你确认过的内容。批改会消耗配额。
 
-![批改结果，原文与建议同时可见](images/faq-14-write-zh.png)
+![批改结果，原文与建议同时可见](../../app/static/public/qa/zh/faq-14-write-zh.png)
 
 **注意事项**
 
@@ -458,7 +458,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 写一写 → 历史里发布，或打开广场浏览别人的句子。作者可以撤回自己的发布。
 
-![句子广场列表，含语言筛选和点赞](images/faq-16-square-zh.png)
+![句子广场列表，含语言筛选和点赞](../../app/static/public/qa/zh/faq-16-square-zh.png)
 
 **注意事项**
 
@@ -500,7 +500,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 语言伙伴里看到的是你自己的伙伴列表。围绕一位语伴记复盘、发反馈包。对方默认看不到你的生词本或历史复盘。
 
-![语言伙伴列表，显示已有伙伴入口](images/faq-17-partners-zh.png)
+![语言伙伴列表，显示已有伙伴入口](../../app/static/public/qa/zh/faq-17-partners-zh.png)
 
 **注意事项**
 
@@ -541,7 +541,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 会中可以随手写，会后也可以再整理。只有帮自己记里的词语/表达、句子/自然说法能进你的候选词。
 
-![复盘表单，可在帮自己记与帮他记之间切换](images/faq-18-recap-zh.png)
+![复盘表单，可在帮自己记与帮他记之间切换](../../app/static/public/qa/zh/faq-18-recap-zh.png)
 
 **注意事项**
 
@@ -561,7 +561,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 发送者在当前复盘里勾选「帮他记」再发送。收件人在「收到的反馈」里查看。采纳时由接收方自己整理词，不会替对方改词库。
 
-![反馈包收件箱，列出收到的反馈](images/faq-19-packets-zh.png)
+![反馈包收件箱，列出收到的反馈](../../app/static/public/qa/zh/faq-19-packets-zh.png)
 
 **注意事项**
 
@@ -581,7 +581,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 只有被选进反馈包的「帮他记」条目会给指定伙伴。绑定只是让以后的包有收件人，不是授权翻历史。生成复盘总结时，私人笔记不会送出。
 
-![复盘页上的私有说明，标明私人笔记不会发送](images/faq-18-recap-zh.png)
+![复盘页上的私有说明，标明私人笔记不会发送](../../app/static/public/qa/zh/faq-18-recap-zh.png)
 
 **注意事项**
 
@@ -605,7 +605,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 在设置里勾选正在学的语言。讲解语言（母语）决定批改和部分说明用哪种话来写。界面语言只影响菜单和按钮。
 
-![设置页语言选项，列出可学习的语言](images/faq-04-settings-language-zh.png)
+![设置页语言选项，列出可学习的语言](../../app/static/public/qa/zh/faq-04-settings-language-zh.png)
 
 **注意事项**
 
@@ -625,7 +625,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 每种学习语言有自己的词和复习队列。右上角或词库筛选换语言，只是改「现在看哪一本」。
 
-![词库按语言筛选后的列表](images/faq-05-word-list-zh.png)
+![词库按语言筛选后的列表](../../app/static/public/qa/zh/faq-05-word-list-zh.png)
 
 **注意事项**
 
@@ -779,7 +779,7 @@ Bark 是第三方推送，不是 RemeMate 自己的 App 通知。没有到期词
 
 注册和重置密码都走邮件。页上成功提示不代表邮箱一定存在，只表示请求已接受。
 
-![注册后的验证提示，说明去邮箱点开链接](images/faq-03-register-zh.png)
+![注册后的验证提示，说明去邮箱点开链接](../../app/static/public/qa/zh/faq-03-register-zh.png)
 
 **注意事项**
 

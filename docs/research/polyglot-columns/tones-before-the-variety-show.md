@@ -23,4 +23,4 @@ What she does not give us, and what will not be invented, is a scene of the firs
 
 Self-taught, held to her own words, is also a list of teachers who will never send a bill: a YouTuber, a story podcast, a European-travel podcast in Chinese, a variety cast talking among themselves. She gathered them. She pressed play. She made a second video because the first title still needed a picture of the hours. The picture is a show. The foundation under the show is a tone. That order is the only plot she gave us, and it is enough.
 
-![Editorial illustration of a dim room lit by a television, tone marks floating like musical notes above a remote, no recognizable face](images/tones-before-the-variety-show.jpg)
+![Editorial illustration of a dim room lit by a television, tone marks floating like musical notes above a remote, no recognizable face](../../../app/static/public/blog/tones-before-the-variety-show/tones-before-the-variety-show.jpg)
