@@ -2,24 +2,17 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: ce81a2a8c2a7ff0f521399acc4d1011fb77afe12
+  recorded_at_head: 24556d6174416214eec6dc54a5d33876e9b05384
   recorded_at_branch: master
   worktree_fingerprint: null
   phase: D02 已部署，等待真实观察数据
 
 maintenance:
-  status: pending_deployment_record_commit
+  status: clean_deployed
   reasons:
-    - master 与 origin/master 的产品代码均为 ce81a2a，生产已部署同一代码提交
+    - 产品代码 ce81a2a 与部署记录 24556d6 已在本地、origin 和生产 master 对齐
     - onlytest 全量 910 passed；迁移、时区、隐私失败降级与视觉检查通过
     - GitHub Actions workflow_dispatch 34065885381 全部通过
     - 生产备份、strict doctor、服务、内外 healthz、聚合服务和日志检查通过
-    - 本工作区仅有部署后状态文档待提交
-  changed_paths:
-    - .reme/evidence.yaml
-    - .reme/handoff.md
-    - .reme/navigation.yaml
-    - .reme/state.yaml
-    - docs/BACKLOG.md
-    - docs/HANDOFF.md
-    - docs/plans/2026-09-06-d02-learning-observation.md
+    - 本快照由其后的 docs-only 交接收口提交固化；该提交不改变运行时代码
+  changed_paths: []
