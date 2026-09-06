@@ -1,7 +1,7 @@
 # D02：私有闭测学习闭环观察面板
 
-> 状态：用户已确认 Practice、独立 admin 页与 UTC 滚动窗口口径；允许实现，不授权 merge、push 或部署。
-> 基准：`bf256d4`（D01 已提交但尚未合并 master）；分支：`feature/d02-learning-observation`。
+> 状态：已实现、提交 `ce81a2a`、合并 master、push 并部署生产。
+> 基准：`bf256d4`；实现分支：`feature/d02-learning-observation`。
 
 ## 要回答的问题
 
@@ -64,7 +64,8 @@
 - 隐私测试确认独立页面不包含 fixture 邮箱、显示名或正文 sentinel；匿名重定向、普通用户 403，dispatch 失败只显示安全的 unavailable 状态。
 - `onlytest` 独立 PostgreSQL 16：D02 + admin 目标测试 14 passed；Asia/Shanghai D02 8 passed；全量 910 passed / 16 warnings；migration single-head/fresh/往返/metadata clean；`git diff --check` 通过。
 - 精确页面 HTML 由 Flask 集成夹具渲染，并以 Chromium/Playwright 在 1536×900 与 390×844 实际目检。目检修正了行标题误用蓝色表头样式和未定义的 secondary 按钮样式；最终桌面无横向溢出，390px body 无横向溢出，指标表在自身容器内可横向滚动查看两个窗口。
-- 尚未 merge、push、部署或读取生产数据；因此还没有可用于选择 D03/D04 的真实观察结果。
+- 已 fast-forward 合并 master、push origin，并部署生产 `ce81a2a`。部署前备份数据库与 Git bundle；migration 保持 `e9f0a1b2c3d4`，strict doctor 全部 OK，服务、内外 healthz、匿名 observation 302、聚合服务和部署后日志均通过。
+- GitHub Actions 手动运行 `34065885381` 全部通过。生产尚需积累真实使用数据后才能选择 D03/D04。
 
 ## 完成与停止条件
 

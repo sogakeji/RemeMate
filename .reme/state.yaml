@@ -2,33 +2,24 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: bf256d4
-  recorded_at_branch: feature/d02-learning-observation
+  recorded_at_head: ce81a2a8c2a7ff0f521399acc4d1011fb77afe12
+  recorded_at_branch: master
   worktree_fingerprint: null
-  phase: D02 实现与验证完成，待提交决策
+  phase: D02 已部署，等待真实观察数据
 
 maintenance:
-  status: pending_d02_commit
+  status: pending_deployment_record_commit
   reasons:
-    - D01 已提交 bf256d4，尚未合并或 push
-    - D02 已按确认的 Practice、独立 admin 页面与 UTC 滚动窗口口径实现
-    - onlytest 隔离 PostgreSQL 16 全量 910 passed；Asia/Shanghai、迁移与隐私失败降级守卫通过
-    - Flask 页面 HTML 经 Chromium/Playwright 1536×900 与 390×844 目检通过
-    - 未运行 fingerprint 生成器，不伪造工作区指纹
+    - master 与 origin/master 的产品代码均为 ce81a2a，生产已部署同一代码提交
+    - onlytest 全量 910 passed；迁移、时区、隐私失败降级与视觉检查通过
+    - GitHub Actions workflow_dispatch 34065885381 全部通过
+    - 生产备份、strict doctor、服务、内外 healthz、聚合服务和日志检查通过
+    - 本工作区仅有部署后状态文档待提交
   changed_paths:
     - .reme/evidence.yaml
     - .reme/handoff.md
     - .reme/navigation.yaml
     - .reme/state.yaml
-    - app/blueprints/admin/routes.py
-    - app/services/closed_beta_observation.py
-    - app/static/style.css
-    - app/templates/admin/index.html
-    - app/templates/admin/observation.html
-    - app/translations/en.json
-    - app/translations/zh.json
     - docs/BACKLOG.md
     - docs/HANDOFF.md
     - docs/plans/2026-09-06-d02-learning-observation.md
-    - tests/integration/test_admin_observation.py
-    - tests/integration/test_closed_beta_observation.py

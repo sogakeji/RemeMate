@@ -1,6 +1,6 @@
 # RemeMate HANDOFF
 
-> 当前代码锚点：2026-09-06 · `feature/d02-learning-observation@bf256d4` + 未提交 D02 工作区 · 未 push / 未部署
+> 当前代码锚点：2026-09-07 · 本地/Origin/生产代码 `master@ce81a2a` · D02 已部署
 
 ## 读取规则
 
@@ -11,13 +11,13 @@
 ## 当前状态
 
 - 用户已验收 Practice 语音控制，并批准合并；`0fc53f4 feat: add practice voice controls` 已 fast-forward 到本地 master。
-- 本地 `origin/master` 及 `production/master` 跟踪引用停在 `83fc2b5`；本地 master ahead 1。未 push，未部署生产。
+- 本地 `master` 与 `origin/master` 已到 `ce81a2a`；生产 `/srv/rememate` 也已 fast-forward 到 `ce81a2a`。`production/master` 本地跟踪引用不作为生产实时证明。
 - 当前代码支持法语、日语、中文 Practice；开始页可选择声音、0.7–1.2× 语速并试听；按语言本地记忆，答题/反馈播放复用，不自动播放。
 - AI 未完成批改不扣完成额度已在 `2b3d327` 合入；包含 provider 成本分离、内部重试、并发额度与脱敏测试。重复用户提交仍被视作新完成，不代表 HTTP 请求级幂等已实现。
 - 已验收契约：[语音控制短计划](./plans/2026-09-05-practice-voice-controls.md)。
-- 修剪及交接已按用户批准独立提交 `12ad2e5`，未合并 master；删除 55 张重复图片和 13 个历史脚本及配套 PDF，修剪提交不改 app/content/tests/migrations。
-- D01 已在 `feature/d01-test-release-guards` 提交为 `bf256d4`，尚未合并或 push：隔离容器运行器、配置/凭据护栏、基线失败分类、迁移/metadata 守卫和最小权限 CI 均已验证。
-- 当前分支 `feature/d02-learning-observation@bf256d4`；D02 未提交工作区已实现固定 dispatch 聚合、独立 admin 观察页、双 UTC 滚动 7 日窗口和 Practice 跨日重复口径。未新增 migration、埋点、个人明细或导出。
+- 修剪 `12ad2e5`、D01 `bf256d4` 与 D02 `ce81a2a` 已按用户批准 fast-forward 合并 master、push origin 并部署生产。
+- D01 提供隔离容器运行器、配置/凭据护栏、迁移/metadata 守卫和最小权限 CI；首次 GitHub Actions 手动运行 `34065885381` 全部通过。
+- D02 提供固定 dispatch 聚合、独立 admin 观察页、双 UTC 滚动 7 日窗口和 Practice 跨日重复口径；未新增 migration、埋点、个人明细或导出。
 
 ## 测试云机
 
@@ -40,13 +40,14 @@
 ## 下一阶段
 
 - 用户已批准推荐顺序：仓库修剪 → D01 最小测试/发布收口 → D02 私有学习观察 → 再按使用情况选 D03/D04。
-- [D01 计划](./plans/2026-09-05-d01-test-release-guards.md) 已完成并提交 `bf256d4`，等待合并决定。
-- [D02 计划](./plans/2026-09-06-d02-learning-observation.md) 的 Practice、独立页面与 UTC 窗口三项口径已由用户确认，实现和验证完成但尚未提交。
-- 下一步先决定 D02 提交/合并；未部署且没有真实观察数据前，不提前选择 D03/D04。
+- [D01 计划](./plans/2026-09-05-d01-test-release-guards.md) 与 [D02 计划](./plans/2026-09-06-d02-learning-observation.md) 已完成并部署。
+- 生产部署前备份位于 `/home/ubuntu/rememate-backups/deploy-20260906T230334Z-83fc2b5-to-ce81a2a`；包含数据库 dump、部署前 Git bundle 与状态。
+- 部署后 migration 仍为单一 head `e9f0a1b2c3d4`，strict doctor 全 OK；服务 active/enabled，内外 `/healthz` 200，匿名 `/admin/observation` 302，生产聚合服务结构检查与新日志检查通过。
+- 下一步积累并查看 D02 的真实聚合数据；未有足够使用数据前，不提前选择 D03/D04。
 - 迁入的共享 PG 55432 只承载 staging/test 历史栈；D01 pytest 一律使用运行器拥有的随机回环端口和 tmpfs，不连接共享数据库。
 - 修剪相关本地内容单测的旧 SEO 失败已在 D01 按正式内容合同修正；71 处修改文档图片引用仍有效。完整运行记录见修剪与 D01 计划。
 - Review Story 多语言、云端 TTS、新语言扩展仍不在当前实施范围。
-- 合并批准不包含 push 或生产部署批准。
+- 本次用户已明确批准提交、合并、push 与生产部署；不自动延伸为后续功能或再次部署授权。
 
 ## 安全与操作遗留
 
