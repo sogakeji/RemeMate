@@ -2,17 +2,17 @@ workspace:
   git_root: .
 
 checkpoint:
-  recorded_at_head: 24556d6174416214eec6dc54a5d33876e9b05384
+  recorded_at_head: 6c0d0e462a1dbe2569f9d8cb1560241c7ce63f3e
   recorded_at_branch: master
   worktree_fingerprint: null
-  phase: D02 已部署，等待真实观察数据
+  phase: SEO S01 已部署，两篇核心文章等待 Google 收录
 
 maintenance:
   status: clean_deployed
   reasons:
-    - 产品代码 ce81a2a 与部署记录 24556d6 已在本地、origin 和生产 master 对齐
-    - onlytest 全量 910 passed；迁移、时区、隐私失败降级与视觉检查通过
-    - GitHub Actions workflow_dispatch 34065885381 全部通过
-    - 生产备份、strict doctor、服务、内外 healthz、聚合服务和日志检查通过
-    - 本快照由其后的 docs-only 交接收口提交固化；该提交不改变运行时代码
+    - 产品代码 6c0d0e4 已在本地、origin 和生产 master
+    - onlytest 一次性 PostgreSQL 定向测试 21 passed；未运行全量 pytest
+    - 生产已备份；strict doctor、服务、内外 HTTPS healthz、元信息和服务日志检查通过
+    - 两篇英文核心文章 Google 实时测试通过；请求结果见当前 SEO 计划
+    - 本快照由其后的 docs-only 收口提交固化；该提交不改变运行时代码
   changed_paths: []

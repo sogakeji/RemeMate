@@ -1,5 +1,7 @@
 # SEO growth v2：首轮检查与下一切片
 
+> 最终状态：S01 产品代码 `6c0d0e4` 已按批准部署；两篇英文核心文章实时测试通过，且各一次收录请求均已确认入队。下面按执行顺序保留历史状态，最终结果见末节。
+
 ## 状态与边界
 
 - 用户批准：先检查技术 SEO、收录情况与现有内容入口，再选择小切片；不发布、不操作生产。
@@ -148,6 +150,32 @@ Sitemap 组成：根首页、登录、注册共 3 项；双语 FAQ 2 项；14 �
 3. 发布后验证匿名首页 description/canonical/OG、已登录首页、公开文章和注册开关；执行目标环境 `flask doctor --strict`，验证服务、HTTPS、日志与数据保全。
 4. 另获批准后，对两篇核心文章运行 Search Console 实时 URL 测试；允许抓取/索引且 canonical 正确时，各请求一次收录并记录时间。不重复提交已成功读取的 sitemap。
 5. 后续复查 Google 抓取与索引状态，再决定是否需要强化首页到文章的内链或改进正文；不以短期未收录直接断言内容质量差。
+
+## 最终发布与收录请求结果（2026-09-12）
+
+### 发布
+
+- 用户批准后提交 `6c0d0e4`，fast-forward 合并 master 并 push origin；生产部署前 HEAD 为 `62b446b`，master 工作区干净。
+- 通过 Git bundle 部署，生产 fast-forward 至 `6c0d0e4`，没有改注册开关、密钥、依赖或数据库结构。
+- 备份目录：`/home/ubuntu/rememate-backups/deploy-20260912T123211Z-62b446b-to-6c0d0e4`。包含 PostgreSQL 自定义格式 dump、可解析的 dump 目录、部署前 Git bundle、HEAD/状态及校验文件；未做隔离恢复演练，不将可解析目录称为恢复验证。
+- 部署前后 `.env`、venv Python/flask 文件校验一致；migration 均为 `e9f0a1b2c3d4`。
+- `flask doctor --strict` 全 OK；服务 active/enabled；生产回环 HTTPS 与外部 HTTPS `/healthz` 均返回 `{"status":"ok"}`。
+- 最初 HTTP 回环请求返回预期 HTTPS 重定向 301，随后用 `--resolve rememate.com:443:127.0.0.1` 完成真正的内部 HTTPS healthz 检查。
+- 部署后服务日志检查共 20 行，Traceback/ERROR/CRITICAL 标记为 0；只输出汇总，不保存敏感原始日志。
+- 外部匿名 `/?source=seo-check` 为 200，canonical 与 og:url 都为 `https://rememate.com/`，description 生效，注册入口保留。
+- 两篇文章 200、canonical 自引用、无 meta noindex；注册页 200；匿名 `/settings` 302。已登录首页由隔离集成测试验证，没有使用真实生产用户账号做登录冒烟。
+- 定向测试最终仍为 21 passed；此次文档收口只跑 git diff --check，不重复运行全量测试。
+
+### Google 实时检查与请求
+
+| 英文文章路径 | 实时测试界面时间 | 结果 | 收录请求 |
+| --- | --- | --- | --- |
+| `/blog/language-exchange-notes` | 2026-09-12 20:35:23 | Google 检查工具智能手机版；允许抓取、抓取成功、允许索引；声明 canonical 为自身 | 本轮点击一次，Google 确认“已请求编入索引”，已加入优先抓取队列 |
+| `/blog/chatgpt-speaking-practice-that-does-not-disappear` | 2026-09-12 20:39:39 | 同上，声明 canonical 为自身 | 本轮点击一次，同样确认入队 |
+
+时间按 Search Console 界面原样记录，不推断时区。Google 选定 canonical 仍需等编入索引后确定；测试通过、请求入队均不等于已经收录。没有重复提交 sitemap、重新验证整组旧问题或请求其他 URL。任务浏览器标签保留。
+
+下一动作是稍后复查抓取/索引状态及曝光，而不是再次提交同一请求。交接与状态快照已同步；后续 docs-only 收口提交不改变运行时代码。
 
 
 
