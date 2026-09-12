@@ -9,13 +9,14 @@ import re
 from urllib.parse import urlsplit
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
-                   request, session)
+                   request, session, current_app)
 from flask_login import login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 from app.i18n import (SUPPORTED_UI_LOCALES, get_ui_locale, set_ui_locale,
                       translate as _)
+from app.services import public_content
 from app.services import words as words_svc
 from app.services import review_stories as review_stories_svc
 
@@ -71,7 +72,12 @@ def _has_previous_review_word(user_id, language_code, current_word=None):
 @bp.route("/")
 def index():
     if not current_user.is_authenticated:
-        return render_template("main/landing.html")
+        return render_template(
+            "main/landing.html",
+            canonical=public_content.absolute_url(
+                current_app.config.get("PUBLIC_BASE_URL"), "/"
+            ),
+        )
 
     lang = words_svc.get_current_language(current_user.id)
     word = None

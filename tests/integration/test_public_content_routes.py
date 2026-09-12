@@ -1,4 +1,8 @@
 """公开 Q&A / Blog / sitemap / robots，以及 Landing 入口与产品页 noindex。"""
+from html.parser import HTMLParser
+
+import pytest
+
 from tests.helpers import login, provision_user
 
 PW = "pw12345678"
@@ -122,6 +126,69 @@ def test_sitemap_and_robots_include_indexable_public_content(app, client, tmp_pa
     assert "Disallow: /words" in text
     assert "Disallow: /healthz" in text
     assert "Sitemap: https://rememate.com/sitemap.xml" in text
+
+
+class _HeadTags(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("meta", "link"):
+            self.tags.append((tag, dict(attrs)))
+
+
+@pytest.mark.parametrize("origin, expected", [
+    (None, "https://rememate.com/"),
+    ("", "https://rememate.com/"),
+    ("https://public.example/", "https://public.example/"),
+])
+@pytest.mark.parametrize("registration_enabled", [True, False])
+def test_landing_metadata_uses_public_origin(
+    app, client, origin, expected, registration_enabled
+):
+    app.config["PUBLIC_BASE_URL"] = origin
+    app.config["OPEN_REGISTRATION_ENABLED"] = registration_enabled
+    response = client.get("/?source=test", headers={"Host": "untrusted.example"})
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    head = _HeadTags()
+    head.feed(page)
+    canonical = [a["href"] for tag, a in head.tags
+                 if tag == "link" and a.get("rel") == "canonical"]
+    og_url = [a["content"] for tag, a in head.tags
+              if tag == "meta" and a.get("property") == "og:url"]
+    assert canonical == [expected]
+    for url in canonical + og_url:
+        assert "?" not in url
+        assert "untrusted.example" not in url
+    description = [a["content"] for tag, a in head.tags
+                   if tag == "meta" and a.get("name") == "description"]
+    assert len(description) == 1
+    assert "reading and conversations" in description[0]
+    for prop, value in {
+        "og:title": "RemeMate — remember the words you actually meet",
+        "og:description": description[0],
+        "og:type": "website",
+        "og:url": expected,
+    }.items():
+        assert [a["content"] for tag, a in head.tags
+                if tag == "meta" and a.get("property") == prop] == [value]
+    assert '<title>RemeMate — remember the words you actually meet</title>' in page
+    assert not any("hreflang" in a for _, a in head.tags)
+    assert not any(a.get("name") == "robots" and "noindex" in a.get("content", "")
+                   for _, a in head.tags)
+
+
+def test_landing_metadata_does_not_change_authenticated_home(app, client):
+    provision_user(app, "seo-home@t.com", PW)
+    login(client, "seo-home@t.com", PW)
+    response = client.get("/")
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert 'name="robots" content="noindex"' in page
+    assert 'property="og:url"' not in page
+    assert "Collect words and expressions from your reading and conversations." not in page
 
 
 def test_landing_links_follow_language_and_keep_registration_gate(app, client):
